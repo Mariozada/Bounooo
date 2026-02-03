@@ -24,6 +24,7 @@
     "storage",
     "activeTab",
     "tabs",
+    "tabGroups",
     "sidePanel",
     "scripting",
     "webRequest",
