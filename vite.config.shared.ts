@@ -16,6 +16,7 @@ export const aliases = {
   '@background': resolve(__dirname, 'src/background'),
   '@content': resolve(__dirname, 'src/content'),
   '@ui': resolve(__dirname, 'src/ui'),
+  '@agent': resolve(__dirname, 'src/agent'),
 }
 
 /**
