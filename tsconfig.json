@@ -28,7 +28,8 @@
       "@background/*": ["src/background/*"],
       "@content/*": ["src/content/*"],
       "@ui/*": ["src/ui/*"],
-      "@agent/*": ["src/agent/*"]
+      "@agent/*": ["src/agent/*"],
+      "@prompts/*": ["src/prompts/*"]
     }
   },
   "include": ["src", "vite.config.ts"]

@@ -1,24 +1,45 @@
+/**
+ * Tools Module Index
+ *
+ * This module provides:
+ * 1. Tool definitions (metadata for prompts and AI SDK)
+ * 2. Tool handlers (implementations for background script)
+ * 3. Tool registry (execution infrastructure)
+ */
+
+// Registry exports
 export { registerTool, executeTool, getRegisteredTools, hasTool } from './registry'
-export { registerTabTools } from './tabs'
-export { registerPageReadingTools } from './pageReading'
-export { registerInteractionTools, getScreenshot } from './interaction'
-export { registerDebuggingTools, addConsoleMessage, addNetworkRequest, clearTabData } from './debugging'
-export { registerMediaTools, addFrame } from './media'
-export { registerUiTools, getCurrentPlan, clearPlan } from './ui'
 
-// Import for use within this module
-import { registerTabTools } from './tabs'
-import { registerPageReadingTools } from './pageReading'
-import { registerInteractionTools } from './interaction'
-import { registerDebuggingTools } from './debugging'
-import { registerMediaTools } from './media'
-import { registerUiTools } from './ui'
+// Definitions exports
+export {
+  getAllToolDefinitions,
+  getEnabledToolDefinitions,
+  getToolsByCategory,
+  getToolDefinition,
+  setToolEnabled,
+  isToolEnabled,
+  resetToolStates,
+  getToolNamesByCategory
+} from './definitions'
+export type { ToolDefinition, ToolParameter, ToolParameterType, ToolCategory } from './definitions'
 
-export function registerAllTools(): void {
-  registerTabTools()
-  registerPageReadingTools()
-  registerInteractionTools()
-  registerDebuggingTools()
-  registerMediaTools()
-  registerUiTools()
-}
+// Handler exports
+export {
+  registerTabTools,
+  registerPageReadingTools,
+  registerInteractionTools,
+  registerDebuggingTools,
+  registerMediaTools,
+  registerUiTools,
+  registerAllHandlers,
+  getScreenshot,
+  addConsoleMessage,
+  addNetworkRequest,
+  clearTabData,
+  addFrame,
+  getCurrentPlan,
+  clearPlan
+} from './handlers'
+
+// Convenience alias
+export { registerAllHandlers as registerAllTools } from './handlers'

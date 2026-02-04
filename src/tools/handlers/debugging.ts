@@ -1,6 +1,6 @@
 /** Debugging Tools: read_console_messages, read_network_requests, javascript_tool */
 
-import { registerTool } from './registry'
+import { registerTool } from '../registry'
 import { MessageTypes } from '@shared/messages'
 import type { ConsoleMessage, NetworkRequest } from '@shared/types'
 import { MAX_CONSOLE_MESSAGES, MAX_NETWORK_REQUESTS } from '@shared/constants'

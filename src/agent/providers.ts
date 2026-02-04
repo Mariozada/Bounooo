@@ -4,7 +4,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createGroq } from '@ai-sdk/groq'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
-import type { LanguageModelV1 } from 'ai'
+import type { LanguageModel } from 'ai'
 import type { ProviderSettings } from '@shared/settings'
 
 const DEBUG = true
@@ -52,7 +52,7 @@ export class ProviderError extends Error {
   }
 }
 
-export function createProvider(settings: ProviderSettings): LanguageModelV1 {
+export function createProvider(settings: ProviderSettings): LanguageModel {
   log('createProvider called with:', {
     provider: settings.provider,
     model: settings.model,

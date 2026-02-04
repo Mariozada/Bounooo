@@ -8,13 +8,21 @@ import {
   type FormEvent,
   type KeyboardEvent,
 } from 'react'
-import { generateText, type CoreMessage, type CoreToolMessage } from 'ai'
+// Message type for the API
+interface ApiMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
 import { useSettings } from '../hooks/useSettings'
-import { createProvider, validateSettings, PROVIDER_CONFIGS } from '@agent/index'
+import {
+  createProvider,
+  validateSettings,
+  PROVIDER_CONFIGS,
+  runAgentLoop,
+  type ToolCallInfo
+} from '@agent/index'
 import { SettingsPanel } from './SettingsPanel'
-import { ToolCallDisplay, type ToolCallInfo } from './ToolCallDisplay'
-import { browserTools, setCurrentTabId } from '../constants/agentTools'
-import { BROWSER_AGENT_SYSTEM_PROMPT } from '../constants/systemPrompt'
+import { ToolCallDisplay } from './ToolCallDisplay'
 
 const DEBUG = true
 const MAX_STEPS = 15
@@ -89,10 +97,9 @@ export const AgentChat: FC = () => {
       try {
         log('Creating provider:', settings.provider, settings.model)
         const model = createProvider(settings)
-        setCurrentTabId(tabId)
 
         // Build initial messages for API
-        const apiMessages: CoreMessage[] = [
+        const apiMessages: ApiMessage[] = [
           ...messages
             .filter((m) => m.content && m.content.trim().length > 0 && !m.content.includes('(No response'))
             .map((m) => ({
@@ -102,136 +109,65 @@ export const AgentChat: FC = () => {
           { role: 'user' as const, content: text },
         ]
 
-        // Manual agent loop
-        let currentMessages = [...apiMessages]
-        let step = 0
-        let finalText = ''
-        const allToolCalls: ToolCallInfo[] = []
+        // Track accumulated state for UI updates
+        let accumulatedText = ''
+        const accumulatedToolCalls: ToolCallInfo[] = []
 
-        log('Starting manual agent loop, max steps:', MAX_STEPS)
-
-        while (step < MAX_STEPS) {
-          log(`=== Step ${step + 1} ===`)
-
-          // Check for abort
-          if (abortControllerRef.current?.signal.aborted) {
-            log('Aborted by user')
-            break
-          }
-
-          const result = await generateText({
-            model,
-            system: BROWSER_AGENT_SYSTEM_PROMPT,
-            messages: currentMessages,
-            tools: browserTools,
-            abortSignal: abortControllerRef.current?.signal,
-          })
-
-          log('Step result:', {
-            finishReason: result.finishReason,
-            textLength: result.text?.length || 0,
-            toolCalls: result.toolCalls?.length || 0,
-            toolResults: result.toolResults?.length || 0,
-          })
-
-          // Collect any text
-          if (result.text) {
-            finalText += result.text
-            log('Got text:', result.text.slice(0, 100))
-
-            // Update UI with text
+        // Run the agent loop
+        const result = await runAgentLoop({
+          model,
+          messages: apiMessages,
+          tabId,
+          maxSteps: MAX_STEPS,
+          abortSignal: abortControllerRef.current?.signal,
+          onText: (text) => {
+            accumulatedText += text
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === assistantMessageId
-                  ? { ...m, content: finalText, toolCalls: allToolCalls }
+                  ? { ...m, content: accumulatedText, toolCalls: [...accumulatedToolCalls] }
+                  : m
+              )
+            )
+          },
+          onToolCall: (toolCall) => {
+            accumulatedToolCalls.push(toolCall)
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMessageId
+                  ? { ...m, content: accumulatedText, toolCalls: [...accumulatedToolCalls] }
+                  : m
+              )
+            )
+          },
+          onToolResult: (toolCall) => {
+            const index = accumulatedToolCalls.findIndex(tc => tc.id === toolCall.id)
+            if (index !== -1) {
+              accumulatedToolCalls[index] = toolCall
+            }
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantMessageId
+                  ? { ...m, content: accumulatedText, toolCalls: [...accumulatedToolCalls] }
                   : m
               )
             )
           }
+        })
 
-          // Process tool calls
-          if (result.toolCalls && result.toolCalls.length > 0) {
-            log('Processing', result.toolCalls.length, 'tool calls')
-
-            for (const tc of result.toolCalls) {
-              const toolCallInfo: ToolCallInfo = {
-                id: tc.toolCallId,
-                name: tc.toolName,
-                input: tc.args as Record<string, unknown>,
-                status: 'running',
-              }
-              allToolCalls.push(toolCallInfo)
-
-              // Update UI to show tool is running
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, content: finalText, toolCalls: [...allToolCalls] }
-                    : m
-                )
-              )
-            }
-
-            // Tool results come from the SDK's automatic execution
-            if (result.toolResults && result.toolResults.length > 0) {
-              for (const tr of result.toolResults) {
-                const toolCall = allToolCalls.find((tc) => tc.id === tr.toolCallId)
-                if (toolCall) {
-                  const hasError = tr.result && typeof tr.result === 'object' && 'error' in tr.result
-                  toolCall.result = tr.result
-                  toolCall.status = hasError ? 'error' : 'completed'
-                  toolCall.error = hasError ? String((tr.result as { error: unknown }).error) : undefined
-                  log('Tool result for', toolCall.name, ':', toolCall.status)
-                }
-              }
-
-              // Update UI with tool results
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMessageId
-                    ? { ...m, content: finalText, toolCalls: [...allToolCalls] }
-                    : m
-                )
-              )
-            }
-          }
-
-          // Check if we should continue
-          if (result.finishReason === 'stop' || result.finishReason === 'end-turn') {
-            log('LLM finished with reason:', result.finishReason)
-            break
-          }
-
-          if (result.finishReason === 'tool-calls' && result.response?.messages) {
-            // Add assistant message and tool results to conversation
-            log('Adding response messages to continue conversation')
-            currentMessages = [...currentMessages, ...result.response.messages as CoreMessage[]]
-          } else if (result.finishReason !== 'tool-calls') {
-            log('Unexpected finish reason:', result.finishReason)
-            break
-          } else {
-            log('No response messages to continue with')
-            break
-          }
-
-          step++
-        }
-
-        if (step >= MAX_STEPS) {
-          logWarn('Reached max steps limit')
-          finalText += '\n\n(Reached maximum steps limit)'
-        }
+        log('Agent loop complete:', {
+          steps: result.steps,
+          finishReason: result.finishReason,
+          textLength: result.text.length,
+          toolCalls: result.toolCalls.length
+        })
 
         // Final update
-        log('Agent loop complete, total steps:', step + 1)
-        log('Final text length:', finalText.length)
-        log('Total tool calls:', allToolCalls.length)
-
-        if (finalText || allToolCalls.length > 0) {
+        if (result.text || result.toolCalls.length > 0) {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
-                ? { ...m, content: finalText, toolCalls: allToolCalls }
+                ? { ...m, content: result.text, toolCalls: result.toolCalls }
                 : m
             )
           )
