@@ -137,7 +137,7 @@ chrome.tabs.onCreated.addListener(async (tab) => {
 })
 
 // Listen for tabs being added to Chrome tab groups
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, _tab) => {
   // Check if tab's group changed
   if (changeInfo.groupId !== undefined) {
     if (changeInfo.groupId === -1 || changeInfo.groupId === chrome.tabGroups.TAB_GROUP_ID_NONE) {

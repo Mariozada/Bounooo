@@ -1,6 +1,6 @@
 /** UI Signaling Tools: update_plan */
 
-import { registerTool } from './registry'
+import { registerTool } from '../registry'
 
 let currentPlan: {
   approach: string

@@ -1,13 +1,7 @@
 import { useState, Component, type FC, type ReactNode } from 'react'
+import type { ToolCallInfo } from '@agent/loop'
 
-export interface ToolCallInfo {
-  id: string
-  name: string
-  input: Record<string, unknown>
-  status: 'pending' | 'running' | 'completed' | 'error'
-  result?: unknown
-  error?: string
-}
+export type { ToolCallInfo }
 
 interface ToolCallDisplayProps {
   toolCall: ToolCallInfo
@@ -46,14 +40,12 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 const STATUS_ICONS: Record<ToolCallInfo['status'], string> = {
-  pending: '○',
   running: '◐',
   completed: '●',
   error: '✕',
 }
 
 const STATUS_LABELS: Record<ToolCallInfo['status'], string> = {
-  pending: 'Pending',
   running: 'Running',
   completed: 'Done',
   error: 'Error',

@@ -1,23 +1,40 @@
+/**
+ * Agent Tools
+ *
+ * Browser automation tools for AI SDK.
+ * These tools execute via chrome.runtime.sendMessage to the background script.
+ */
+
 import { tool } from 'ai'
 import { z } from 'zod'
 
-/**
- * Browser automation tools for AI SDK
- * These tools map to the existing tool handlers in src/tools/
- * Tool execution happens via chrome.runtime.sendMessage({ type: 'EXECUTE_TOOL' })
- */
-
-// This will be set by AgentChat before streaming
+// Current tab ID for tool execution
 let currentTabId = 0
-export const setCurrentTabId = (tabId: number) => {
+
+/**
+ * Set the current tab ID for tool execution
+ */
+export function setCurrentTabId(tabId: number): void {
   currentTabId = tabId
 }
 
-// Execute tool via chrome runtime message
-const executeViaChromeMessage = async (toolName: string, params: Record<string, unknown>) => {
+/**
+ * Get the current tab ID
+ */
+export function getCurrentTabId(): number {
+  return currentTabId
+}
+
+/**
+ * Execute a tool via chrome runtime message to the background script
+ */
+async function executeViaChromeMessage(
+  toolName: string,
+  params: Record<string, unknown>
+): Promise<unknown> {
   const paramsWithTab = { ...params, tabId: params.tabId ?? currentTabId }
 
-  console.log(`[Tool:${toolName}] Executing with params:`, paramsWithTab)
+  console.log(`[Agent:Tool:${toolName}] Executing with params:`, paramsWithTab)
 
   try {
     const response = await chrome.runtime.sendMessage({
@@ -26,30 +43,23 @@ const executeViaChromeMessage = async (toolName: string, params: Record<string, 
       params: paramsWithTab,
     })
 
-    console.log(`[Tool:${toolName}] Raw response:`, response)
-    console.log(`[Tool:${toolName}] Response type:`, typeof response)
-    console.log(`[Tool:${toolName}] Response.success:`, response?.success)
-    console.log(`[Tool:${toolName}] Response.result type:`, typeof response?.result)
-    console.log(`[Tool:${toolName}] Response.result preview:`,
-      JSON.stringify(response?.result)?.slice(0, 200))
+    console.log(`[Agent:Tool:${toolName}] Response:`, response?.success ? 'success' : 'error')
 
     if (response?.success) {
-      const result = response.result ?? { success: true }
-      console.log(`[Tool:${toolName}] Returning result:`,
-        JSON.stringify(result)?.slice(0, 200))
-      return result
+      return response.result ?? { success: true }
     } else {
-      const errorResult = { error: response?.error ?? 'Tool execution failed' }
-      console.log(`[Tool:${toolName}] Returning error:`, errorResult)
-      return errorResult
+      return { error: response?.error ?? 'Tool execution failed' }
     }
   } catch (err) {
-    console.error(`[Tool:${toolName}] Exception:`, err)
+    console.error(`[Agent:Tool:${toolName}] Exception:`, err)
     return { error: err instanceof Error ? err.message : 'Unknown error' }
   }
 }
 
-export const browserTools = {
+/**
+ * All browser automation tools
+ */
+const browserToolsDefinition = {
   // Page Reading Tools
   read_page: tool({
     description: 'Get the accessibility tree of the current page. Use this to understand the page structure and find element refs for interaction.',
@@ -209,4 +219,20 @@ export const browserTools = {
     }),
     execute: async (params) => executeViaChromeMessage('update_plan', params),
   }),
+}
+
+/**
+ * Get all browser tools
+ */
+export function getBrowserTools(): typeof browserToolsDefinition {
+  return browserToolsDefinition
+}
+
+/**
+ * Get a specific tool by name
+ */
+export function getTool<K extends keyof typeof browserToolsDefinition>(
+  name: K
+): typeof browserToolsDefinition[K] {
+  return browserToolsDefinition[name]
 }

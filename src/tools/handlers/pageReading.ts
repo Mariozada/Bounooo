@@ -1,6 +1,6 @@
 /** Page Reading Tools: read_page, get_page_text, find */
 
-import { registerTool } from './registry'
+import { registerTool } from '../registry'
 import { MessageTypes } from '@shared/messages'
 import { DEFAULT_TREE_DEPTH } from '@shared/constants'
 
