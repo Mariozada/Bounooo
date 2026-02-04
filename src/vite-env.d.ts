@@ -1,12 +1,7 @@
 /// <reference types="vite/client" />
 
-// Allow importing .jinja files as raw strings
-declare module '*.jinja?raw' {
-  const content: string
-  export default content
-}
-
+// Precompiled Jinja templates export a render function
 declare module '*.jinja' {
-  const content: string
-  export default content
+  export function render(context: Record<string, unknown>): string
+  export default render
 }

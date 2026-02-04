@@ -1,1 +1,1 @@
-export { renderSystemPrompt, renderTemplate } from './render'
+export { renderSystemPrompt } from './render'

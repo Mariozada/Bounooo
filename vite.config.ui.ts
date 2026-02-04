@@ -10,10 +10,12 @@ import react from '@vitejs/plugin-react'
 import { resolve } from 'path'
 import { copyFileSync, existsSync, rmSync } from 'fs'
 import { resolveConfig, __dirname } from './vite.config.shared'
+import { nunjucksPrecompile } from './vite-plugin-nunjucks-precompile'
 
 export default defineConfig({
   plugins: [
     react(),
+    nunjucksPrecompile(),
     {
       name: 'fix-sidepanel-html',
       writeBundle() {
