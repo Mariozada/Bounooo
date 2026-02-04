@@ -3,8 +3,25 @@
 
 set -e
 
+DELETE_MODE=false
+
+while getopts "d" opt; do
+    case $opt in
+        d)
+            DELETE_MODE=true
+            ;;
+        *)
+            echo "Usage: $0 [-d] <branch_name>"
+            echo "  -d  Delete worktree and branch"
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND - 1))
+
 if [ $# -ne 1 ]; then
-    echo "Usage: $0 <branch_name>"
+    echo "Usage: $0 [-d] <branch_name>"
+    echo "  -d  Delete worktree and branch"
     exit 1
 fi
 
@@ -15,6 +32,18 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 if [ ! -d "$REPO_ROOT/.git" ]; then
     echo "Error: Not inside a Git repository."
     exit 1
+fi
+
+if [ "$DELETE_MODE" = true ]; then
+    echo "Removing worktree for branch '$BRANCH' at '$WORKTREE'..."
+    git worktree remove "$WORKTREE" --force
+    echo "Worktree removed."
+
+    echo "Deleting branch '$BRANCH'..."
+    git branch -D "$BRANCH"
+    echo "Branch deleted."
+    echo "Done!"
+    exit 0
 fi
 
 echo "Creating worktree for branch '$BRANCH' at '$WORKTREE'..."

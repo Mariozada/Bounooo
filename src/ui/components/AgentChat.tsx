@@ -22,6 +22,7 @@ import {
 } from '@agent/index'
 import { SettingsPanel } from './SettingsPanel'
 import { ToolCallDisplay } from './ToolCallDisplay'
+import { MarkdownMessage } from './MarkdownMessage'
 
 const DEBUG = true
 const MAX_STEPS = 15
@@ -327,9 +328,11 @@ export const AgentChat: FC = () => {
                   </span>
                 </div>
                 <div className="message-content">
-                  {hasContent && (
+                  {hasContent && (message.role === 'assistant' ? (
+                    <MarkdownMessage content={message.content} />
+                  ) : (
                     <div className="message-text">{message.content}</div>
-                  )}
+                  ))}
                   {hasToolCalls && (
                     <div className="message-tool-calls">
                       {message.toolCalls!.map((tc) => (

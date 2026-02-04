@@ -194,6 +194,115 @@ body {
   word-break: break-word;
 }
 
+.message-markdown {
+  word-break: break-word;
+}
+
+.message-markdown > :first-child {
+  margin-top: 0;
+}
+
+.message-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.message-markdown p {
+  margin: 0 0 8px;
+}
+
+.message-markdown ul,
+.message-markdown ol {
+  margin: 0 0 8px 16px;
+  padding: 0;
+}
+
+.message-markdown li {
+  margin: 2px 0;
+}
+
+.message-markdown a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.message-assistant .message-markdown a {
+  color: #9cdcfe;
+}
+
+.message-user .message-markdown a {
+  color: #e8f3ff;
+}
+
+.message-markdown blockquote {
+  margin: 6px 0;
+  padding-left: 10px;
+  border-left: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.message-markdown .inline-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 0 3px;
+  border-radius: 4px;
+}
+
+.message-markdown .code-block {
+  background: rgba(0, 0, 0, 0.35);
+  padding: 8px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+.message-user .message-markdown .code-block {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.message-markdown .code-block pre {
+  margin: 0;
+  overflow-x: auto;
+}
+
+.message-markdown .code-block code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 12px;
+}
+
+.message-markdown .code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.message-markdown .code-block-language {
+  font-weight: 600;
+}
+
+.message-markdown .code-block-copy {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: inherit;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+
+.message-markdown .code-block-copy:hover {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.message-markdown hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  margin: 8px 0;
+}
+
 .message-text.message-loading {
   color: #808080;
   font-style: italic;
