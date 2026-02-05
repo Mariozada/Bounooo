@@ -19,11 +19,16 @@ import {
   runWorkflow,
   type ToolCallInfo,
   type Message as AgentMessage,
+  type ContentPart,
 } from '@agent/index'
 import { SettingsPanel } from './SettingsPanel'
 import { ToolCallDisplay } from './ToolCallDisplay'
 import { MarkdownMessage } from './MarkdownMessage'
 import { TooltipIconButton } from './TooltipIconButton'
+import { FileAttachment, type AttachmentFile } from './FileAttachment'
+import { AttachmentPreview, MessageAttachments } from './AttachmentPreview'
+import { ErrorNotification, createError, type NotificationError } from './ErrorNotification'
+import '../styles/attachments.css'
 
 const DEBUG = true
 const MAX_STEPS = 15
@@ -36,6 +41,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   toolCalls?: ToolCallInfo[]
+  attachments?: AttachmentFile[]
 }
 
 export const AgentChat: FC = () => {
@@ -51,6 +57,8 @@ export const AgentChat: FC = () => {
   const messagesRef = useRef<Message[]>([])
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [attachments, setAttachments] = useState<AttachmentFile[]>([])
+  const [notificationErrors, setNotificationErrors] = useState<NotificationError[]>([])
 
   const tabId = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
@@ -81,20 +89,23 @@ export const AgentChat: FC = () => {
   }, [inputValue, resizeTextarea])
 
   const sendMessage = useCallback(
-    async (text: string) => {
+    async (text: string, messageAttachments: AttachmentFile[] = []) => {
       log('=== Send Message ===')
-      if (!text || isStreaming || validationError) {
-        logWarn('Cannot send:', { text: !!text, isStreaming, validationError })
+      const hasContent = text.trim() || messageAttachments.length > 0
+      if (!hasContent || isStreaming || validationError) {
+        logWarn('Cannot send:', { text: !!text, attachments: messageAttachments.length, isStreaming, validationError })
         return
       }
 
       setInputValue('')
+      setAttachments([])
       setError(null)
 
       const userMessage: Message = {
         id: Date.now().toString(),
         role: 'user',
         content: text,
+        attachments: messageAttachments.length > 0 ? messageAttachments : undefined,
       }
       setMessages((prev) => [...prev, userMessage])
 
@@ -113,14 +124,34 @@ export const AgentChat: FC = () => {
         log('Creating provider:', settings.provider, settings.model)
         const model = createProvider(settings)
 
+        // Build agent messages, converting attachments to content parts
+        const buildMessageContent = (msg: Message): string | ContentPart[] => {
+          if (!msg.attachments || msg.attachments.length === 0) {
+            return msg.content
+          }
+          // Multimodal message with attachments
+          const parts: ContentPart[] = []
+          if (msg.content.trim()) {
+            parts.push({ type: 'text', text: msg.content })
+          }
+          for (const att of msg.attachments) {
+            if (att.type === 'image') {
+              parts.push({ type: 'image', image: att.dataUrl, mediaType: att.mediaType })
+            } else {
+              parts.push({ type: 'file', data: att.dataUrl, mediaType: att.mediaType, filename: att.file.name })
+            }
+          }
+          return parts
+        }
+
         const agentMessages: AgentMessage[] = [
           ...messagesRef.current
-            .filter((m) => m.content && m.content.trim().length > 0 && !m.content.includes('(No response'))
+            .filter((m) => (m.content && m.content.trim().length > 0 && !m.content.includes('(No response')) || (m.attachments && m.attachments.length > 0))
             .map((m) => ({
               role: m.role as 'user' | 'assistant',
-              content: m.content,
+              content: buildMessageContent(m),
             })),
-          { role: 'user' as const, content: text },
+          { role: 'user' as const, content: buildMessageContent({ ...userMessage, content: text, attachments: messageAttachments }) },
         ]
 
         let accumulatedText = ''
@@ -220,10 +251,10 @@ export const AgentChat: FC = () => {
     (e: FormEvent) => {
       e.preventDefault()
       const text = inputValue.trim()
-      if (!text) return
-      sendMessage(text)
+      if (!text && attachments.length === 0) return
+      sendMessage(text, attachments)
     },
-    [inputValue, sendMessage]
+    [inputValue, attachments, sendMessage]
   )
 
   const handleStop = useCallback(() => {
@@ -233,7 +264,7 @@ export const AgentChat: FC = () => {
     }
   }, [])
 
-  const canSend = !isStreaming && inputValue.trim() && !validationError
+  const canSend = !isStreaming && (inputValue.trim() || attachments.length > 0) && !validationError
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -253,8 +284,28 @@ export const AgentChat: FC = () => {
   }, [])
 
   const handleSuggestion = useCallback((text: string) => {
-    sendMessage(text)
+    sendMessage(text, [])
   }, [sendMessage])
+
+  const handleFilesSelected = useCallback((files: AttachmentFile[]) => {
+    setAttachments(prev => [...prev, ...files])
+  }, [])
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setAttachments(prev => prev.filter(a => a.id !== id))
+  }, [])
+
+  const handleAddError = useCallback((message: string, details?: string) => {
+    setNotificationErrors(prev => [...prev, createError(message, details)])
+  }, [])
+
+  const handleDismissError = useCallback((id: string) => {
+    setNotificationErrors(prev => prev.filter(e => e.id !== id))
+  }, [])
+
+  const handleDismissAllErrors = useCallback(() => {
+    setNotificationErrors([])
+  }, [])
 
   const handleCopyMessage = useCallback((messageId: string, text: string) => {
     navigator.clipboard.writeText(text)
@@ -365,6 +416,12 @@ export const AgentChat: FC = () => {
         </div>
       )}
 
+      <ErrorNotification
+        errors={notificationErrors}
+        onDismiss={handleDismissError}
+        onDismissAll={handleDismissAllErrors}
+      />
+
       <div className="aui-thread-viewport">
         {messages.length === 0 ? (
           <div className="aui-thread-welcome-root">
@@ -423,7 +480,10 @@ export const AgentChat: FC = () => {
                   data-role="user"
                 >
                   <div className="aui-user-message-content">
-                    <div className="message-text">{message.content}</div>
+                    {message.content && <div className="message-text">{message.content}</div>}
+                    {message.attachments && message.attachments.length > 0 && (
+                      <MessageAttachments attachments={message.attachments} />
+                    )}
                   </div>
                 </m.div>
               )
@@ -492,6 +552,12 @@ export const AgentChat: FC = () => {
       </div>
 
       <form className="aui-composer-wrapper" onSubmit={handleSubmit}>
+        {attachments.length > 0 && (
+          <AttachmentPreview
+            attachments={attachments}
+            onRemove={handleRemoveAttachment}
+          />
+        )}
         <div className="aui-composer-root">
           <textarea
             ref={textareaRef}
@@ -509,8 +575,11 @@ export const AgentChat: FC = () => {
             aria-label="Message input"
           />
           <div className="aui-composer-action-wrapper">
-            <div className="aui-composer-status">
-              {isStreaming ? 'Agent is working...' : 'Ready'}
+            <div className="aui-composer-actions-left">
+              <FileAttachment
+                onFilesSelected={handleFilesSelected}
+                disabled={isStreaming || !!validationError}
+              />
             </div>
             {isStreaming ? (
               <button
@@ -536,11 +605,13 @@ export const AgentChat: FC = () => {
       </form>
 
       {showSettings && (
-        <SettingsPanel
-          settings={settings}
-          onSave={handleSaveSettings}
-          onClose={handleCloseSettings}
-        />
+        <div className="settings-overlay">
+          <SettingsPanel
+            settings={settings}
+            onSave={handleSaveSettings}
+            onClose={handleCloseSettings}
+          />
+        </div>
       )}
         </div>
       </MotionConfig>

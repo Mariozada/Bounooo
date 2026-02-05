@@ -47,8 +47,8 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     apiKeyPlaceholder: 'AIza...',
     apiKeyUrl: 'https://aistudio.google.com/app/apikey',
     models: [
-      { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', vision: true, recommended: true },
-      { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', vision: true },
+      { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', vision: true, recommended: true },
+      { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', vision: true },
       { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', vision: true },
       { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', vision: true },
       { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', vision: true },

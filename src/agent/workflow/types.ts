@@ -2,9 +2,61 @@ import type { LanguageModel } from 'ai'
 import type { ToolDefinition } from '@tools/definitions'
 import type { TracingConfig } from '../tracing'
 
+// Content part types for multimodal messages
+export interface TextPart {
+  type: 'text'
+  text: string
+}
+
+export interface ImagePart {
+  type: 'image'
+  image: string  // base64 data URL or http(s) URL
+  mediaType?: string
+}
+
+export interface FilePart {
+  type: 'file'
+  data: string  // base64 data URL or http(s) URL
+  mediaType: string
+  filename?: string
+}
+
+export type ContentPart = TextPart | ImagePart | FilePart
+
+export type MessageContent = string | ContentPart[]
+
 export interface Message {
   role: 'user' | 'assistant'
-  content: string
+  content: MessageContent
+}
+
+// Helper to extract text content from a message
+export function getMessageText(message: Message): string {
+  if (typeof message.content === 'string') {
+    return message.content
+  }
+  return message.content
+    .filter((part): part is TextPart => part.type === 'text')
+    .map(part => part.text)
+    .join('')
+}
+
+// Helper to check if a message has attachments
+export function hasAttachments(message: Message): boolean {
+  if (typeof message.content === 'string') {
+    return false
+  }
+  return message.content.some(part => part.type === 'image' || part.type === 'file')
+}
+
+// Helper to get attachments from a message
+export function getAttachments(message: Message): (ImagePart | FilePart)[] {
+  if (typeof message.content === 'string') {
+    return []
+  }
+  return message.content.filter(
+    (part): part is ImagePart | FilePart => part.type === 'image' || part.type === 'file'
+  )
 }
 
 export interface ToolCallInfo {

@@ -1,0 +1,261 @@
+/* Attachment Button */
+.attachment-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.attachment-button:hover {
+  background: var(--bg-hover, rgba(0, 0, 0, 0.05));
+  color: var(--text-primary, #333);
+}
+
+.attachment-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Attachment Preview Container */
+.attachment-preview-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-secondary, #f5f5f5);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+/* Attachment Item */
+.attachment-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-primary, white);
+  border: 1px solid var(--border-color, #e5e5e5);
+}
+
+.attachment-item-image {
+  max-width: 120px;
+}
+
+.attachment-item-file {
+  padding: 8px 12px;
+}
+
+/* Attachment Remove Button */
+.attachment-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.attachment-item:hover .attachment-remove {
+  opacity: 1;
+}
+
+.attachment-remove:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+/* Image Preview */
+.attachment-preview-image {
+  display: block;
+  max-width: 100%;
+  max-height: 120px;
+  object-fit: cover;
+}
+
+/* File Preview */
+.attachment-preview-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.attachment-preview-file svg {
+  color: var(--text-secondary, #666);
+  flex-shrink: 0;
+}
+
+.attachment-file-name {
+  font-size: 13px;
+  color: var(--text-primary, #333);
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-file-size {
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  flex-shrink: 0;
+}
+
+/* Message Attachments (in chat history) */
+.message-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.message-attachments .attachment-item {
+  max-width: 200px;
+}
+
+.message-attachments .attachment-preview-image {
+  max-height: 200px;
+}
+
+/* Left side actions in composer */
+.aui-composer-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Error Notification */
+.error-notification-container {
+  background: var(--color-error-bg, #fef2f2);
+  border: 1px solid var(--color-error-border, #fecaca);
+  border-radius: 8px;
+  margin: 8px 16px;
+  overflow: hidden;
+}
+
+.error-notification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--color-error-header, #fee2e2);
+  border-bottom: 1px solid var(--color-error-border, #fecaca);
+}
+
+.error-notification-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-error-text, #991b1b);
+}
+
+.error-notification-dismiss-all {
+  font-size: 12px;
+  color: var(--color-error-text, #991b1b);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.error-notification-dismiss-all:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.error-notification-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.error-notification-item {
+  border-bottom: 1px solid var(--color-error-border, #fecaca);
+}
+
+.error-notification-item:last-child {
+  border-bottom: none;
+}
+
+.error-notification-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.error-notification-icon {
+  flex-shrink: 0;
+  color: var(--color-error, #dc2626);
+  margin-top: 1px;
+}
+
+.error-notification-message {
+  flex: 1;
+  font-size: 13px;
+  color: var(--color-error-text, #991b1b);
+  line-height: 1.4;
+}
+
+.error-notification-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.error-notification-expand {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--color-error-text, #991b1b);
+  background: transparent;
+  border: 1px solid var(--color-error-border, #fecaca);
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.error-notification-expand:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.error-notification-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--color-error-text, #991b1b);
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.error-notification-dismiss:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.error-notification-details {
+  padding: 8px 12px 12px 36px;
+  font-size: 12px;
+  color: var(--color-error-text, #7f1d1d);
+  line-height: 1.5;
+}

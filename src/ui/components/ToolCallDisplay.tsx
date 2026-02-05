@@ -117,17 +117,11 @@ function formatResultPreview(result: unknown, maxLines = 5): string {
 
 const ToolCallContent: FC<ToolCallDisplayProps> = ({ toolCall }) => {
   const [showFullOutput, setShowFullOutput] = useState(false)
-  const [showFullError, setShowFullError] = useState(false)
 
   const statusIcon = STATUS_ICONS[toolCall.status] || '?'
   const statusLabel = STATUS_LABELS[toolCall.status] || 'Unknown'
   const hasResult = toolCall.result !== undefined
-  const hasError = !!toolCall.error
   const isFinished = toolCall.status === 'completed' || toolCall.status === 'error'
-
-  const errorText = toolCall.error || ''
-  const errorLines = errorText.split('\n')
-  const isLongError = errorLines.length > 3 || errorText.length > 200
 
   return (
     <div className={`tool-call tool-call--${toolCall.status}`}>
@@ -145,23 +139,10 @@ const ToolCallContent: FC<ToolCallDisplayProps> = ({ toolCall }) => {
 
       {isFinished && (
         <div className="tool-call-output">
-          {hasError ? (
-            <>
-              <pre className="tool-call-output-preview tool-call-error-content">
-                {showFullError || !isLongError
-                  ? errorText
-                  : errorLines.slice(0, 3).join('\n') + (errorText.length > 200 ? '...' : '')}
-              </pre>
-              {isLongError && (
-                <button
-                  type="button"
-                  className="tool-call-toggle"
-                  onClick={() => setShowFullError(!showFullError)}
-                >
-                  {showFullError ? 'Show less' : 'Show full error'}
-                </button>
-              )}
-            </>
+          {toolCall.error ? (
+            <div className="tool-call-error">
+              <span className="tool-call-error-label">Error:</span> {toolCall.error}
+            </div>
           ) : hasResult ? (
             <>
               <pre className="tool-call-output-preview">

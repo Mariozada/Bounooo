@@ -1,7 +1,59 @@
-import { streamText } from 'ai'
+import { streamText, type CoreMessage, type UserContent } from 'ai'
 import { XMLStreamParser, STREAM_EVENT_TYPES, type ToolCallEvent } from '../streamParser'
-import type { AgentSession, StepResult, ToolCallInfo } from './types'
+import type { AgentSession, StepResult, ToolCallInfo, Message, ContentPart } from './types'
+import { getMessageText } from './types'
 import { getTracer, type SpanContext, type TracingConfig, type ChatMessage } from '../tracing'
+
+// Convert our Message format to Vercel AI SDK CoreMessage format
+function convertToSDKMessages(messages: Message[]): CoreMessage[] {
+  return messages.map(msg => {
+    if (typeof msg.content === 'string') {
+      return {
+        role: msg.role,
+        content: msg.content,
+      } as CoreMessage
+    }
+
+    // Multimodal content
+    if (msg.role === 'user') {
+      const userContent: UserContent = msg.content.map(part => {
+        switch (part.type) {
+          case 'text':
+            return { type: 'text' as const, text: part.text }
+          case 'image':
+            return {
+              type: 'image' as const,
+              image: part.image,
+              ...(part.mediaType && { mimeType: part.mediaType }),
+            }
+          case 'file':
+            return {
+              type: 'file' as const,
+              data: part.data,
+              mimeType: part.mediaType,
+              ...(part.filename && { name: part.filename }),
+            }
+        }
+      })
+      return {
+        role: 'user' as const,
+        content: userContent,
+      }
+    }
+
+    // Assistant messages - extract just text for now
+    // (assistant multimodal responses would need separate handling)
+    const textContent = msg.content
+      .filter((part): part is ContentPart & { type: 'text' } => part.type === 'text')
+      .map(part => part.text)
+      .join('')
+
+    return {
+      role: 'assistant' as const,
+      content: textContent,
+    }
+  })
+}
 
 export interface StreamTracingOptions {
   config: TracingConfig
@@ -32,10 +84,13 @@ export async function streamLLMResponse(
     provider: callbacks.tracing.provider,
     inputMessages: session.messages.map(m => ({
       role: m.role as ChatMessage['role'],
-      content: m.content,
+      content: getMessageText(m),  // Extract text for tracing
     })),
     parentContext: callbacks.tracing.parentContext,
   }) : null
+
+  // Convert messages to SDK format (handles multimodal content)
+  const sdkMessages = convertToSDKMessages(session.messages)
 
   parser.on(STREAM_EVENT_TYPES.TEXT_DELTA, (event) => {
     const delta = event.data as string
@@ -59,7 +114,7 @@ export async function streamLLMResponse(
     const result = await streamText({
       model: session.model,
       system: session.systemPrompt,
-      messages: session.messages,
+      messages: sdkMessages,
       abortSignal: session.abortSignal,
     })
 

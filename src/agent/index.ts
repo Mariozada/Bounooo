@@ -9,13 +9,18 @@ export { formatToolResult } from './xmlParser'
 export { XMLStreamParser, STREAM_EVENT_TYPES, parsePartialJSON } from './streamParser'
 export type { StreamEvent, ToolCallEvent, ToolResultEvent } from './streamParser'
 
-export { runWorkflow } from './workflow'
+export { runWorkflow, getMessageText, hasAttachments, getAttachments } from './workflow'
 export type {
   AgentOptions,
   AgentResult,
   AgentCallbacks,
   ToolCallInfo,
   Message,
+  MessageContent,
+  ContentPart,
+  TextPart,
+  ImagePart,
+  FilePart,
   FinishReason,
 } from './workflow'
 
