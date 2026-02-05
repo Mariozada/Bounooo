@@ -267,7 +267,7 @@ export const AgentChat: FC = () => {
               title="Clear chat"
               aria-label="Clear chat"
             >
-              [x]
+              Clear
             </button>
           )}
           <button
@@ -277,7 +277,7 @@ export const AgentChat: FC = () => {
             title="Settings"
             aria-label="Open settings"
           >
-            [=]
+            Settings
           </button>
         </div>
       </div>
@@ -299,7 +299,8 @@ export const AgentChat: FC = () => {
         {messages.length === 0 ? (
           <div className="message-list-empty">
             <div className="empty-state">
-              <p>Browser Automation Agent</p>
+              <div className="empty-avatar">A</div>
+              <p className="empty-title">How can I help you today?</p>
               <p className="help-text">
                 Ask me to interact with the current page - click buttons, fill forms, navigate, and more.
               </p>
@@ -310,23 +311,25 @@ export const AgentChat: FC = () => {
             const hasContent = message.content && message.content.trim().length > 0
             const hasToolCalls = message.toolCalls && message.toolCalls.length > 0
             const isEmptyAssistant = message.role === 'assistant' && !hasContent && !hasToolCalls
+            const isStreamingMessage = isStreaming && message.id === messages[messages.length - 1]?.id
+
+            if (message.role === 'user') {
+              return (
+                <div key={message.id} className="message-row message-user">
+                  <div className="message-bubble message-user-bubble">
+                    <div className="message-text">{message.content}</div>
+                  </div>
+                </div>
+              )
+            }
 
             return (
-              <div
-                key={message.id}
-                className={`message ${message.role === 'user' ? 'message-user' : 'message-assistant'}`}
-              >
-                <div className="message-header">
-                  <span className="message-role">
-                    {message.role === 'user' ? 'You' : 'Agent'}
-                  </span>
-                </div>
-                <div className="message-content">
-                  {hasContent && (message.role === 'assistant' ? (
-                    <MarkdownMessage content={message.content} />
-                  ) : (
-                    <div className="message-text">{message.content}</div>
-                  ))}
+              <div key={message.id} className="message-row message-assistant">
+                <div className="message-avatar">A</div>
+                <div className="message-body">
+                  {hasContent && (
+                    <MarkdownMessage content={message.content} isStreaming={isStreamingMessage} />
+                  )}
                   {hasToolCalls && (
                     <div className="message-tool-calls">
                       {message.toolCalls!.map((tc) => (
@@ -348,19 +351,6 @@ export const AgentChat: FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {isStreaming && (
-        <div className="streaming-controls">
-          <button
-            type="button"
-            className="stop-button"
-            onClick={handleStop}
-            aria-label="Stop generation"
-          >
-            Stop
-          </button>
-        </div>
-      )}
-
       <form className="chat-input-form" onSubmit={handleSubmit}>
         <textarea
           className="chat-input"
@@ -375,15 +365,29 @@ export const AgentChat: FC = () => {
           disabled={isStreaming || !!validationError}
           rows={2}
         />
-        <button
-          type="submit"
-          className="send-button"
-          disabled={!canSend}
-          aria-label="Send message"
-        >
-          {isStreaming ? '...' : '>'}
-        </button>
+        {isStreaming ? (
+          <button
+            type="button"
+            className="send-button stop-button"
+            onClick={handleStop}
+            aria-label="Stop generation"
+          >
+            Stop
+          </button>
+        ) : (
+          <button
+            type="submit"
+            className="send-button"
+            disabled={!canSend}
+            aria-label="Send message"
+          >
+            Send
+          </button>
+        )}
       </form>
+      <div className="composer-footer">
+        Agent outputs may be inaccurate. Verify critical details.
+      </div>
 
       {showSettings && (
         <div className="settings-overlay">

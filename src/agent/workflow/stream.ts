@@ -23,6 +23,7 @@ export async function streamLLMResponse(
   const parser = new XMLStreamParser()
   const toolCalls: ToolCallInfo[] = []
   let text = ''
+  let rawOutput = ''  // Original LLM output for Phoenix (no filtering)
 
   // Start LLM span if tracing enabled
   const tracer = getTracer(callbacks?.tracing?.config)
@@ -63,14 +64,16 @@ export async function streamLLMResponse(
     })
 
     for await (const chunk of result.textStream) {
+      // Capture raw output FIRST before any parsing
+      rawOutput += chunk
       parser.processChunk(chunk)
     }
 
     parser.flush()
 
-    // End LLM span with output
+    // End LLM span with RAW output (original, unfiltered)
     llmSpan?.end({
-      outputMessage: text ? { role: 'assistant', content: text } : undefined,
+      outputMessage: rawOutput ? { role: 'assistant', content: rawOutput } : undefined,
       toolCalls: toolCalls.map(tc => ({
         name: tc.name,
         input: tc.input,
@@ -79,8 +82,9 @@ export async function streamLLMResponse(
 
     return { text, toolCalls }
   } catch (err) {
-    // End LLM span with error
+    // End LLM span with error (still include raw output captured so far)
     llmSpan?.end({
+      outputMessage: rawOutput ? { role: 'assistant', content: rawOutput } : undefined,
       error: err instanceof Error ? err.message : 'Unknown error',
     })
     throw err

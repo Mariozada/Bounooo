@@ -122,15 +122,8 @@ export class XMLStreamParser {
 
   private _emitTextDelta(text: string): void {
     if (!text) return
-
-    const cleaned = text
-      .replace(/```xml\s*/g, '')
-      .replace(/```\s*/g, '')
-
-    if (cleaned) {
-      this.textBuffer += cleaned
-      this._emit({ type: STREAM_EVENT_TYPES.TEXT_DELTA, data: cleaned })
-    }
+    this.textBuffer += text
+    this._emit({ type: STREAM_EVENT_TYPES.TEXT_DELTA, data: text })
   }
 
   private _emitToolCall(): void {
