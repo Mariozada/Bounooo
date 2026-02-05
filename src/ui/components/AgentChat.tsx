@@ -536,13 +536,11 @@ export const AgentChat: FC = () => {
       </form>
 
       {showSettings && (
-        <div className="settings-overlay">
-          <SettingsPanel
-            settings={settings}
-            onSave={handleSaveSettings}
-            onClose={handleCloseSettings}
-          />
-        </div>
+        <SettingsPanel
+          settings={settings}
+          onSave={handleSaveSettings}
+          onClose={handleCloseSettings}
+        />
       )}
         </div>
       </MotionConfig>

@@ -1,7 +1,9 @@
-import { useState, useCallback, type FC, type ChangeEvent } from 'react'
+import { useState, useCallback, useEffect, useMemo, type FC, type ChangeEvent, type MouseEvent } from 'react'
+import { X, Zap, Image } from 'lucide-react'
 import type { ProviderSettings, ProviderType } from '@shared/settings'
 import { DEFAULT_TRACING_SETTINGS } from '@shared/settings'
 import { PROVIDER_CONFIGS, getModelsForProvider, getDefaultModelForProvider } from '@agent/index'
+import { CustomSelect, type SelectOption } from './CustomSelect'
 
 interface SettingsPanelProps {
   settings: ProviderSettings
@@ -36,10 +38,10 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
     }))
   }, [])
 
-  const handleModelChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+  const handleModelChange = useCallback((value: string) => {
     setLocalSettings((prev) => ({
       ...prev,
-      model: e.target.value,
+      model: value,
     }))
   }, [])
 
@@ -145,19 +147,36 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
   const currentApiKey = localSettings.apiKeys[localSettings.provider] || ''
   const isOpenAICompatible = localSettings.provider === 'openai-compatible'
 
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSaving) {
+        onClose()
+      }
+    }
+    document.addEventListener('keydown', handleEscape)
+    return () => document.removeEventListener('keydown', handleEscape)
+  }, [onClose, isSaving])
+
+  const handleOverlayClick = useCallback((e: MouseEvent<HTMLDivElement>) => {
+    if (e.target === e.currentTarget && !isSaving) {
+      onClose()
+    }
+  }, [onClose, isSaving])
+
   return (
-    <div className="settings-panel">
-      <div className="settings-header">
-        <h3>Agent Settings</h3>
-        <button
-          type="button"
-          className="close-button"
-          onClick={onClose}
-          aria-label="Close settings"
-        >
-          ×
-        </button>
-      </div>
+    <div className="settings-overlay" onClick={handleOverlayClick}>
+      <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="settings-header">
+          <h3>Settings</h3>
+          <button
+            type="button"
+            className="close-button"
+            onClick={onClose}
+            aria-label="Close settings"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
       <div className="settings-content">
         <div className="form-group">
@@ -204,19 +223,17 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
               }
             />
           ) : (
-            <select
+            <CustomSelect
               id="model-select"
               value={localSettings.model}
               onChange={handleModelChange}
-            >
-              {models.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name}
-                  {model.vision && ' 👁'}
-                  {model.recommended && ' ⭐'}
-                </option>
-              ))}
-            </select>
+              options={models.map((model) => ({
+                value: model.id,
+                label: model.name,
+                icon: model.recommended ? <Zap size={14} /> : undefined,
+                suffix: model.vision ? <Image size={14} /> : undefined,
+              }))}
+            />
           )}
 
           {useCustomModel && !isOpenAICompatible && (
@@ -329,23 +346,24 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
         {error && <div className="error-message">{error}</div>}
       </div>
 
-      <div className="settings-footer">
-        <button
-          type="button"
-          className="button-secondary"
-          onClick={onClose}
-          disabled={isSaving}
-        >
-          Cancel
-        </button>
-        <button
-          type="button"
-          className="button-primary"
-          onClick={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? 'Saving...' : 'Save'}
-        </button>
+        <div className="settings-footer">
+          <button
+            type="button"
+            className="button-secondary"
+            onClick={onClose}
+            disabled={isSaving}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="button-primary"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
     </div>
   )
