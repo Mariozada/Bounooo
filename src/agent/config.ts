@@ -23,11 +23,9 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-ant-...',
     apiKeyUrl: 'https://console.anthropic.com/settings/keys',
     models: [
-      { id: 'claude-sonnet-4-20250514', name: 'Claude Sonnet 4', vision: true, recommended: true },
-      { id: 'claude-haiku-4-20250514', name: 'Claude Haiku 4', vision: true },
-      { id: 'claude-opus-4-20250514', name: 'Claude Opus 4', vision: true },
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', vision: true },
-      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', vision: true },
+      { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', vision: true, recommended: true },
+      { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', vision: true },
+      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', vision: true },
     ],
   },
   openai: {
@@ -49,9 +47,11 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     apiKeyPlaceholder: 'AIza...',
     apiKeyUrl: 'https://aistudio.google.com/app/apikey',
     models: [
-      { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash', vision: true, recommended: true },
-      { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', vision: true },
-      { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', vision: true },
+      { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', vision: true, recommended: true },
+      { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', vision: true },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', vision: true },
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', vision: true },
+      { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', vision: true },
     ],
   },
   groq: {
