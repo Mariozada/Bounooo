@@ -1,59 +1,7 @@
-import { streamText, type CoreMessage, type UserContent } from 'ai'
+import { streamText } from 'ai'
 import { XMLStreamParser, STREAM_EVENT_TYPES, type ToolCallEvent } from '../streamParser'
-import type { AgentSession, StepResult, ToolCallInfo, Message, ContentPart } from './types'
-import { getMessageText } from './types'
+import type { AgentSession, StepResult, ToolCallInfo } from './types'
 import { getTracer, type SpanContext, type TracingConfig, type ChatMessage } from '../tracing'
-
-// Convert our Message format to Vercel AI SDK CoreMessage format
-function convertToSDKMessages(messages: Message[]): CoreMessage[] {
-  return messages.map(msg => {
-    if (typeof msg.content === 'string') {
-      return {
-        role: msg.role,
-        content: msg.content,
-      } as CoreMessage
-    }
-
-    // Multimodal content
-    if (msg.role === 'user') {
-      const userContent: UserContent = msg.content.map(part => {
-        switch (part.type) {
-          case 'text':
-            return { type: 'text' as const, text: part.text }
-          case 'image':
-            return {
-              type: 'image' as const,
-              image: part.image,
-              ...(part.mediaType && { mimeType: part.mediaType }),
-            }
-          case 'file':
-            return {
-              type: 'file' as const,
-              data: part.data,
-              mimeType: part.mediaType,
-              ...(part.filename && { name: part.filename }),
-            }
-        }
-      })
-      return {
-        role: 'user' as const,
-        content: userContent,
-      }
-    }
-
-    // Assistant messages - extract just text for now
-    // (assistant multimodal responses would need separate handling)
-    const textContent = msg.content
-      .filter((part): part is ContentPart & { type: 'text' } => part.type === 'text')
-      .map(part => part.text)
-      .join('')
-
-    return {
-      role: 'assistant' as const,
-      content: textContent,
-    }
-  })
-}
 
 export interface StreamTracingOptions {
   config: TracingConfig
@@ -65,7 +13,37 @@ export interface StreamTracingOptions {
 export interface StreamCallbacks {
   onTextDelta?: (text: string) => void
   onToolCallParsed?: (toolCall: ToolCallInfo) => void
+  onReasoningDelta?: (text: string) => void
   tracing?: StreamTracingOptions
+  reasoningEnabled?: boolean
+  provider?: string
+}
+
+function getProviderOptions(provider?: string, reasoningEnabled?: boolean): Record<string, unknown> | undefined {
+  if (!reasoningEnabled) return undefined
+
+  if (provider === 'anthropic') {
+    return {
+      anthropic: {
+        thinking: {
+          type: 'enabled',
+          budgetTokens: 16000,
+        },
+      },
+    }
+  }
+
+  if (provider === 'google') {
+    return {
+      google: {
+        thinkingConfig: {
+          thinkingBudget: 8000,
+        },
+      },
+    }
+  }
+
+  return undefined
 }
 
 export async function streamLLMResponse(
@@ -75,6 +53,7 @@ export async function streamLLMResponse(
   const parser = new XMLStreamParser()
   const toolCalls: ToolCallInfo[] = []
   let text = ''
+  let reasoning = ''
   let rawOutput = ''  // Original LLM output for Phoenix (no filtering)
 
   // Start LLM span if tracing enabled
@@ -84,13 +63,10 @@ export async function streamLLMResponse(
     provider: callbacks.tracing.provider,
     inputMessages: session.messages.map(m => ({
       role: m.role as ChatMessage['role'],
-      content: getMessageText(m),  // Extract text for tracing
+      content: m.content,
     })),
     parentContext: callbacks.tracing.parentContext,
   }) : null
-
-  // Convert messages to SDK format (handles multimodal content)
-  const sdkMessages = convertToSDKMessages(session.messages)
 
   parser.on(STREAM_EVENT_TYPES.TEXT_DELTA, (event) => {
     const delta = event.data as string
@@ -111,17 +87,25 @@ export async function streamLLMResponse(
   })
 
   try {
+    const providerOptions = getProviderOptions(callbacks?.provider, callbacks?.reasoningEnabled)
+
     const result = await streamText({
       model: session.model,
       system: session.systemPrompt,
-      messages: sdkMessages,
+      messages: session.messages,
       abortSignal: session.abortSignal,
+      providerOptions,
     })
 
-    for await (const chunk of result.textStream) {
-      // Capture raw output FIRST before any parsing
-      rawOutput += chunk
-      parser.processChunk(chunk)
+    // Use fullStream to capture reasoning events
+    for await (const part of result.fullStream) {
+      if (part.type === 'text-delta') {
+        rawOutput += part.textDelta
+        parser.processChunk(part.textDelta)
+      } else if (part.type === 'reasoning') {
+        reasoning += part.text
+        callbacks?.onReasoningDelta?.(part.text)
+      }
     }
 
     parser.flush()
@@ -135,7 +119,7 @@ export async function streamLLMResponse(
       })),
     })
 
-    return { text, toolCalls }
+    return { text, toolCalls, reasoning: reasoning || undefined }
   } catch (err) {
     // End LLM span with error (still include raw output captured so far)
     llmSpan?.end({

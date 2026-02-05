@@ -2,11 +2,6 @@ export { runWorkflow } from './runner'
 
 export type {
   Message,
-  MessageContent,
-  ContentPart,
-  TextPart,
-  ImagePart,
-  FilePart,
   ToolCallInfo,
   AgentConfig,
   AgentSession,
@@ -17,8 +12,6 @@ export type {
   AgentCallbacks,
   AgentOptions,
 } from './types'
-
-export { getMessageText, hasAttachments, getAttachments } from './types'
 
 export { createSession, isAborted } from './session'
 export { streamLLMResponse, hasToolCalls } from './stream'
