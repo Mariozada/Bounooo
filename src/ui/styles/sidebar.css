@@ -1,0 +1,461 @@
+/* ============================================================================
+   Sidebar Toggle Button
+   ============================================================================ */
+
+.sidebar-toggle-btn {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-toggle-btn:hover {
+  color: var(--foreground);
+  border-color: var(--muted-foreground);
+}
+
+/* ============================================================================
+   Thread Sidebar
+   ============================================================================ */
+
+.thread-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  background: var(--card);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  transform: translateX(0);
+  transition: transform 0.2s ease;
+}
+
+.thread-sidebar.closed {
+  transform: translateX(-100%);
+}
+
+.thread-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  min-height: 56px;
+}
+
+.thread-sidebar-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.thread-sidebar-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.thread-sidebar-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+}
+
+.thread-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.thread-sidebar-footer {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.thread-sidebar-stats {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.thread-sidebar-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.thread-sidebar-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.thread-sidebar-action:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+}
+
+/* ============================================================================
+   Thread List
+   ============================================================================ */
+
+.thread-list-root {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.thread-list-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 8px;
+}
+
+.thread-list-new:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--muted-foreground);
+  color: var(--foreground);
+}
+
+.thread-list-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.thread-list-skeleton-item {
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.thread-list-skeleton-bar {
+  height: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.thread-list-empty {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.thread-list-empty-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.thread-list-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* ============================================================================
+   Thread List Item
+   ============================================================================ */
+
+.thread-list-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.thread-list-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.thread-list-item.active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.thread-list-item-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.thread-list-item-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  opacity: 0;
+  transition: all 0.15s ease;
+}
+
+.thread-list-item:hover .thread-list-item-menu-btn {
+  opacity: 1;
+}
+
+.thread-list-item-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--foreground);
+}
+
+/* ============================================================================
+   Thread Item Menu
+   ============================================================================ */
+
+.thread-list-item-menu {
+  position: absolute;
+  top: 100%;
+  right: 8px;
+  z-index: 100;
+  min-width: 140px;
+  padding: 4px;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.thread-list-item-menu-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--foreground);
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  text-align: left;
+}
+
+.thread-list-item-menu-option:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.thread-list-item-menu-option.destructive {
+  color: var(--destructive);
+}
+
+.thread-list-item-menu-option.destructive:hover {
+  background: rgba(255, 107, 107, 0.12);
+}
+
+/* ============================================================================
+   Thread Item Rename
+   ============================================================================ */
+
+.thread-list-item-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.thread-list-item-edit-input {
+  flex: 1;
+  padding: 4px 8px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--foreground);
+  font-size: 13px;
+  outline: none;
+}
+
+.thread-list-item-edit-input:focus {
+  border-color: var(--ring);
+}
+
+.thread-list-item-edit-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.thread-list-item-edit-btn.save {
+  color: hsl(142 76% 36%);
+}
+
+.thread-list-item-edit-btn.save:hover {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.thread-list-item-edit-btn.cancel {
+  color: var(--muted-foreground);
+}
+
+.thread-list-item-edit-btn.cancel:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* ============================================================================
+   Delete Confirmation Dialog
+   ============================================================================ */
+
+.delete-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+
+.delete-confirm-dialog {
+  width: min(400px, calc(100vw - 32px));
+  padding: 24px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  animation: slideUp 0.2s ease;
+}
+
+.delete-confirm-dialog h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.delete-confirm-dialog p {
+  margin: 0 0 20px;
+  font-size: 14px;
+  color: var(--muted-foreground);
+  line-height: 1.5;
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.button-destructive {
+  padding: 8px 18px;
+  background: var(--destructive);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.button-destructive:hover {
+  opacity: 0.9;
+}
+
+/* ============================================================================
+   Main Content Offset (when sidebar is open)
+   ============================================================================ */
+
+.app-with-sidebar {
+  display: flex;
+  height: 100vh;
+}
+
+.main-content {
+  flex: 1;
+  margin-left: 0;
+  transition: margin-left 0.2s ease;
+}
+
+.main-content.sidebar-open {
+  margin-left: 280px;
+}
+
+/* ============================================================================
+   Responsive
+   ============================================================================ */
+
+@media (max-width: 640px) {
+  .thread-sidebar {
+    width: 100%;
+  }
+
+  .main-content.sidebar-open {
+    margin-left: 0;
+  }
+
+  /* On mobile, sidebar overlays content */
+  .thread-sidebar.open + .main-content {
+    pointer-events: none;
+    opacity: 0.3;
+  }
+}

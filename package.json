@@ -21,6 +21,7 @@
     "@ai-sdk/react": "^3.0.29",
     "@openrouter/ai-sdk-provider": "^1.5.4",
     "ai": "^6.0.27",
+    "dexie": "^4.2.1",
     "lucide-react": "^0.538.0",
     "motion": "^12.15.0",
     "nunjucks": "^3.2.4",

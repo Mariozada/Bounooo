@@ -69,32 +69,11 @@ export interface StreamCallbacks {
   tracing?: StreamTracingOptions
   reasoningEnabled?: boolean
   provider?: string
-  modelId?: string
 }
 
-function isOpenAIReasoningModel(modelId?: string): boolean {
-  if (!modelId) return false
-  // Match o1, o1-mini, o1-pro, o3, o3-mini, o4-mini, etc.
-  // Also match openrouter format: openai/o1, openai/o3-mini, etc.
-  return /(?:^|\/)(o[1-4])(?:-|$)/i.test(modelId)
-}
-
-function isAnthropicModel(modelId?: string): boolean {
-  if (!modelId) return false
-  // Match anthropic/claude-* or just claude-*
-  return modelId.toLowerCase().includes('claude')
-}
-
-function isGoogleModel(modelId?: string): boolean {
-  if (!modelId) return false
-  // Match google/gemini-* or just gemini-*
-  return modelId.toLowerCase().includes('gemini')
-}
-
-function getProviderOptions(provider?: string, reasoningEnabled?: boolean, modelId?: string): Record<string, unknown> | undefined {
+function getProviderOptions(provider?: string, reasoningEnabled?: boolean): Record<string, unknown> | undefined {
   if (!reasoningEnabled) return undefined
 
-  // Direct Anthropic provider
   if (provider === 'anthropic') {
     return {
       anthropic: {
@@ -106,53 +85,13 @@ function getProviderOptions(provider?: string, reasoningEnabled?: boolean, model
     }
   }
 
-  // Direct Google provider - just enable thought streaming, use model's default thinking level
   if (provider === 'google') {
     return {
       google: {
         thinkingConfig: {
-          includeThoughts: true,
+          thinkingBudget: 8000,
         },
       },
-    }
-  }
-
-  // Direct OpenAI provider with o-series models
-  if (provider === 'openai' && isOpenAIReasoningModel(modelId)) {
-    return {
-      openai: {
-        reasoningEffort: 'medium',
-      },
-    }
-  }
-
-  // OpenRouter - detect underlying provider from model ID
-  if (provider === 'openrouter') {
-    if (isOpenAIReasoningModel(modelId)) {
-      return {
-        openai: {
-          reasoningEffort: 'medium',
-        },
-      }
-    }
-    if (isAnthropicModel(modelId)) {
-      return {
-        anthropic: {
-          thinking: {
-            type: 'enabled',
-            budgetTokens: 16000,
-          },
-        },
-      }
-    }
-    if (isGoogleModel(modelId)) {
-      return {
-        google: {
-          thinkingConfig: {
-            includeThoughts: true,
-          },
-        },
-      }
     }
   }
 
@@ -203,23 +142,22 @@ export async function streamLLMResponse(
   })
 
   try {
-    const providerOptions = getProviderOptions(callbacks?.provider, callbacks?.reasoningEnabled, callbacks?.modelId)
+    const providerOptions = getProviderOptions(callbacks?.provider, callbacks?.reasoningEnabled)
 
     const result = await streamText({
       model: session.model,
       system: session.systemPrompt,
       messages: sdkMessages,
       abortSignal: session.abortSignal,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      providerOptions: providerOptions as any,
+      providerOptions,
     })
 
     // Use fullStream to capture reasoning events
     for await (const part of result.fullStream) {
       if (part.type === 'text-delta') {
-        rawOutput += part.text
-        parser.processChunk(part.text)
-      } else if (part.type === 'reasoning-delta') {
+        rawOutput += part.textDelta
+        parser.processChunk(part.textDelta)
+      } else if (part.type === 'reasoning') {
         reasoning += part.text
         callbacks?.onReasoningDelta?.(part.text)
       }

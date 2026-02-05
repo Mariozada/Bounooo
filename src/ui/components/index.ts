@@ -1,4 +1,8 @@
 export { AgentChat } from './AgentChat'
+export { BranchPicker } from './BranchPicker'
+export { ChatApp } from './ChatApp'
 export { SettingsPanel } from './SettingsPanel'
 export { ToolCallDisplay } from './ToolCallDisplay'
 export { TooltipIconButton } from './TooltipIconButton'
+export { ThreadList } from './ThreadList'
+export { ThreadListSidebar } from './ThreadListSidebar'

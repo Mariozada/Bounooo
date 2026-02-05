@@ -97,11 +97,14 @@ body {
 }
 
 .reasoning-btn {
+  position: absolute;
+  bottom: 8px;
+  left: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   background: transparent;
   border: none;
@@ -258,14 +261,158 @@ body {
   width: 100%;
   margin: 0 auto;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 8px 0;
 }
 
 .aui-user-message-content {
+  position: relative;
   background: var(--card);
   border-radius: 24px;
   padding: 10px 18px;
   max-width: 80%;
+}
+
+/* Edit button on user messages */
+.aui-user-message-edit-btn {
+  position: absolute;
+  left: -32px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  opacity: 0;
+  animation: fadeIn 0.1s ease forwards;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
+.aui-user-message-edit-btn:hover {
+  color: var(--foreground);
+  border-color: var(--muted-foreground);
+}
+
+/* Edit mode for user messages */
+.aui-user-message-edit {
+  width: 100%;
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aui-user-message-edit-textarea {
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.aui-user-message-edit-textarea:focus {
+  border-color: var(--ring);
+}
+
+.aui-user-message-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.aui-user-message-edit-cancel {
+  padding: 8px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.aui-user-message-edit-cancel:hover {
+  color: var(--foreground);
+  border-color: var(--muted-foreground);
+}
+
+.aui-user-message-edit-submit {
+  padding: 8px 16px;
+  background: var(--foreground);
+  border: none;
+  border-radius: 8px;
+  color: var(--background);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.aui-user-message-edit-submit:hover {
+  opacity: 0.9;
+}
+
+.aui-user-message-edit-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Branch Picker */
+.branch-picker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.branch-picker-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.branch-picker-btn:hover:not(:disabled) {
+  color: var(--foreground);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.branch-picker-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.branch-picker-count {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  min-width: 40px;
+  text-align: center;
 }
 
 .aui-assistant-message-root {
@@ -507,6 +654,10 @@ body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
 
+.aui-composer-root:has(.reasoning-btn) {
+  padding-bottom: 40px;
+}
+
 .aui-composer-input {
   border: none;
   background: transparent;
@@ -517,7 +668,7 @@ body {
   line-height: 1.5;
   min-height: 48px;
   max-height: 160px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .aui-composer-input::placeholder {
@@ -528,95 +679,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.aui-composer-actions-left {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-/* Composer Menu (Plus button with dropdown) */
-.composer-menu {
-  position: relative;
-}
-
-.composer-menu-trigger {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  color: var(--muted-foreground);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.composer-menu-trigger:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--foreground);
-}
-
-.composer-menu-trigger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.composer-menu-trigger.active {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--foreground);
-}
-
-.composer-menu-dropdown {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  min-width: 160px;
-  background: var(--popover);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  z-index: 100;
-  animation: menu-fade-in 0.15s ease-out;
-}
-
-@keyframes menu-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.composer-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  padding: 10px 12px;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--foreground);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.composer-menu-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.composer-menu-item svg {
-  color: var(--muted-foreground);
 }
 
 .aui-composer-status {
