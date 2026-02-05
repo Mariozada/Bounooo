@@ -6,6 +6,7 @@ export interface ModelConfig {
   vision: boolean
   recommended?: boolean
   contextLength?: number
+  reasoning?: 'none' | 'hybrid' | 'always'
 }
 
 export interface ProviderConfig {
@@ -23,9 +24,9 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-ant-...',
     apiKeyUrl: 'https://console.anthropic.com/settings/keys',
     models: [
-      { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', vision: true, recommended: true },
-      { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', vision: true },
-      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', vision: true },
+      { id: 'claude-sonnet-4-5', name: 'Claude Sonnet 4.5', vision: true, recommended: true, reasoning: 'hybrid' },
+      { id: 'claude-opus-4-5', name: 'Claude Opus 4.5', vision: true, reasoning: 'hybrid' },
+      { id: 'claude-haiku-4-5', name: 'Claude Haiku 4.5', vision: true, reasoning: 'hybrid' },
     ],
   },
   openai: {
@@ -47,10 +48,10 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     apiKeyPlaceholder: 'AIza...',
     apiKeyUrl: 'https://aistudio.google.com/app/apikey',
     models: [
-      { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', vision: true, recommended: true },
-      { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', vision: true },
-      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', vision: true },
-      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', vision: true },
+      { id: 'gemini-3-flash-preview', name: 'Gemini 3 Flash Preview', vision: true, recommended: true, reasoning: 'hybrid' },
+      { id: 'gemini-3-pro-preview', name: 'Gemini 3 Pro Preview', vision: true, reasoning: 'hybrid' },
+      { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', vision: true, reasoning: 'hybrid' },
+      { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', vision: true, reasoning: 'hybrid' },
       { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', vision: true },
     ],
   },
@@ -71,11 +72,11 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     apiKeyPlaceholder: 'sk-or-...',
     apiKeyUrl: 'https://openrouter.ai/settings/keys',
     models: [
-      { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', vision: true, recommended: true },
-      { id: 'anthropic/claude-haiku-4', name: 'Claude Haiku 4', vision: true },
+      { id: 'anthropic/claude-sonnet-4', name: 'Claude Sonnet 4', vision: true, recommended: true, reasoning: 'hybrid' },
+      { id: 'anthropic/claude-haiku-4', name: 'Claude Haiku 4', vision: true, reasoning: 'hybrid' },
       { id: 'openai/gpt-4o', name: 'GPT-4o', vision: true },
       { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', vision: true },
-      { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Free)', vision: true },
+      { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash (Free)', vision: true, reasoning: 'hybrid' },
       { id: 'meta-llama/llama-3.3-70b-instruct', name: 'Llama 3.3 70B', vision: false },
     ],
   },
@@ -100,4 +101,9 @@ export function getDefaultModelForProvider(provider: ProviderType): string {
   const models = getModelsForProvider(provider)
   const recommended = models.find((m) => m.recommended)
   return recommended?.id || models[0]?.id || ''
+}
+
+export function getModelConfig(provider: ProviderType, modelId: string): ModelConfig | undefined {
+  const models = getModelsForProvider(provider)
+  return models.find((m) => m.id === modelId)
 }

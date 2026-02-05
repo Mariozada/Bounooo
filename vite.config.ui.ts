@@ -50,6 +50,7 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true, // Only UI build clears the directory
+    minify: false, // Disable minification for debugging
     rollupOptions: {
       input: {
         sidepanel: resolve(__dirname, 'src/sidepanel.html'),

@@ -43,10 +43,11 @@ interface ExecuteStepOptions {
   tracingContext?: TracingContext
   modelName?: string
   provider?: string
+  reasoningEnabled?: boolean
 }
 
-async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinue: boolean; text: string; toolCalls: ToolCallInfo[] }> {
-  const { session, stepNumber, callbacks, tracingContext, modelName, provider } = options
+async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinue: boolean; text: string; toolCalls: ToolCallInfo[]; reasoning?: string }> {
+  const { session, stepNumber, callbacks, tracingContext, modelName, provider, reasoningEnabled } = options
 
   log(`=== Step ${stepNumber} ===`)
   callbacks?.onStepStart?.(stepNumber)
@@ -59,21 +60,29 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
   const stepResult = await streamLLMResponse(session, {
     onTextDelta: callbacks?.onTextDelta,
     onToolCallParsed: callbacks?.onToolStart,
+    onReasoningDelta: callbacks?.onReasoningDelta,
     tracing: tracingContext ? {
       config: tracingContext.config,
       parentContext: stepSpan.context,
       modelName,
       provider,
     } : undefined,
+    reasoningEnabled,
+    provider,
   })
 
   log('Step streamed:', {
     textLength: stepResult.text.length,
     toolCalls: stepResult.toolCalls.length,
+    hasReasoning: !!stepResult.reasoning,
   })
 
   if (stepResult.text.trim()) {
     callbacks?.onTextDone?.(stepResult.text)
+  }
+
+  if (stepResult.reasoning) {
+    callbacks?.onReasoningDone?.(stepResult.reasoning)
   }
 
   if (!hasToolCalls(stepResult)) {
@@ -84,6 +93,7 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
       shouldContinue: false,
       text: stepResult.text,
       toolCalls: [],
+      reasoning: stepResult.reasoning,
     }
   }
 
@@ -106,11 +116,12 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
     shouldContinue: true,
     text: stepResult.text,
     toolCalls: completedToolCalls,
+    reasoning: stepResult.reasoning,
   }
 }
 
 export async function runWorkflow(options: AgentOptions): Promise<AgentResult> {
-  const { callbacks, tracing, modelName, provider } = options
+  const { callbacks, tracing, modelName, provider, reasoningEnabled } = options
   const session = createSession(options)
 
   log('Starting workflow', {
@@ -157,6 +168,7 @@ export async function runWorkflow(options: AgentOptions): Promise<AgentResult> {
         tracingContext,
         modelName,
         provider,
+        reasoningEnabled,
       })
 
       finalText += result.text

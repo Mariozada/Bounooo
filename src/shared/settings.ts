@@ -17,12 +17,19 @@ export interface TracingSettings {
   projectName: string
 }
 
+export interface CustomModelSettings {
+  vision: boolean
+  reasoning: boolean
+}
+
 export interface ProviderSettings {
   provider: ProviderType
   model: string
   apiKeys: Partial<Record<ProviderType, string>>
   openaiCompatible?: OpenAICompatibleConfig
   tracing?: TracingSettings
+  customModelSettings?: CustomModelSettings
+  reasoningEnabled?: boolean
 }
 
 export const DEFAULT_TRACING_SETTINGS: TracingSettings = {

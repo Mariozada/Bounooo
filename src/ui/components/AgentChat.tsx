@@ -10,25 +10,22 @@ import {
 } from 'react'
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react'
 import * as m from 'motion/react-m'
-import { ArrowUp, Check, Copy, RefreshCw, Square } from 'lucide-react'
+import { ArrowUp, Brain, Check, Copy, RefreshCw, Square } from 'lucide-react'
 import { useSettings } from '../hooks/useSettings'
 import {
   createProvider,
   validateSettings,
   PROVIDER_CONFIGS,
+  getModelConfig,
   runWorkflow,
   type ToolCallInfo,
   type Message as AgentMessage,
-  type ContentPart,
 } from '@agent/index'
 import { SettingsPanel } from './SettingsPanel'
 import { ToolCallDisplay } from './ToolCallDisplay'
 import { MarkdownMessage } from './MarkdownMessage'
 import { TooltipIconButton } from './TooltipIconButton'
-import { FileAttachment, type AttachmentFile } from './FileAttachment'
-import { AttachmentPreview, MessageAttachments } from './AttachmentPreview'
-import { ErrorNotification, createError, type NotificationError } from './ErrorNotification'
-import '../styles/attachments.css'
+import { ThinkingBlock } from './ThinkingBlock'
 
 const DEBUG = true
 const MAX_STEPS = 15
@@ -41,7 +38,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   toolCalls?: ToolCallInfo[]
-  attachments?: AttachmentFile[]
+  reasoning?: string
 }
 
 export const AgentChat: FC = () => {
@@ -57,8 +54,6 @@ export const AgentChat: FC = () => {
   const messagesRef = useRef<Message[]>([])
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
-  const [attachments, setAttachments] = useState<AttachmentFile[]>([])
-  const [notificationErrors, setNotificationErrors] = useState<NotificationError[]>([])
 
   const tabId = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
@@ -89,23 +84,20 @@ export const AgentChat: FC = () => {
   }, [inputValue, resizeTextarea])
 
   const sendMessage = useCallback(
-    async (text: string, messageAttachments: AttachmentFile[] = []) => {
+    async (text: string) => {
       log('=== Send Message ===')
-      const hasContent = text.trim() || messageAttachments.length > 0
-      if (!hasContent || isStreaming || validationError) {
-        logWarn('Cannot send:', { text: !!text, attachments: messageAttachments.length, isStreaming, validationError })
+      if (!text || isStreaming || validationError) {
+        logWarn('Cannot send:', { text: !!text, isStreaming, validationError })
         return
       }
 
       setInputValue('')
-      setAttachments([])
       setError(null)
 
       const userMessage: Message = {
         id: Date.now().toString(),
         role: 'user',
         content: text,
-        attachments: messageAttachments.length > 0 ? messageAttachments : undefined,
       }
       setMessages((prev) => [...prev, userMessage])
 
@@ -115,6 +107,7 @@ export const AgentChat: FC = () => {
         role: 'assistant',
         content: '',
         toolCalls: [],
+        reasoning: '',
       }])
 
       setIsStreaming(true)
@@ -124,44 +117,25 @@ export const AgentChat: FC = () => {
         log('Creating provider:', settings.provider, settings.model)
         const model = createProvider(settings)
 
-        // Build agent messages, converting attachments to content parts
-        const buildMessageContent = (msg: Message): string | ContentPart[] => {
-          if (!msg.attachments || msg.attachments.length === 0) {
-            return msg.content
-          }
-          // Multimodal message with attachments
-          const parts: ContentPart[] = []
-          if (msg.content.trim()) {
-            parts.push({ type: 'text', text: msg.content })
-          }
-          for (const att of msg.attachments) {
-            if (att.type === 'image') {
-              parts.push({ type: 'image', image: att.dataUrl, mediaType: att.mediaType })
-            } else {
-              parts.push({ type: 'file', data: att.dataUrl, mediaType: att.mediaType, filename: att.file.name })
-            }
-          }
-          return parts
-        }
-
         const agentMessages: AgentMessage[] = [
           ...messagesRef.current
-            .filter((m) => (m.content && m.content.trim().length > 0 && !m.content.includes('(No response')) || (m.attachments && m.attachments.length > 0))
+            .filter((m) => m.content && m.content.trim().length > 0 && !m.content.includes('(No response'))
             .map((m) => ({
               role: m.role as 'user' | 'assistant',
-              content: buildMessageContent(m),
+              content: m.content,
             })),
-          { role: 'user' as const, content: buildMessageContent({ ...userMessage, content: text, attachments: messageAttachments }) },
+          { role: 'user' as const, content: text },
         ]
 
         let accumulatedText = ''
+        let accumulatedReasoning = ''
         const accumulatedToolCalls: ToolCallInfo[] = []
 
         const updateAssistantMessage = () => {
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantMessageId
-                ? { ...m, content: accumulatedText, toolCalls: [...accumulatedToolCalls] }
+                ? { ...m, content: accumulatedText, toolCalls: [...accumulatedToolCalls], reasoning: accumulatedReasoning }
                 : m
             )
           )
@@ -176,6 +150,10 @@ export const AgentChat: FC = () => {
           callbacks: {
             onTextDelta: (delta) => {
               accumulatedText += delta
+              updateAssistantMessage()
+            },
+            onReasoningDelta: (delta) => {
+              accumulatedReasoning += delta
               updateAssistantMessage()
             },
             onToolStart: (toolCall) => {
@@ -193,6 +171,7 @@ export const AgentChat: FC = () => {
           tracing: settings.tracing,
           modelName: settings.model,
           provider: settings.provider,
+          reasoningEnabled: settings.reasoningEnabled,
         })
 
         log('Agent loop complete:', {
@@ -251,10 +230,10 @@ export const AgentChat: FC = () => {
     (e: FormEvent) => {
       e.preventDefault()
       const text = inputValue.trim()
-      if (!text && attachments.length === 0) return
-      sendMessage(text, attachments)
+      if (!text) return
+      sendMessage(text)
     },
-    [inputValue, attachments, sendMessage]
+    [inputValue, sendMessage]
   )
 
   const handleStop = useCallback(() => {
@@ -264,7 +243,7 @@ export const AgentChat: FC = () => {
     }
   }, [])
 
-  const canSend = !isStreaming && (inputValue.trim() || attachments.length > 0) && !validationError
+  const canSend = !isStreaming && inputValue.trim() && !validationError
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -284,28 +263,8 @@ export const AgentChat: FC = () => {
   }, [])
 
   const handleSuggestion = useCallback((text: string) => {
-    sendMessage(text, [])
+    sendMessage(text)
   }, [sendMessage])
-
-  const handleFilesSelected = useCallback((files: AttachmentFile[]) => {
-    setAttachments(prev => [...prev, ...files])
-  }, [])
-
-  const handleRemoveAttachment = useCallback((id: string) => {
-    setAttachments(prev => prev.filter(a => a.id !== id))
-  }, [])
-
-  const handleAddError = useCallback((message: string, details?: string) => {
-    setNotificationErrors(prev => [...prev, createError(message, details)])
-  }, [])
-
-  const handleDismissError = useCallback((id: string) => {
-    setNotificationErrors(prev => prev.filter(e => e.id !== id))
-  }, [])
-
-  const handleDismissAllErrors = useCallback(() => {
-    setNotificationErrors([])
-  }, [])
 
   const handleCopyMessage = useCallback((messageId: string, text: string) => {
     navigator.clipboard.writeText(text)
@@ -336,6 +295,16 @@ export const AgentChat: FC = () => {
     },
     [updateSettings]
   )
+
+  const handleToggleReasoning = useCallback(() => {
+    updateSettings({ reasoningEnabled: !settings.reasoningEnabled })
+  }, [settings.reasoningEnabled, updateSettings])
+
+  const currentModelConfig = getModelConfig(settings.provider, settings.model)
+  const reasoningMode = settings.customModelSettings?.reasoning
+    ? 'hybrid'
+    : (currentModelConfig?.reasoning ?? 'none')
+  const showReasoningToggle = reasoningMode === 'hybrid'
 
   if (settingsLoading) {
     return (
@@ -416,12 +385,6 @@ export const AgentChat: FC = () => {
         </div>
       )}
 
-      <ErrorNotification
-        errors={notificationErrors}
-        onDismiss={handleDismissError}
-        onDismissAll={handleDismissAllErrors}
-      />
-
       <div className="aui-thread-viewport">
         {messages.length === 0 ? (
           <div className="aui-thread-welcome-root">
@@ -480,10 +443,7 @@ export const AgentChat: FC = () => {
                   data-role="user"
                 >
                   <div className="aui-user-message-content">
-                    {message.content && <div className="message-text">{message.content}</div>}
-                    {message.attachments && message.attachments.length > 0 && (
-                      <MessageAttachments attachments={message.attachments} />
-                    )}
+                    <div className="message-text">{message.content}</div>
                   </div>
                 </m.div>
               )
@@ -505,6 +465,12 @@ export const AgentChat: FC = () => {
                 onMouseLeave={() => setHoveredMessageId(null)}
               >
                 <div className="aui-assistant-message-content">
+                  {(message.reasoning || (isStreamingMessage && !hasContent && !hasToolCalls)) && (
+                    <ThinkingBlock
+                      reasoning={message.reasoning || ''}
+                      isStreaming={isStreamingMessage && !hasContent}
+                    />
+                  )}
                   {hasContent && (
                     <MarkdownMessage content={message.content} isStreaming={isStreamingMessage} />
                   )}
@@ -515,10 +481,10 @@ export const AgentChat: FC = () => {
                       ))}
                     </div>
                   )}
-                  {isEmptyAssistant && isStreaming && (
+                  {isEmptyAssistant && !message.reasoning && isStreaming && (
                     <div className="message-text message-loading">Thinking...</div>
                   )}
-                  {isEmptyAssistant && !isStreaming && (
+                  {isEmptyAssistant && !message.reasoning && !isStreaming && (
                     <div className="message-text message-error">(Empty response)</div>
                   )}
                 </div>
@@ -552,12 +518,6 @@ export const AgentChat: FC = () => {
       </div>
 
       <form className="aui-composer-wrapper" onSubmit={handleSubmit}>
-        {attachments.length > 0 && (
-          <AttachmentPreview
-            attachments={attachments}
-            onRemove={handleRemoveAttachment}
-          />
-        )}
         <div className="aui-composer-root">
           <textarea
             ref={textareaRef}
@@ -575,11 +535,8 @@ export const AgentChat: FC = () => {
             aria-label="Message input"
           />
           <div className="aui-composer-action-wrapper">
-            <div className="aui-composer-actions-left">
-              <FileAttachment
-                onFilesSelected={handleFilesSelected}
-                disabled={isStreaming || !!validationError}
-              />
+            <div className="aui-composer-status">
+              {isStreaming ? 'Agent is working...' : 'Ready'}
             </div>
             {isStreaming ? (
               <button
@@ -601,17 +558,25 @@ export const AgentChat: FC = () => {
               </button>
             )}
           </div>
+          {showReasoningToggle && (
+            <button
+              type="button"
+              className={`reasoning-btn ${settings.reasoningEnabled ? 'active' : ''}`}
+              onClick={handleToggleReasoning}
+              title={settings.reasoningEnabled ? 'Reasoning enabled' : 'Reasoning disabled'}
+            >
+              <Brain size={16} />
+            </button>
+          )}
         </div>
       </form>
 
       {showSettings && (
-        <div className="settings-overlay">
-          <SettingsPanel
-            settings={settings}
-            onSave={handleSaveSettings}
-            onClose={handleCloseSettings}
-          />
-        </div>
+        <SettingsPanel
+          settings={settings}
+          onSave={handleSaveSettings}
+          onClose={handleCloseSettings}
+        />
       )}
         </div>
       </MotionConfig>
