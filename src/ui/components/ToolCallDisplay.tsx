@@ -45,13 +45,6 @@ const STATUS_ICONS: Record<ToolCallInfo['status'], string> = {
   error: '✕',
 }
 
-const STATUS_LABELS: Record<ToolCallInfo['status'], string> = {
-  pending: 'Pending',
-  running: 'Running',
-  completed: 'Done',
-  error: 'Error',
-}
-
 function formatToolName(name: string): string {
   if (!name) return 'Unknown Tool'
   return name
@@ -116,11 +109,11 @@ function formatResultPreview(result: unknown, maxLines = 5): string {
 }
 
 const ToolCallContent: FC<ToolCallDisplayProps> = ({ toolCall }) => {
+  const [expanded, setExpanded] = useState(false)
   const [showFullOutput, setShowFullOutput] = useState(false)
   const [showFullError, setShowFullError] = useState(false)
 
   const statusIcon = STATUS_ICONS[toolCall.status] || '?'
-  const statusLabel = STATUS_LABELS[toolCall.status] || 'Unknown'
   const hasResult = toolCall.result !== undefined
   const hasError = !!toolCall.error
   const isFinished = toolCall.status === 'completed' || toolCall.status === 'error'
@@ -134,7 +127,19 @@ const ToolCallContent: FC<ToolCallDisplayProps> = ({ toolCall }) => {
       <div className="tool-call-header">
         <span className="tool-call-icon" aria-hidden="true">{statusIcon}</span>
         <span className="tool-call-name">{formatToolName(toolCall.name)}</span>
-        <span className="tool-call-status">{statusLabel}</span>
+        {isFinished ? (
+          <button
+            type="button"
+            className="tool-call-show-btn"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? 'Hide' : 'Show'}
+          </button>
+        ) : (
+          <span className="tool-call-status">
+            {toolCall.status === 'running' ? 'Running' : 'Pending'}
+          </span>
+        )}
       </div>
 
       {toolCall.status === 'running' && (
@@ -143,7 +148,7 @@ const ToolCallContent: FC<ToolCallDisplayProps> = ({ toolCall }) => {
         </div>
       )}
 
-      {isFinished && (
+      {isFinished && expanded && (
         <div className="tool-call-output">
           {hasError ? (
             <>

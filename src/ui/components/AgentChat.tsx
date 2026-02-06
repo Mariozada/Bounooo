@@ -269,7 +269,11 @@ export const AgentChat: FC<AgentChatProps> = ({
               updateAssistant()
             },
             onToolStart: (toolCall) => {
-              accumulatedToolCalls.push(toolCall)
+              // Only add if not already in the list (onToolStart is called twice: when parsed and when executing)
+              const exists = accumulatedToolCalls.some(tc => tc.id === toolCall.id)
+              if (!exists) {
+                accumulatedToolCalls.push(toolCall)
+              }
               updateAssistant()
             },
             onToolDone: (toolCall) => {
@@ -506,7 +510,11 @@ export const AgentChat: FC<AgentChatProps> = ({
               updateAssistant()
             },
             onToolStart: (toolCall) => {
-              accumulatedToolCalls.push(toolCall)
+              // Only add if not already in the list (onToolStart is called twice: when parsed and when executing)
+              const exists = accumulatedToolCalls.some(tc => tc.id === toolCall.id)
+              if (!exists) {
+                accumulatedToolCalls.push(toolCall)
+              }
               updateAssistant()
             },
             onToolDone: (toolCall) => {
@@ -902,9 +910,11 @@ export const AgentChat: FC<AgentChatProps> = ({
             placeholder={
               validationError
                 ? 'Configure your API key to start...'
+                : isStreaming
+                ? 'Agent is working... Type your next message'
                 : 'Send a message...'
             }
-            disabled={isStreaming || !!validationError}
+            disabled={!!validationError}
             rows={1}
             aria-label="Message input"
           />
@@ -929,7 +939,10 @@ export const AgentChat: FC<AgentChatProps> = ({
               <button
                 type="button"
                 className="aui-composer-cancel"
-                onClick={handleStop}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handleStop()
+                }}
                 aria-label="Stop generation"
               >
                 <Square size={14} />
