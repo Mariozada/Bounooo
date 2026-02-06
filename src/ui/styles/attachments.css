@@ -88,6 +88,15 @@
   object-fit: cover;
 }
 
+.attachment-preview-image.clickable {
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.attachment-preview-image.clickable:hover {
+  opacity: 0.85;
+}
+
 /* File Preview */
 .attachment-preview-file {
   display: flex;
@@ -258,4 +267,98 @@
   font-size: 12px;
   color: var(--color-error-text, #7f1d1d);
   line-height: 1.5;
+}
+
+/* ============================================
+   Image Lightbox
+   ============================================ */
+
+.image-lightbox-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  animation: lightbox-fade-in 0.2s ease;
+}
+
+@keyframes lightbox-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.image-lightbox-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+}
+
+.image-lightbox-toolbar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.image-lightbox-toolbar button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.image-lightbox-toolbar button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.image-lightbox-toolbar button.close-btn {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.image-lightbox-toolbar button.close-btn:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.image-lightbox-toolbar .zoom-level {
+  min-width: 50px;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+.image-lightbox-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+  padding: 20px;
+}
+
+.image-lightbox-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 0.2s ease;
+  border-radius: 4px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }

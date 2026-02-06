@@ -1,3 +1,5 @@
 export { SettingsPanel } from './SettingsPanel'
+export { ProviderTab } from './ProviderTab'
 export { DataTab } from './DataTab'
 export { TracingTab } from './TracingTab'
+export { useSettingsForm } from './useSettingsForm'

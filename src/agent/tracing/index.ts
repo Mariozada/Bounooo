@@ -6,6 +6,9 @@ export type { PhoenixSpan } from './exporter'
 
 export { generateTraceId, generateSpanId } from './ids'
 
+export { buildSpan, buildLLMAttributes } from './spanBuilder'
+export { formatMessages, formatMessageContent } from './messageFormatter'
+
 export type {
   TracingConfig,
   ChatMessage,

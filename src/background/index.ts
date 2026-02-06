@@ -179,6 +179,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (type === MessageTypes.TAKE_SCREENSHOT) {
+    const { tabId } = message as { tabId: number }
+    console.log('[BrowseRun:background] TAKE_SCREENSHOT received, tabId:', tabId)
+
+    chrome.tabs.get(tabId).then(async (tab) => {
+      try {
+        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+        console.log('[BrowseRun:background] Screenshot captured, length:', dataUrl.length)
+        sendResponse({ success: true, dataUrl })
+      } catch (err) {
+        console.error('[BrowseRun:background] Screenshot error:', err)
+        sendResponse({ success: false, error: (err as Error).message })
+      }
+    }).catch((err) => {
+      console.error('[BrowseRun:background] Tab get error:', err)
+      sendResponse({ success: false, error: (err as Error).message })
+    })
+    return true
+  }
+
   if (type === MessageTypes.EXECUTE_TOOL) {
     const { tool, params } = message as { tool: string; params: Record<string, unknown> }
     console.log(`[BrowseRun:background] EXECUTE_TOOL received: tool=${tool}, params=`, params)
