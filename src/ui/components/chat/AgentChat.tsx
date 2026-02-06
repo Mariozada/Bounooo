@@ -198,10 +198,12 @@ export const AgentChat: FC<AgentChatProps> = ({
   const currentProvider = PROVIDER_CONFIGS[settings.provider]
   const displayError = validationError || error
 
+
   return (
     <LazyMotion features={domAnimation}>
       <MotionConfig reducedMotion="user">
         <div className="agent-chat aui-thread-root">
+          <div className="glow-border" />
           <ChatTopBar
             providerName={currentProvider.name}
             modelName={settings.model}

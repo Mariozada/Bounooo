@@ -67,6 +67,27 @@ body {
   flex-direction: column;
   height: 100%;
   background: var(--background);
+  position: relative;
+}
+
+/* Glowing dashed border */
+.glow-border {
+  position: absolute;
+  inset: 8px;
+  pointer-events: none;
+  z-index: 9999;
+  border: 2px dashed hsl(217 91% 60%);
+  border-radius: 12px;
+  box-shadow:
+    0 0 4px hsl(217 91% 60% / 0.5),
+    inset 0 0 4px hsl(217 91% 60% / 0.5);
+  /* Larger gaps between dashes */
+  background:
+    repeating-linear-gradient(90deg, hsl(217 91% 60%) 0, hsl(217 91% 60%) 8px, transparent 8px, transparent 20px) 0 0 / 100% 2px no-repeat,
+    repeating-linear-gradient(90deg, hsl(217 91% 60%) 0, hsl(217 91% 60%) 8px, transparent 8px, transparent 20px) 0 100% / 100% 2px no-repeat,
+    repeating-linear-gradient(0deg, hsl(217 91% 60%) 0, hsl(217 91% 60%) 8px, transparent 8px, transparent 20px) 0 0 / 2px 100% no-repeat,
+    repeating-linear-gradient(0deg, hsl(217 91% 60%) 0, hsl(217 91% 60%) 8px, transparent 8px, transparent 20px) 100% 0 / 2px 100% no-repeat;
+  border: none;
 }
 
 .aui-topbar {
