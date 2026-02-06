@@ -22,7 +22,6 @@
   ],
   "permissions": [
     "storage",
-    "unlimitedStorage",
     "activeTab",
     "tabs",
     "tabGroups",

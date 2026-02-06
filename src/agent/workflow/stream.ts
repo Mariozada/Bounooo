@@ -3,6 +3,12 @@ import { XMLStreamParser, STREAM_EVENT_TYPES, type ToolCallEvent } from '../stre
 import type { AgentSession, StepResult, ToolCallInfo, Message, ContentPart } from './types'
 import { getMessageText } from './types'
 import { getTracer, type SpanContext, type TracingConfig, type ChatMessage } from '../tracing'
+import {
+  generateRequestId,
+  getCapturedParams,
+  clearCapturedParams,
+  formatCapturedParams,
+} from '../debugMiddleware'
 
 // Convert our Message format to Vercel AI SDK CoreMessage format
 function convertToSDKMessages(messages: Message[]): CoreMessage[] {
@@ -69,11 +75,32 @@ export interface StreamCallbacks {
   tracing?: StreamTracingOptions
   reasoningEnabled?: boolean
   provider?: string
+  modelId?: string
 }
 
-function getProviderOptions(provider?: string, reasoningEnabled?: boolean): Record<string, unknown> | undefined {
+function isOpenAIReasoningModel(modelId?: string): boolean {
+  if (!modelId) return false
+  // Match o1, o1-mini, o1-pro, o3, o3-mini, o4-mini, etc.
+  // Also match openrouter format: openai/o1, openai/o3-mini, etc.
+  return /(?:^|\/)(o[1-4])(?:-|$)/i.test(modelId)
+}
+
+function isAnthropicModel(modelId?: string): boolean {
+  if (!modelId) return false
+  // Match anthropic/claude-* or just claude-*
+  return modelId.toLowerCase().includes('claude')
+}
+
+function isGoogleModel(modelId?: string): boolean {
+  if (!modelId) return false
+  // Match google/gemini-* or just gemini-*
+  return modelId.toLowerCase().includes('gemini')
+}
+
+function getProviderOptions(provider?: string, reasoningEnabled?: boolean, modelId?: string): Record<string, unknown> | undefined {
   if (!reasoningEnabled) return undefined
 
+  // Direct Anthropic provider
   if (provider === 'anthropic') {
     return {
       anthropic: {
@@ -85,13 +112,53 @@ function getProviderOptions(provider?: string, reasoningEnabled?: boolean): Reco
     }
   }
 
+  // Direct Google provider - just enable thought streaming, use model's default thinking level
   if (provider === 'google') {
     return {
       google: {
         thinkingConfig: {
-          thinkingBudget: 8000,
+          includeThoughts: true,
         },
       },
+    }
+  }
+
+  // Direct OpenAI provider with o-series models
+  if (provider === 'openai' && isOpenAIReasoningModel(modelId)) {
+    return {
+      openai: {
+        reasoningEffort: 'medium',
+      },
+    }
+  }
+
+  // OpenRouter - detect underlying provider from model ID
+  if (provider === 'openrouter') {
+    if (isOpenAIReasoningModel(modelId)) {
+      return {
+        openai: {
+          reasoningEffort: 'medium',
+        },
+      }
+    }
+    if (isAnthropicModel(modelId)) {
+      return {
+        anthropic: {
+          thinking: {
+            type: 'enabled',
+            budgetTokens: 16000,
+          },
+        },
+      }
+    }
+    if (isGoogleModel(modelId)) {
+      return {
+        google: {
+          thinkingConfig: {
+            includeThoughts: true,
+          },
+        },
+      }
     }
   }
 
@@ -108,15 +175,30 @@ export async function streamLLMResponse(
   let reasoning = ''
   let rawOutput = ''  // Original LLM output for Phoenix (no filtering)
 
+  // Generate a unique request ID for debug middleware correlation
+  const requestId = generateRequestId()
+
   // Start LLM span if tracing enabled
+  // Note: We'll update it with SDK params after streaming completes
   const tracer = getTracer(callbacks?.tracing?.config)
+
+  // Build input messages for tracing - system prompt first, then conversation
+  const tracedInputMessages: ChatMessage[] = []
+  if (session.systemPrompt) {
+    tracedInputMessages.push({
+      role: 'system',
+      content: session.systemPrompt,
+    })
+  }
+  tracedInputMessages.push(...session.messages.map(m => ({
+    role: m.role as ChatMessage['role'],
+    content: getMessageText(m),
+  })))
+
   const llmSpan = callbacks?.tracing ? tracer.startLLMSpan({
     model: callbacks.tracing.modelName ?? 'unknown',
     provider: callbacks.tracing.provider,
-    inputMessages: session.messages.map(m => ({
-      role: m.role as ChatMessage['role'],
-      content: getMessageText(m),  // Extract text for tracing
-    })),
+    inputMessages: tracedInputMessages,
     parentContext: callbacks.tracing.parentContext,
   }) : null
 
@@ -142,22 +224,29 @@ export async function streamLLMResponse(
   })
 
   try {
-    const providerOptions = getProviderOptions(callbacks?.provider, callbacks?.reasoningEnabled)
+    // Build provider options, including debug middleware request ID
+    const baseProviderOptions = getProviderOptions(callbacks?.provider, callbacks?.reasoningEnabled, callbacks?.modelId) || {}
+    const providerOptions = {
+      ...baseProviderOptions,
+      // Pass request ID to debug middleware for correlation
+      debugMiddleware: { requestId },
+    }
 
     const result = await streamText({
       model: session.model,
       system: session.systemPrompt,
       messages: sdkMessages,
       abortSignal: session.abortSignal,
-      providerOptions,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      providerOptions: providerOptions as any,
     })
 
     // Use fullStream to capture reasoning events
     for await (const part of result.fullStream) {
       if (part.type === 'text-delta') {
-        rawOutput += part.textDelta
-        parser.processChunk(part.textDelta)
-      } else if (part.type === 'reasoning') {
+        rawOutput += part.text
+        parser.processChunk(part.text)
+      } else if (part.type === 'reasoning-delta') {
         reasoning += part.text
         callbacks?.onReasoningDelta?.(part.text)
       }
@@ -165,17 +254,69 @@ export async function streamLLMResponse(
 
     parser.flush()
 
-    // End LLM span with RAW output (original, unfiltered)
+    // Retrieve captured SDK params from debug middleware
+    const capturedParams = getCapturedParams(requestId)
+
+    // Build SDK params and response for tracing
+    let sdkParamsForTrace: {
+      messagesRaw?: unknown
+      providerOptions?: Record<string, unknown>
+      settings?: Record<string, unknown>
+      tools?: unknown[]
+    } | undefined
+    let sdkResponseForTrace: {
+      finishReason?: string
+      usage?: { promptTokens?: number; completionTokens?: number }
+    } | undefined
+
+    if (capturedParams) {
+      const formatted = formatCapturedParams(capturedParams)
+
+      // SDK params captured by middleware
+      sdkParamsForTrace = {
+        messagesRaw: capturedParams.prompt,
+        providerOptions: formatted.sdkProviderOptions,
+        settings: formatted.sdkSettings,
+        tools: capturedParams.tools as unknown[] | undefined,
+      }
+
+      // SDK response info
+      sdkResponseForTrace = {
+        finishReason: capturedParams.response?.finishReason,
+        usage: capturedParams.response?.usage,
+      }
+
+      // Log for debugging
+      console.log('[Stream] SDK params captured:', {
+        requestId,
+        settingsKeys: Object.keys(formatted.sdkSettings),
+        providerOptionsKeys: Object.keys(formatted.sdkProviderOptions),
+        hasMessages: !!capturedParams.prompt,
+        finishReason: capturedParams.response?.finishReason,
+        promptTokens: capturedParams.response?.usage?.promptTokens,
+        completionTokens: capturedParams.response?.usage?.completionTokens,
+      })
+    }
+
+    // End LLM span with RAW output, SDK params, and SDK response
     llmSpan?.end({
       outputMessage: rawOutput ? { role: 'assistant', content: rawOutput } : undefined,
       toolCalls: toolCalls.map(tc => ({
         name: tc.name,
         input: tc.input,
       })),
+      sdkParams: sdkParamsForTrace,
+      sdkResponse: sdkResponseForTrace,
     })
+
+    // Clean up captured params
+    clearCapturedParams(requestId)
 
     return { text, toolCalls, reasoning: reasoning || undefined }
   } catch (err) {
+    // Clean up captured params on error
+    clearCapturedParams(requestId)
+
     // End LLM span with error (still include raw output captured so far)
     llmSpan?.end({
       outputMessage: rawOutput ? { role: 'assistant', content: rawOutput } : undefined,

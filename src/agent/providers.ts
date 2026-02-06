@@ -6,23 +6,36 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
 import type { ProviderSettings } from '@shared/settings'
+import { wrapWithDebugMiddleware } from './debugMiddleware'
 
 const DEBUG = true
 const log = (...args: unknown[]) => DEBUG && console.log('[Agent:Provider]', ...args)
 const logError = (...args: unknown[]) => console.error('[Agent:Provider]', ...args)
 
-const createFetchWithLogging = (providerName: string) => {
+const createFetchWithLogging = (providerName: string, extraHeaders?: Record<string, string>) => {
   return async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const urlStr = url.toString()
+
+    // Merge extra headers if provided
+    const headers = {
+      ...Object.fromEntries(new Headers(init?.headers).entries()),
+      ...extraHeaders,
+    }
+
+    const modifiedInit: RequestInit = {
+      ...init,
+      headers,
+    }
+
     log(`[${providerName}] Fetching:`, urlStr)
     log(`[${providerName}] Request options:`, {
-      method: init?.method,
-      headers: init?.headers,
-      bodyLength: init?.body ? String(init.body).length : 0,
+      method: modifiedInit?.method,
+      headers: modifiedInit?.headers,
+      bodyLength: modifiedInit?.body ? String(modifiedInit.body).length : 0,
     })
 
     try {
-      const response = await fetch(url, init)
+      const response = await fetch(url, modifiedInit)
       log(`[${providerName}] Response status:`, response.status, response.statusText)
 
       if (!response.ok) {
@@ -72,11 +85,13 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         log('Creating Anthropic provider...')
         const anthropic = createAnthropic({
           apiKey,
-          fetch: createFetchWithLogging('Anthropic'),
+          fetch: createFetchWithLogging('Anthropic', {
+            'anthropic-dangerous-direct-browser-access': 'true',
+          }),
         })
         const model = anthropic(settings.model)
         log('Anthropic model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'openai': {
@@ -87,7 +102,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = openai(settings.model)
         log('OpenAI model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'google': {
@@ -98,7 +113,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = google(settings.model)
         log('Google model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'groq': {
@@ -109,7 +124,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = groq(settings.model)
         log('Groq model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'openrouter': {
@@ -120,7 +135,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = openrouter(settings.model)
         log('OpenRouter model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'openai-compatible': {
@@ -140,7 +155,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = compatible(settings.model)
         log('OpenAI-compatible model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       default:

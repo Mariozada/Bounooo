@@ -27,15 +27,44 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
   )
 
   const handleProviderChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
-    const provider = e.target.value as ProviderType
-    const defaultModel = getDefaultModelForProvider(provider)
-    const isCustomProvider = provider === 'openai-compatible'
-    setUseCustomModel(isCustomProvider)
-    setLocalSettings((prev) => ({
-      ...prev,
-      provider,
-      model: isCustomProvider ? prev.model : defaultModel,
-    }))
+    const newProvider = e.target.value as ProviderType
+    const isCustomProvider = newProvider === 'openai-compatible'
+
+    setLocalSettings((prev) => {
+      // Save current provider's model and custom settings before switching
+      const updatedModels = {
+        ...prev.models,
+        [prev.provider]: prev.model,
+      }
+      const updatedCustomSettings = prev.customModelSettings
+        ? {
+            ...prev.customModelSettingsPerProvider,
+            [prev.provider]: prev.customModelSettings,
+          }
+        : prev.customModelSettingsPerProvider
+
+      // Get saved model for new provider, or use default
+      const savedModel = updatedModels[newProvider]
+      const defaultModel = getDefaultModelForProvider(newProvider)
+      const newModel = savedModel || defaultModel
+
+      // Get saved custom settings for new provider
+      const savedCustomSettings = updatedCustomSettings?.[newProvider]
+
+      // Check if the new model is in the predefined list
+      const modelsForNewProvider = getModelsForProvider(newProvider)
+      const isModelInList = modelsForNewProvider.some((m) => m.id === newModel)
+      setUseCustomModel(isCustomProvider || (!!savedModel && !isModelInList))
+
+      return {
+        ...prev,
+        provider: newProvider,
+        model: newModel,
+        models: updatedModels,
+        customModelSettings: savedCustomSettings,
+        customModelSettingsPerProvider: updatedCustomSettings,
+      }
+    })
   }, [])
 
   const handleModelChange = useCallback((value: string) => {
@@ -134,7 +163,21 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
     setIsSaving(true)
     setError(null)
     try {
-      await onSave(localSettings)
+      // Sync current model and custom settings to per-provider storage before saving
+      const settingsToSave: ProviderSettings = {
+        ...localSettings,
+        models: {
+          ...localSettings.models,
+          [localSettings.provider]: localSettings.model,
+        },
+        customModelSettingsPerProvider: localSettings.customModelSettings
+          ? {
+              ...localSettings.customModelSettingsPerProvider,
+              [localSettings.provider]: localSettings.customModelSettings,
+            }
+          : localSettings.customModelSettingsPerProvider,
+      }
+      await onSave(settingsToSave)
       onClose()
     } catch (e) {
       setError((e as Error).message)

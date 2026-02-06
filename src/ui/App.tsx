@@ -1,11 +1,14 @@
 import type { FC } from 'react'
-import { ChatApp } from './components/ChatApp'
+import { AgentChat } from './components'
 import './styles/App.css'
 import './styles/markdown.css'
-import './styles/sidebar.css'
 
 const App: FC = () => {
-  return <ChatApp />
+  return (
+    <div className="app">
+      <AgentChat />
+    </div>
+  )
 }
 
 export default App

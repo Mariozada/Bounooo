@@ -69,6 +69,7 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
     } : undefined,
     reasoningEnabled,
     provider,
+    modelId: modelName,
   })
 
   log('Step streamed:', {

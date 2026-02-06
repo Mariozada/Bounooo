@@ -1,5 +1,6 @@
 import { useState, type FC } from 'react'
 import { ChevronDown, Brain } from 'lucide-react'
+import { MarkdownMessage } from './MarkdownMessage'
 
 interface ThinkingBlockProps {
   reasoning: string
@@ -41,7 +42,11 @@ export const ThinkingBlock: FC<ThinkingBlockProps> = ({ reasoning, isStreaming }
 
       {isExpanded && (
         <div className="thinking-block-content">
-          <pre>{reasoning || 'Thinking...'}</pre>
+          {reasoning ? (
+            <MarkdownMessage content={reasoning} isStreaming={isStreaming} />
+          ) : (
+            <p className="thinking-placeholder">Thinking...</p>
+          )}
         </div>
       )}
     </div>

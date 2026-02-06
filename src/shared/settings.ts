@@ -26,9 +26,11 @@ export interface ProviderSettings {
   provider: ProviderType
   model: string
   apiKeys: Partial<Record<ProviderType, string>>
+  models?: Partial<Record<ProviderType, string>>  // Store last used model per provider
   openaiCompatible?: OpenAICompatibleConfig
   tracing?: TracingSettings
   customModelSettings?: CustomModelSettings
+  customModelSettingsPerProvider?: Partial<Record<ProviderType, CustomModelSettings>>  // Per provider
   reasoningEnabled?: boolean
 }
 
