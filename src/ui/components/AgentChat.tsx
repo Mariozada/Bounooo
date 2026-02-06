@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react'
 import * as m from 'motion/react-m'
-import { ArrowUp, Brain, Check, Copy, Pencil, RefreshCw, Square } from 'lucide-react'
+import { ArrowUp, Brain, Check, Copy, PanelLeft, Pencil, RefreshCw, Square } from 'lucide-react'
 import { useSettings } from '../hooks/useSettings'
 import type { ThreadMessage } from '../hooks/useThreads'
 import {
@@ -73,6 +73,7 @@ interface AgentChatProps {
   onNavigateBranch?: (messageId: string, direction: 'prev' | 'next') => Promise<void>
   onRegenerateAssistant?: (messageId: string) => Promise<void>
   sidebarOpen?: boolean
+  onToggleSidebar?: () => void
 }
 
 export const AgentChat: FC<AgentChatProps> = ({
@@ -87,6 +88,7 @@ export const AgentChat: FC<AgentChatProps> = ({
   onNavigateBranch,
   onRegenerateAssistant,
   sidebarOpen = false,
+  onToggleSidebar,
 }) => {
   // Note: _threadId and _onNewThread are available for future use but currently unused
   const { settings, updateSettings, isLoading: settingsLoading } = useSettings()
@@ -624,8 +626,16 @@ export const AgentChat: FC<AgentChatProps> = ({
         <div className="agent-chat aui-thread-root">
           <div className="aui-topbar">
             <div className="aui-topbar-info">
-              {/* Add spacing when sidebar is closed to account for toggle button */}
-              {!sidebarOpen && <div style={{ width: 44 }} />}
+              {!sidebarOpen && onToggleSidebar && (
+                <button
+                  type="button"
+                  className="sidebar-toggle-btn"
+                  onClick={onToggleSidebar}
+                  aria-label="Open sidebar"
+                >
+                  <PanelLeft size={18} />
+                </button>
+              )}
               <span className="provider-badge">{currentProvider.name}</span>
               <span className="model-name">{settings.model}</span>
               {tabId > 0 && <span className="tab-badge">Tab {tabId}</span>}

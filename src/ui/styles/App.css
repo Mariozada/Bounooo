@@ -1220,6 +1220,39 @@ body {
   color: var(--muted);
 }
 
+/* Input with icon button (e.g., show/hide password) */
+.input-with-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-button input {
+  flex: 1;
+  padding-right: 40px;
+}
+
+.input-icon-button {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.input-icon-button:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--foreground);
+}
+
 .form-group select {
   cursor: pointer;
   appearance: none;

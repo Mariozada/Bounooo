@@ -21,12 +21,35 @@ export interface LLMSpanOptions {
   provider?: string
   inputMessages: ChatMessage[]
   parentContext?: SpanContext
+  // SDK-level debug info (from debugMiddleware)
+  sdkParams?: {
+    systemPrompt?: string
+    messagesRaw?: unknown  // The actual SDK messages
+    providerOptions?: Record<string, unknown>
+    settings?: Record<string, unknown>
+    tools?: unknown[]
+  }
 }
 
 export interface LLMSpanResult {
   outputMessage?: ChatMessage
   toolCalls?: ToolCallTrace[]
   error?: string
+  // SDK-level params captured by debugMiddleware (available at end time)
+  sdkParams?: {
+    messagesRaw?: unknown  // The actual SDK messages
+    providerOptions?: Record<string, unknown>
+    settings?: Record<string, unknown>
+    tools?: unknown[]
+  }
+  // SDK-level response info (from debugMiddleware)
+  sdkResponse?: {
+    finishReason?: string
+    usage?: {
+      promptTokens?: number
+      completionTokens?: number
+    }
+  }
 }
 
 export interface ToolSpanOptions {
@@ -166,10 +189,12 @@ export class Tracer {
         // Build attributes with properly formatted messages
         const attributes: Record<string, unknown> = {
           [OI.LLM_MODEL_NAME]: options.model,
+          [OI.GEN_AI_REQUEST_MODEL]: options.model,
         }
 
         if (options.provider) {
           attributes[OI.LLM_PROVIDER] = options.provider
+          attributes[OI.GEN_AI_SYSTEM] = options.provider
         }
 
         // Format input messages using OpenInference conventions
@@ -178,6 +203,76 @@ export class Tracer {
         // Format output message if present
         if (result.outputMessage) {
           Object.assign(attributes, formatMessages([result.outputMessage], OI.LLM_OUTPUT_MESSAGES))
+        }
+
+        // === SDK-level debug attributes ===
+        // Merge sdkParams from start (options) and end (result)
+        // Start time: system prompt is known
+        // End time: messages, settings, providerOptions are captured by middleware
+        const mergedSdkParams = {
+          ...options.sdkParams,
+          ...result.sdkParams,
+        }
+
+        // System prompt (the actual rendered prompt sent to LLM)
+        if (mergedSdkParams.systemPrompt) {
+          attributes[OI.SDK_SYSTEM_PROMPT] = mergedSdkParams.systemPrompt
+        }
+
+        // Raw SDK messages (the actual format sent to provider)
+        if (mergedSdkParams.messagesRaw) {
+          attributes[OI.SDK_MESSAGES_RAW] = JSON.stringify(mergedSdkParams.messagesRaw)
+        }
+
+        // Provider-specific options (thinking config, reasoning effort, etc.)
+        if (mergedSdkParams.providerOptions && Object.keys(mergedSdkParams.providerOptions).length > 0) {
+          attributes[OI.SDK_PROVIDER_OPTIONS] = JSON.stringify(mergedSdkParams.providerOptions)
+        }
+
+        // Model settings (temperature, maxTokens, etc.)
+        if (mergedSdkParams.settings && Object.keys(mergedSdkParams.settings).length > 0) {
+          attributes[OI.SDK_SETTINGS] = JSON.stringify(mergedSdkParams.settings)
+
+          // Also set individual GenAI attributes for standard tooling
+          const settings = mergedSdkParams.settings as Record<string, unknown>
+          if (settings.temperature !== undefined) {
+            attributes[OI.GEN_AI_REQUEST_TEMPERATURE] = settings.temperature
+          }
+          if (settings.maxTokens !== undefined) {
+            attributes[OI.GEN_AI_REQUEST_MAX_TOKENS] = settings.maxTokens
+          }
+          if (settings.topP !== undefined) {
+            attributes[OI.GEN_AI_REQUEST_TOP_P] = settings.topP
+          }
+          if (settings.topK !== undefined) {
+            attributes[OI.GEN_AI_REQUEST_TOP_K] = settings.topK
+          }
+          if (settings.frequencyPenalty !== undefined) {
+            attributes[OI.GEN_AI_REQUEST_FREQUENCY_PENALTY] = settings.frequencyPenalty
+          }
+          if (settings.presencePenalty !== undefined) {
+            attributes[OI.GEN_AI_REQUEST_PRESENCE_PENALTY] = settings.presencePenalty
+          }
+        }
+
+        // Tool definitions
+        if (mergedSdkParams.tools && mergedSdkParams.tools.length > 0) {
+          attributes[OI.SDK_TOOLS] = JSON.stringify(mergedSdkParams.tools)
+        }
+
+        // === SDK-level response attributes ===
+        if (result.sdkResponse) {
+          if (result.sdkResponse.finishReason) {
+            attributes[OI.GEN_AI_RESPONSE_FINISH_REASON] = result.sdkResponse.finishReason
+          }
+          if (result.sdkResponse.usage) {
+            if (result.sdkResponse.usage.promptTokens !== undefined) {
+              attributes[OI.GEN_AI_USAGE_INPUT_TOKENS] = result.sdkResponse.usage.promptTokens
+            }
+            if (result.sdkResponse.usage.completionTokens !== undefined) {
+              attributes[OI.GEN_AI_USAGE_OUTPUT_TOKENS] = result.sdkResponse.usage.completionTokens
+            }
+          }
         }
 
         const span = this.buildSpan({

@@ -6,6 +6,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
 import type { ProviderSettings } from '@shared/settings'
+import { wrapWithDebugMiddleware } from './debugMiddleware'
 
 const DEBUG = true
 const log = (...args: unknown[]) => DEBUG && console.log('[Agent:Provider]', ...args)
@@ -90,7 +91,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = anthropic(settings.model)
         log('Anthropic model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'openai': {
@@ -101,7 +102,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = openai(settings.model)
         log('OpenAI model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'google': {
@@ -112,7 +113,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = google(settings.model)
         log('Google model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'groq': {
@@ -123,7 +124,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = groq(settings.model)
         log('Groq model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'openrouter': {
@@ -134,7 +135,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = openrouter(settings.model)
         log('OpenRouter model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       case 'openai-compatible': {
@@ -154,7 +155,7 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = compatible(settings.model)
         log('OpenAI-compatible model created:', model)
-        return model
+        return wrapWithDebugMiddleware(model)
       }
 
       default:
