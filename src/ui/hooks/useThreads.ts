@@ -27,6 +27,36 @@ import type { ToolCallInfo } from '@agent/index'
 const DEBUG = false
 const log = (...args: unknown[]) => DEBUG && console.log('[useThreads]', ...args)
 
+// Storage key for persisting the last active thread
+const LAST_THREAD_KEY = 'browserun_last_thread_id'
+
+// Helper to save last active thread ID to chrome.storage
+async function saveLastThreadId(threadId: string | null): Promise<void> {
+  try {
+    if (threadId) {
+      await chrome.storage.local.set({ [LAST_THREAD_KEY]: threadId })
+    } else {
+      await chrome.storage.local.remove(LAST_THREAD_KEY)
+    }
+    log('Saved last thread ID:', threadId)
+  } catch (e) {
+    console.error('[useThreads] Failed to save last thread ID:', e)
+  }
+}
+
+// Helper to load last active thread ID from chrome.storage
+async function loadLastThreadId(): Promise<string | null> {
+  try {
+    const result = await chrome.storage.local.get(LAST_THREAD_KEY)
+    const threadId = result[LAST_THREAD_KEY] ?? null
+    log('Loaded last thread ID:', threadId)
+    return threadId
+  } catch (e) {
+    console.error('[useThreads] Failed to load last thread ID:', e)
+    return null
+  }
+}
+
 export interface ThreadMessage {
   id: string
   parentId: string | null
@@ -124,7 +154,7 @@ export function useThreads(): UseThreadsReturn {
     }
   }, [])
 
-  // Load threads on mount
+  // Load threads on mount and restore last active thread
   useEffect(() => {
     loadThreads()
   }, [])
@@ -135,12 +165,53 @@ export function useThreads(): UseThreadsReturn {
       const allThreads = await getAllThreads()
       setThreads(allThreads)
       log('Loaded threads:', allThreads.length)
+
+      // Restore last active thread if it exists
+      const lastThreadId = await loadLastThreadId()
+      if (lastThreadId && allThreads.some((t) => t.id === lastThreadId)) {
+        setCurrentThreadId(lastThreadId)
+        currentThreadIdRef.current = lastThreadId
+        // Load messages for the restored thread
+        const state = await getBranchState(lastThreadId)
+        setBranchState(state)
+        branchStateRef.current = state
+        const storedMessages = await buildActiveConversation(lastThreadId, state)
+        const allMessages = await getMessages(lastThreadId)
+        const threadMessages: ThreadMessage[] = []
+
+        for (const msg of storedMessages) {
+          let attachments: AttachmentFile[] | undefined
+          if (msg.attachmentIds && msg.attachmentIds.length > 0) {
+            const storedAttachments = await getAttachments(msg.id)
+            attachments = storedAttachments
+              .map(storedAttachmentToAttachmentFile)
+              .filter((a): a is AttachmentFile => a !== null)
+          }
+          const siblings = allMessages.filter((m) => m.parentId === msg.parentId)
+          const siblingIndex = siblings.findIndex((m) => m.id === msg.id)
+          threadMessages.push({
+            id: msg.id,
+            parentId: msg.parentId,
+            role: msg.role,
+            content: msg.content,
+            reasoning: msg.reasoning,
+            toolCalls: msg.toolCalls,
+            attachments,
+            siblingCount: siblings.length,
+            siblingIndex,
+            model: msg.model,
+            provider: msg.provider,
+          })
+        }
+        setMessagesWithRef(threadMessages)
+        log('Restored last active thread:', lastThreadId)
+      }
     } catch (err) {
       console.error('[useThreads] Failed to load threads:', err)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [setMessagesWithRef])
 
   const loadMessages = useCallback(async (threadId: string) => {
     try {
@@ -198,6 +269,7 @@ export function useThreads(): UseThreadsReturn {
     setThreads((prev) => [thread, ...prev])
     setCurrentThreadId(thread.id)
     currentThreadIdRef.current = thread.id
+    await saveLastThreadId(thread.id)
     setMessagesWithRef([])
     setBranchState({})
     branchStateRef.current = {}
@@ -208,6 +280,7 @@ export function useThreads(): UseThreadsReturn {
   const selectThread = useCallback(async (id: string) => {
     setCurrentThreadId(id)
     currentThreadIdRef.current = id
+    await saveLastThreadId(id)
     await loadMessages(id)
     log('Selected thread:', id)
   }, [loadMessages])
@@ -220,6 +293,7 @@ export function useThreads(): UseThreadsReturn {
     setThreads((prev) => prev.filter((t) => t.id !== threadId))
     setCurrentThreadId(null)
     currentThreadIdRef.current = null
+    await saveLastThreadId(null)
     setMessagesWithRef([])
     setBranchState({})
     branchStateRef.current = {}
@@ -251,6 +325,7 @@ export function useThreads(): UseThreadsReturn {
         setThreads((prev) => [thread, ...prev])
         setCurrentThreadId(thread.id)
         currentThreadIdRef.current = thread.id
+        await saveLastThreadId(thread.id)
         threadId = thread.id
       }
 
@@ -373,6 +448,7 @@ export function useThreads(): UseThreadsReturn {
     setThreads((prev) => prev.filter((t) => t.id !== threadId))
     setCurrentThreadId(null)
     currentThreadIdRef.current = null
+    await saveLastThreadId(null)
     setMessagesWithRef([])
     setBranchState({})
     branchStateRef.current = {}
@@ -498,6 +574,7 @@ export function useThreads(): UseThreadsReturn {
     setThreads([])
     setCurrentThreadId(null)
     currentThreadIdRef.current = null
+    await saveLastThreadId(null)
     setMessagesWithRef([])
     setBranchState({})
     branchStateRef.current = {}
