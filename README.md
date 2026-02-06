@@ -1,10 +1,10 @@
-# BrowseRun
+# Bouno
 
-AI-powered browser automation Chrome extension. Control web pages using natural language through multiple AI providers.
+Browser automation Chrome extension. Control web pages using natural language through multiple LLM providers.
 
 ## Features
 
-- **Multi-Provider AI Support**: Anthropic (Claude), OpenAI (GPT-4, o1/o3), Google (Gemini), Groq, OpenRouter, and OpenAI-compatible endpoints (Ollama, LM Studio)
+- **Multi-Provider Support**: Anthropic, OpenAI, Google, Groq, OpenRouter, and OpenAI-compatible endpoints (Ollama, LM Studio)
 - **Browser Automation Tools**: Click, type, scroll, navigate, screenshot, form filling, and more
 - **Accessibility Tree Parsing**: Intelligent page understanding through semantic element detection
 - **Conversation Branching**: Edit messages and navigate between response branches
@@ -15,7 +15,7 @@ AI-powered browser automation Chrome extension. Control web pages using natural 
 
 ```
 src/
-├── agent/                    # AI agent logic
+├── agent/                    # Agent logic
 │   ├── workflow/             # Workflow execution
 │   │   ├── runner.ts         # Agent loop controller
 │   │   ├── stream.ts         # LLM streaming
@@ -164,7 +164,7 @@ Enable Phoenix tracing for debugging:
 ## Tech Stack
 
 - **Frontend**: React 19, TypeScript, Vite
-- **AI SDK**: Vercel AI SDK with multi-provider support
+- **LLM SDK**: Vercel AI SDK with multi-provider support
 - **Storage**: Dexie (IndexedDB)
 - **Styling**: CSS with motion animations
 - **Build**: Rolldown-Vite

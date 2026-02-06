@@ -61,7 +61,7 @@ export function downloadExport(data: ChatExportData, filename?: string): void {
 
   const a = document.createElement('a')
   a.href = url
-  a.download = filename || `browserun-chats-${new Date().toISOString().split('T')[0]}.json`
+  a.download = filename || `bouno-chats-${new Date().toISOString().split('T')[0]}.json`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)

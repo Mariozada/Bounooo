@@ -21,7 +21,7 @@ export default defineConfig({
     emptyOutDir: false, // Don't clear - UI build already did
     lib: {
       entry: resolve(__dirname, 'src/background/index.ts'),
-      name: 'BrowseRunBackground',
+      name: 'BounoBackground',
       formats: ['iife'], // Immediately Invoked Function Expression - no imports
       fileName: () => 'background.js',
     },

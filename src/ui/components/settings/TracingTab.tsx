@@ -80,7 +80,7 @@ export const TracingTab: FC<TracingTabProps> = ({ settings, onUpdate }) => {
                 type="text"
                 value={settings.tracing?.projectName ?? DEFAULT_TRACING_SETTINGS.projectName}
                 onChange={handleTracingProjectChange}
-                placeholder="browserun"
+                placeholder="bouno"
               />
             </div>
           </>

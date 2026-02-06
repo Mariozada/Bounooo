@@ -37,7 +37,7 @@ export interface ProviderSettings {
 export const DEFAULT_TRACING_SETTINGS: TracingSettings = {
   enabled: false,
   endpoint: 'http://0.0.0.0:6006',
-  projectName: 'browserun',
+  projectName: 'bouno',
 }
 
 export const DEFAULT_SETTINGS: ProviderSettings = {
@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS: ProviderSettings = {
   tracing: DEFAULT_TRACING_SETTINGS,
 }
 
-export const STORAGE_KEY = 'browserun_agent_settings'
+export const STORAGE_KEY = 'bouno_agent_settings'
 
 const DEBUG = true
 const log = (...args: unknown[]) => DEBUG && console.log('[Settings]', ...args)

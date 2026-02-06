@@ -7,7 +7,7 @@ const params = new URLSearchParams(window.location.search)
 const tabId = params.get('tabId')
 
 if (tabId) {
-  ;(window as unknown as { __browseRunTabId: number }).__browseRunTabId = parseInt(tabId, 10)
+  ;(window as unknown as { __bounoTabId: number }).__bounoTabId = parseInt(tabId, 10)
 }
 
 createRoot(document.getElementById('root')!).render(

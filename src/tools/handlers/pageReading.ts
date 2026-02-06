@@ -14,7 +14,7 @@ class InjectionError extends Error {
 async function ensureContentScriptInjected(tabId: number): Promise<{ logs: string[] }> {
   const logs: string[] = []
   const log = (msg: string) => {
-    console.log(`[BrowseRun:inject] ${msg}`)
+    console.log(`[Bouno:inject] ${msg}`)
     logs.push(msg)
   }
 
@@ -105,7 +105,7 @@ async function ensureContentScriptInjected(tabId: number): Promise<{ logs: strin
 async function sendToContentScript<T>(tabId: number, message: unknown): Promise<T & { _debugLogs?: string[] }> {
   const allLogs: string[] = []
   const log = (msg: string) => {
-    console.log(`[BrowseRun:send] ${msg}`)
+    console.log(`[Bouno:send] ${msg}`)
     allLogs.push(msg)
   }
 
@@ -155,7 +155,7 @@ async function readPage(params: {
   ref_id?: string
 }): Promise<unknown> {
   const { tabId, depth = DEFAULT_TREE_DEPTH, filter = 'all', ref_id } = params
-  console.log(`[BrowseRun:read_page] Called with params:`, { tabId, depth, filter, ref_id })
+  console.log(`[Bouno:read_page] Called with params:`, { tabId, depth, filter, ref_id })
 
   if (!tabId) {
     return { error: 'tabId is required', _debugLogs: ['ERROR: tabId is required'] }
@@ -168,11 +168,11 @@ async function readPage(params: {
       filter,
       ref_id
     })
-    console.log(`[BrowseRun:read_page] Success`)
+    console.log(`[Bouno:read_page] Success`)
     return result
   } catch (err) {
     const error = err as Error & { _debugLogs?: string[] }
-    console.log(`[BrowseRun:read_page] Error:`, error.message)
+    console.log(`[Bouno:read_page] Error:`, error.message)
     return {
       error: error.message,
       _debugLogs: error._debugLogs || [`Caught error: ${error.message}`]
@@ -182,7 +182,7 @@ async function readPage(params: {
 
 async function getPageText(params: { tabId: number }): Promise<unknown> {
   const { tabId } = params
-  console.log(`[BrowseRun:get_page_text] Called with tabId=${tabId}`)
+  console.log(`[Bouno:get_page_text] Called with tabId=${tabId}`)
 
   if (!tabId) {
     return { error: 'tabId is required', _debugLogs: ['ERROR: tabId is required'] }
@@ -192,11 +192,11 @@ async function getPageText(params: { tabId: number }): Promise<unknown> {
     const result = await sendToContentScript(tabId, {
       type: MessageTypes.GET_PAGE_TEXT
     })
-    console.log(`[BrowseRun:get_page_text] Success`)
+    console.log(`[Bouno:get_page_text] Success`)
     return result
   } catch (err) {
     const error = err as Error & { _debugLogs?: string[] }
-    console.log(`[BrowseRun:get_page_text] Error:`, error.message)
+    console.log(`[Bouno:get_page_text] Error:`, error.message)
     return {
       error: error.message,
       _debugLogs: error._debugLogs || [`Caught error: ${error.message}`]
@@ -206,7 +206,7 @@ async function getPageText(params: { tabId: number }): Promise<unknown> {
 
 async function find(params: { query: string; tabId: number }): Promise<unknown> {
   const { query, tabId } = params
-  console.log(`[BrowseRun:find] Called with params:`, { tabId, query })
+  console.log(`[Bouno:find] Called with params:`, { tabId, query })
 
   if (!tabId) {
     return { error: 'tabId is required', _debugLogs: ['ERROR: tabId is required'] }
@@ -221,11 +221,11 @@ async function find(params: { query: string; tabId: number }): Promise<unknown> 
       type: MessageTypes.FIND_ELEMENTS,
       query
     })
-    console.log(`[BrowseRun:find] Success, found elements`)
+    console.log(`[Bouno:find] Success, found elements`)
     return result
   } catch (err) {
     const error = err as Error & { _debugLogs?: string[] }
-    console.log(`[BrowseRun:find] Error:`, error.message)
+    console.log(`[Bouno:find] Error:`, error.message)
     return {
       error: error.message,
       _debugLogs: error._debugLogs || [`Caught error: ${error.message}`]

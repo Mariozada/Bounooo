@@ -8,7 +8,7 @@ class ChatDatabase extends Dexie {
   branchStates!: EntityTable<ThreadBranchState, 'threadId'>
 
   constructor() {
-    super('browserun-chat')
+    super('bouno-chat')
 
     this.version(3).stores({
       threads: 'id, updatedAt',

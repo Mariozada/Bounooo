@@ -8,7 +8,7 @@ export interface TracingConfig {
 export const DEFAULT_TRACING_CONFIG: TracingConfig = {
   enabled: false,
   endpoint: 'http://0.0.0.0:6006',
-  projectName: 'browserun',
+  projectName: 'bouno',
 }
 
 // Max image size for Phoenix display (20MB)

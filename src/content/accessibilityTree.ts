@@ -6,21 +6,21 @@ interface ElementMap {
 
 declare global {
   interface Window {
-    __browseRunElementMap: ElementMap
-    __browseRunRefCounter: number
+    __bounoElementMap: ElementMap
+    __bounoRefCounter: number
   }
 }
 
-window.__browseRunElementMap = window.__browseRunElementMap || {}
-window.__browseRunRefCounter = window.__browseRunRefCounter || 0
+window.__bounoElementMap = window.__bounoElementMap || {}
+window.__bounoRefCounter = window.__bounoRefCounter || 0
 
 export function getElementByRef(refId: string): Element | null {
-  const weakRef = window.__browseRunElementMap[refId]
+  const weakRef = window.__bounoElementMap[refId]
   if (!weakRef) return null
 
   const element = weakRef.deref()
   if (!element) {
-    delete window.__browseRunElementMap[refId]
+    delete window.__bounoElementMap[refId]
     return null
   }
 
@@ -28,12 +28,12 @@ export function getElementByRef(refId: string): Element | null {
 }
 
 export function clearRefs(): void {
-  window.__browseRunElementMap = {}
-  window.__browseRunRefCounter = 0
+  window.__bounoElementMap = {}
+  window.__bounoRefCounter = 0
 }
 
 export function getRefCount(): number {
-  return Object.keys(window.__browseRunElementMap).length
+  return Object.keys(window.__bounoElementMap).length
 }
 
 const ROLE_MAP: Record<string, string | ((el: Element) => string)> = {
@@ -227,15 +227,15 @@ function shouldInclude(element: Element, options: ProcessOptions): boolean {
 }
 
 export function assignRef(element: Element): string {
-  for (const id in window.__browseRunElementMap) {
-    const weakRef = window.__browseRunElementMap[id]
+  for (const id in window.__bounoElementMap) {
+    const weakRef = window.__bounoElementMap[id]
     if (weakRef.deref() === element) {
       return id
     }
   }
 
-  const refId = 'ref_' + (++window.__browseRunRefCounter)
-  window.__browseRunElementMap[refId] = new WeakRef(element)
+  const refId = 'ref_' + (++window.__bounoRefCounter)
+  window.__bounoElementMap[refId] = new WeakRef(element)
   return refId
 }
 
@@ -312,7 +312,7 @@ export function handleReadPage(params: ReadPageParams): ReadPageResult {
 
   try {
     if (ref_id) {
-      const weakRef = window.__browseRunElementMap[ref_id]
+      const weakRef = window.__bounoElementMap[ref_id]
       if (!weakRef) {
         return {
           error: `Element with ref_id '${ref_id}' not found. It may have been removed from the page. Use read_page without ref_id to get the current page state.`,
@@ -337,9 +337,9 @@ export function handleReadPage(params: ReadPageParams): ReadPageResult {
       }
     }
 
-    for (const id in window.__browseRunElementMap) {
-      if (!window.__browseRunElementMap[id].deref()) {
-        delete window.__browseRunElementMap[id]
+    for (const id in window.__bounoElementMap) {
+      if (!window.__bounoElementMap[id].deref()) {
+        delete window.__bounoElementMap[id]
       }
     }
 

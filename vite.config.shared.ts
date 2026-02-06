@@ -1,5 +1,5 @@
 /**
- * Shared Vite configuration for BrowseRun extension
+ * Shared Vite configuration for Bouno extension
  * Contains common settings used by all build configs
  */
 

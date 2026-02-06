@@ -20,7 +20,7 @@ export default defineConfig({
     emptyOutDir: false, // Don't clear - UI build already did
     lib: {
       entry: resolve(__dirname, 'src/content/index.ts'),
-      name: 'BrowseRunContent',
+      name: 'BounoContent',
       formats: ['iife'], // Immediately Invoked Function Expression - no imports
       fileName: () => 'content.js',
     },

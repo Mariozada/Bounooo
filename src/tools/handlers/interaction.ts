@@ -32,7 +32,7 @@ async function ensureContentScriptInjected(tabId: number): Promise<void> {
       })
     })
   } catch {
-    console.log('BrowseRun: Injecting content script into tab', tabId)
+    console.log('Bouno: Injecting content script into tab', tabId)
     try {
       await chrome.scripting.executeScript({
         target: { tabId },

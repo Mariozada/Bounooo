@@ -45,7 +45,7 @@ export interface UseThreadsReturn {
 }
 
 // Storage key for persisting the last active thread
-export const LAST_THREAD_KEY = 'browserun_last_thread_id'
+export const LAST_THREAD_KEY = 'bouno_last_thread_id'
 
 export async function saveLastThreadId(threadId: string | null): Promise<void> {
   try {

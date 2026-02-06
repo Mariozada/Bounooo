@@ -1,4 +1,4 @@
-console.log('[BrowseRun:content] Content script file executing...')
+console.log('[Bouno:content] Content script file executing...')
 
 import { MessageTypes } from '@shared/messages'
 import { handleReadPage, handleGetPageText } from './accessibilityTree'
@@ -8,13 +8,13 @@ import { handleComputerAction } from './eventSimulator'
 import { setupConsoleCapture, getConsoleMessages, clearConsoleMessages } from './consoleCapture'
 import { handleUploadImage } from './imageUpload'
 
-console.log('[BrowseRun:content] All imports successful')
+console.log('[Bouno:content] All imports successful')
 
 try {
   setupConsoleCapture()
-  console.log('[BrowseRun:content] Console capture initialized')
+  console.log('[Bouno:content] Console capture initialized')
 } catch (e) {
-  console.error('[BrowseRun:content] Failed to setup console capture:', e)
+  console.error('[Bouno:content] Failed to setup console capture:', e)
 }
 
 type MessageHandler = (message: unknown) => unknown
@@ -98,43 +98,43 @@ const handlers: Record<string, MessageHandler> = {
   }
 }
 
-console.log('[BrowseRun:content] Setting up message listener...')
+console.log('[Bouno:content] Setting up message listener...')
 try {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const { type } = message as { type: string }
-    console.log('[BrowseRun:content] Message received:', type)
+    console.log('[Bouno:content] Message received:', type)
 
     const handler = handlers[type]
     if (handler) {
       try {
-        console.log('[BrowseRun:content] Executing handler for:', type)
+        console.log('[Bouno:content] Executing handler for:', type)
         const result = handler(message)
-        console.log('[BrowseRun:content] Handler result:', typeof result)
+        console.log('[Bouno:content] Handler result:', typeof result)
         sendResponse(result)
       } catch (err) {
-        console.error('[BrowseRun:content] Handler error:', err)
+        console.error('[Bouno:content] Handler error:', err)
         sendResponse({ error: (err as Error).message })
       }
     } else {
-      console.warn('[BrowseRun:content] Unknown message type:', type)
+      console.warn('[Bouno:content] Unknown message type:', type)
       sendResponse({ error: `Unknown message type: ${type}` })
     }
 
     return true
   })
-  console.log('[BrowseRun:content] Message listener registered successfully')
+  console.log('[Bouno:content] Message listener registered successfully')
 } catch (listenerError) {
-  console.error('[BrowseRun:content] FATAL: Failed to register message listener:', listenerError)
+  console.error('[Bouno:content] FATAL: Failed to register message listener:', listenerError)
 }
 
-console.log('[BrowseRun:content] Sending ready notification to background...')
+console.log('[Bouno:content] Sending ready notification to background...')
 chrome.runtime.sendMessage({
   type: MessageTypes.CONTENT_SCRIPT_READY,
   url: window.location.href
 }).then(() => {
-  console.log('[BrowseRun:content] Ready notification sent successfully')
+  console.log('[Bouno:content] Ready notification sent successfully')
 }).catch((err) => {
-  console.log('[BrowseRun:content] Ready notification failed (normal if background not ready):', err?.message)
+  console.log('[Bouno:content] Ready notification failed (normal if background not ready):', err?.message)
 })
 
-console.log('[BrowseRun:content] Content script initialization complete')
+console.log('[Bouno:content] Content script initialization complete')

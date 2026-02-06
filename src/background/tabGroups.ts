@@ -14,7 +14,7 @@ class TabGroupService {
     const groupId = await chrome.tabs.group({ tabIds: [tabId] })
 
     await chrome.tabGroups.update(groupId, {
-      title: 'BrowseRun',
+      title: 'Bouno',
       color: 'blue'
     })
 

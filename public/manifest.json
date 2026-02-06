@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "BrowseRun",
+  "name": "Bouno",
   "version": "1.0.0",
   "description": "Browser automation extension with external API support",
   "action": {
-    "default_title": "Open BrowseRun"
+    "default_title": "Open Bouno"
   },
   "side_panel": {
     "default_path": "sidepanel.html"

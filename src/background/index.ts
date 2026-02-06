@@ -21,7 +21,7 @@ registerDebuggingTools()
 registerMediaTools()
 registerUiTools()
 
-console.log('BrowseRun: Registered tools:', getRegisteredTools())
+console.log('Bouno: Registered tools:', getRegisteredTools())
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false })
 chrome.sidePanel.setOptions({ enabled: false })
@@ -30,12 +30,12 @@ chrome.action.onClicked.addListener((tab) => {
   if (!tab.id) return
 
   const tabId = tab.id
-  console.log('BrowseRun: Opening side panel for tab', tabId)
+  console.log('Bouno: Opening side panel for tab', tabId)
 
   const existingGroup = tabGroups.findGroupByTab(tabId)
 
   if (existingGroup) {
-    console.log('BrowseRun: Tab', tabId, 'already in managed group', existingGroup.groupId, '- opening panel only')
+    console.log('Bouno: Tab', tabId, 'already in managed group', existingGroup.groupId, '- opening panel only')
 
     chrome.sidePanel.setOptions({
       tabId,
@@ -65,7 +65,7 @@ async function handleTabGrouping(tabId: number): Promise<void> {
                             currentTab.groupId !== chrome.tabGroups.TAB_GROUP_ID_NONE
 
     if (isInChromeGroup) {
-      console.log('BrowseRun: Tab', tabId, 'is in existing Chrome group', currentTab.groupId, '- adopting group')
+      console.log('Bouno: Tab', tabId, 'is in existing Chrome group', currentTab.groupId, '- adopting group')
 
       const adoptedGroup = await tabGroups.checkAndAdoptGroup(tabId)
 
@@ -81,7 +81,7 @@ async function handleTabGrouping(tabId: number): Promise<void> {
       }
     }
 
-    console.log('BrowseRun: Tab', tabId, 'not in any group - creating new group')
+    console.log('Bouno: Tab', tabId, 'not in any group - creating new group')
 
     await tabGroups.createGroup(tabId)
 
@@ -95,7 +95,7 @@ async function handleTabGrouping(tabId: number): Promise<void> {
       }
     }
   } catch (err) {
-    console.error('BrowseRun: Failed to handle tab grouping:', err)
+    console.error('Bouno: Failed to handle tab grouping:', err)
   }
 }
 
@@ -105,7 +105,7 @@ chrome.tabs.onCreated.addListener(async (tab) => {
   if (tab.openerTabId) {
     const group = tabGroups.findGroupByTab(tab.openerTabId)
     if (group) {
-      console.log('BrowseRun: New tab', tab.id, 'opened from grouped tab', tab.openerTabId)
+      console.log('Bouno: New tab', tab.id, 'opened from grouped tab', tab.openerTabId)
       await tabGroups.addTabToGroup(tab.id, group.groupId)
       return
     }
@@ -140,9 +140,9 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
-    console.log('BrowseRun: Extension installed')
+    console.log('Bouno: Extension installed')
   } else if (details.reason === 'update') {
-    console.log('BrowseRun: Extension updated')
+    console.log('Bouno: Extension updated')
   }
 })
 
@@ -181,19 +181,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (type === MessageTypes.TAKE_SCREENSHOT) {
     const { tabId } = message as { tabId: number }
-    console.log('[BrowseRun:background] TAKE_SCREENSHOT received, tabId:', tabId)
+    console.log('[Bouno:background] TAKE_SCREENSHOT received, tabId:', tabId)
 
     chrome.tabs.get(tabId).then(async (tab) => {
       try {
         const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
-        console.log('[BrowseRun:background] Screenshot captured, length:', dataUrl.length)
+        console.log('[Bouno:background] Screenshot captured, length:', dataUrl.length)
         sendResponse({ success: true, dataUrl })
       } catch (err) {
-        console.error('[BrowseRun:background] Screenshot error:', err)
+        console.error('[Bouno:background] Screenshot error:', err)
         sendResponse({ success: false, error: (err as Error).message })
       }
     }).catch((err) => {
-      console.error('[BrowseRun:background] Tab get error:', err)
+      console.error('[Bouno:background] Tab get error:', err)
       sendResponse({ success: false, error: (err as Error).message })
     })
     return true
@@ -201,14 +201,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (type === MessageTypes.EXECUTE_TOOL) {
     const { tool, params } = message as { tool: string; params: Record<string, unknown> }
-    console.log(`[BrowseRun:background] EXECUTE_TOOL received: tool=${tool}, params=`, params)
-    console.log(`[BrowseRun:background] Sender:`, sender.tab?.id, sender.url)
+    console.log(`[Bouno:background] EXECUTE_TOOL received: tool=${tool}, params=`, params)
+    console.log(`[Bouno:background] Sender:`, sender.tab?.id, sender.url)
 
     executeTool(tool, params).then((result) => {
-      console.log(`[BrowseRun:background] EXECUTE_TOOL result:`, result)
+      console.log(`[Bouno:background] EXECUTE_TOOL result:`, result)
       sendResponse(result)
     }).catch((err) => {
-      console.log(`[BrowseRun:background] EXECUTE_TOOL error:`, err)
+      console.log(`[Bouno:background] EXECUTE_TOOL error:`, err)
       sendResponse({ success: false, error: err.message })
     })
     return true
@@ -245,7 +245,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 
   if (changeInfo.status === 'complete') {
-    console.log('BrowseRun: Tab loaded:', tab.url)
+    console.log('Bouno: Tab loaded:', tab.url)
   }
 })
 
