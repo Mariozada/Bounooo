@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, type FC, type ChangeEvent, type MouseEvent } from 'react'
-import { X, Zap, Image } from 'lucide-react'
+import { X, Zap, Image, Eye, EyeOff } from 'lucide-react'
 import type { ProviderSettings, ProviderType } from '@shared/settings'
 import { PROVIDER_CONFIGS, getModelsForProvider, getDefaultModelForProvider } from '@agent/index'
 import { CustomSelect } from '../CustomSelect'
@@ -27,6 +27,7 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
   const [localSettings, setLocalSettings] = useState<ProviderSettings>(settings)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showApiKey, setShowApiKey] = useState(false)
 
   const models = getModelsForProvider(localSettings.provider)
   const isModelInList = models.some((m) => m.id === localSettings.model)
@@ -361,13 +362,23 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
                   API Key
                   {isOpenAICompatible && ' (optional)'}
                 </label>
-                <input
-                  id="api-key"
-                  type="password"
-                  value={currentApiKey}
-                  onChange={handleApiKeyChange}
-                  placeholder={currentProviderConfig.apiKeyPlaceholder}
-                />
+                <div className="input-with-button">
+                  <input
+                    id="api-key"
+                    type={showApiKey ? 'text' : 'password'}
+                    value={currentApiKey}
+                    onChange={handleApiKeyChange}
+                    placeholder={currentProviderConfig.apiKeyPlaceholder}
+                  />
+                  <button
+                    type="button"
+                    className="input-icon-button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+                  >
+                    {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
                 {currentProviderConfig.apiKeyUrl && (
                   <a
                     href={currentProviderConfig.apiKeyUrl}

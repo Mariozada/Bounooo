@@ -112,6 +112,7 @@ export const ChatApp: FC = () => {
           onNavigateBranch={navigateBranch}
           onRegenerateAssistant={regenerateAssistant}
           sidebarOpen={sidebarOpen}
+          onToggleSidebar={handleToggleSidebar}
         />
       </main>
     </div>

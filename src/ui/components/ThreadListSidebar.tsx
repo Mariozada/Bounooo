@@ -1,6 +1,5 @@
 import { useState, useCallback, type FC } from 'react'
 import {
-  PanelLeft,
   Trash2,
   HardDrive,
   ChevronLeft,
@@ -62,18 +61,6 @@ export const ThreadListSidebar: FC<ThreadListSidebarProps> = ({
 
   return (
     <>
-      {/* Sidebar toggle button (visible when sidebar is closed) */}
-      {!isOpen && (
-        <button
-          type="button"
-          className="sidebar-toggle-btn"
-          onClick={onToggle}
-          aria-label="Open sidebar"
-        >
-          <PanelLeft size={18} />
-        </button>
-      )}
-
       {/* Sidebar */}
       <aside className={`thread-sidebar ${isOpen ? 'open' : 'closed'}`}>
         {/* Header */}
