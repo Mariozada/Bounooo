@@ -13,9 +13,10 @@ export const uiTools: ToolDefinition[] = [
       },
       {
         name: 'domains',
-        type: 'string',
-        description: 'Comma-separated list of domains you will visit',
-        required: true
+        type: 'array',
+        description: 'List of domains you will visit',
+        required: true,
+        items: { type: 'string' }
       }
     ],
     enabled: true,

@@ -128,8 +128,12 @@ async function readConsoleMessages(params: {
   }
 
   if (pattern) {
-    const regex = new RegExp(pattern, 'i')
-    messages = messages.filter(m => regex.test(m.text || ''))
+    try {
+      const regex = new RegExp(pattern, 'i')
+      messages = messages.filter(m => regex.test(m.text || ''))
+    } catch {
+      messages = messages.filter(m => (m.text || '').includes(pattern))
+    }
   }
 
   messages = messages.slice(-limit)

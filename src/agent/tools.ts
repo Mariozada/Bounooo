@@ -189,7 +189,7 @@ const browserToolsDefinition = {
     description: 'Present a plan to the user for approval before proceeding.',
     inputSchema: z.object({
       approach: z.string().describe('High-level description of the steps you plan to take'),
-      domains: z.string().describe('Comma-separated list of domains you will visit'),
+      domains: z.array(z.string()).describe('List of domains you will visit'),
     }),
     execute: async (params): Promise<Record<string, unknown>> => executeViaChromeMessage('update_plan', params),
   }),
