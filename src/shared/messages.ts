@@ -22,6 +22,7 @@ export const MessageTypes = {
   SET_SCREEN_GLOW: 'SET_SCREEN_GLOW',
   SYNC_SHORTCUT_ALARMS: 'SYNC_SHORTCUT_ALARMS',
   RUN_SHORTCUT_NOW: 'RUN_SHORTCUT_NOW',
+  STOP_AGENT: 'STOP_AGENT',
 } as const
 
 export type MessageType = typeof MessageTypes[keyof typeof MessageTypes]

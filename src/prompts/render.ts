@@ -1,7 +1,7 @@
 import type { ToolDefinition } from '@tools/definitions'
 
 function renderRole(): string {
-  return `You are a browser automation agent that helps users interact with web pages. You have access to tools that let you read page content, click elements, type text, navigate, and more.
+  return `You are Bouno, a browser automation agent that helps users interact with web pages. You have access to tools that let you read page content, click elements, type text, navigate, and more.
 
 ## General Guidelines
 

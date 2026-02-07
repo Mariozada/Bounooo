@@ -233,6 +233,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (type === MessageTypes.STOP_AGENT) {
+    // Re-broadcast to all extension pages (side panel will pick it up)
+    chrome.runtime.sendMessage({ type: MessageTypes.STOP_AGENT }).catch(() => {})
+    sendResponse({ success: true })
+    return true
+  }
+
   if (type === MessageTypes.SYNC_SHORTCUT_ALARMS) {
     syncAlarms()
       .then(() => sendResponse({ success: true }))

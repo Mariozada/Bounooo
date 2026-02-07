@@ -1,4 +1,5 @@
 const OVERLAY_ID = '__bouno-screen-glow'
+const BUTTON_ID = '__bouno-stop-button'
 
 let overlay: HTMLDivElement | null = null
 
@@ -47,9 +48,50 @@ function createOverlay(): HTMLDivElement {
         transform: scale(1.03);
       }
     }
+
+    #${BUTTON_ID} {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2147483647;
+      pointer-events: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 24px;
+      border: 1px solid rgba(30, 144, 255, 0.3);
+      border-radius: 999px;
+      background: rgba(10, 10, 10, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      color: #fff;
+      font: 14px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    #${BUTTON_ID}:hover {
+      background: rgba(30, 30, 30, 0.9);
+      border-color: rgba(30, 144, 255, 0.5);
+    }
+
+    #${BUTTON_ID} svg {
+      flex-shrink: 0;
+    }
   `
 
+  // Stop button
+  const btn = document.createElement('button')
+  btn.id = BUTTON_ID
+  btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>Stop Bouno`
+  btn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ type: 'STOP_AGENT' }).catch(() => {})
+  })
+
   el.appendChild(style)
+  el.appendChild(btn)
   document.documentElement.appendChild(el)
   return el
 }

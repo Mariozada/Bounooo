@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import {
   createProvider,
   getModelConfig,
@@ -292,6 +292,17 @@ export function useWorkflowStream({
       abortControllerRef.current.abort()
     }
   }, [])
+
+  // Listen for STOP_AGENT from content script (via background)
+  useEffect(() => {
+    const listener = (message: { type: string }) => {
+      if (message.type === MessageTypes.STOP_AGENT) {
+        stop()
+      }
+    }
+    chrome.runtime.onMessage.addListener(listener)
+    return () => chrome.runtime.onMessage.removeListener(listener)
+  }, [stop])
 
   const clearError = useCallback(() => {
     setError(null)
