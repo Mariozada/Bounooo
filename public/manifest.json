@@ -26,6 +26,7 @@
     "activeTab",
     "tabs",
     "tabGroups",
+    "alarms",
     "sidePanel",
     "scripting",
     "webRequest",

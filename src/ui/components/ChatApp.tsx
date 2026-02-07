@@ -1,8 +1,13 @@
 import { useState, useCallback, useEffect, useRef, type FC } from 'react'
 import { ThreadListSidebar } from './ThreadListSidebar'
 import { AgentChat } from './AgentChat'
+import { ShortcutForm } from './shortcuts/ShortcutForm'
 import { useThreads } from '../hooks/useThreads'
+import { useShortcuts } from '../hooks/useShortcuts'
+import { useSettings } from '../hooks/useSettings'
+import type { ScheduledShortcut } from '@storage/types'
 import '../styles/sidebar.css'
+import '../styles/shortcuts.css'
 
 export const ChatApp: FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -11,11 +16,23 @@ export const ChatApp: FC = () => {
     messageCount: number
     estimatedSizeBytes: number
   } | undefined>(undefined)
+  const [showShortcutForm, setShowShortcutForm] = useState(false)
+  const [editingShortcut, setEditingShortcut] = useState<ScheduledShortcut | undefined>()
 
   // Stable view key - only changes on explicit user actions (new thread, select thread)
   // This prevents AgentChat from remounting when a thread is auto-created during sendMessage
   const [viewKey, setViewKey] = useState<string>('initial')
   const viewKeyCounterRef = useRef(0)
+
+  const { settings } = useSettings()
+  const {
+    shortcuts,
+    addShortcut,
+    editShortcut,
+    removeShortcut,
+    toggleShortcut,
+    runNow,
+  } = useShortcuts()
 
   const {
     threads,
@@ -82,6 +99,32 @@ export const ChatApp: FC = () => {
     setStorageStats(undefined)
   }, [deleteAllData])
 
+  const handleCreateShortcut = useCallback(() => {
+    setEditingShortcut(undefined)
+    setShowShortcutForm(true)
+  }, [])
+
+  const handleEditShortcut = useCallback((shortcut: ScheduledShortcut) => {
+    setEditingShortcut(shortcut)
+    setShowShortcutForm(true)
+  }, [])
+
+  const handleSaveShortcut = useCallback(
+    async (data: Parameters<typeof addShortcut>[0]) => {
+      if (editingShortcut) {
+        await editShortcut(editingShortcut.id, data)
+      } else {
+        await addShortcut(data)
+      }
+    },
+    [editingShortcut, addShortcut, editShortcut]
+  )
+
+  const handleCloseShortcutForm = useCallback(() => {
+    setShowShortcutForm(false)
+    setEditingShortcut(undefined)
+  }, [])
+
   return (
     <div className="app-with-sidebar">
       <ThreadListSidebar
@@ -96,6 +139,12 @@ export const ChatApp: FC = () => {
         onRenameThread={handleRenameThread}
         onDeleteAll={handleDeleteAll}
         storageStats={storageStats}
+        shortcuts={shortcuts}
+        onEditShortcut={handleEditShortcut}
+        onDeleteShortcut={removeShortcut}
+        onToggleShortcut={toggleShortcut}
+        onRunShortcutNow={runNow}
+        onCreateShortcut={handleCreateShortcut}
       />
       <main className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <AgentChat
@@ -111,6 +160,14 @@ export const ChatApp: FC = () => {
           onToggleSidebar={handleToggleSidebar}
         />
       </main>
+      {showShortcutForm && (
+        <ShortcutForm
+          settings={settings}
+          shortcut={editingShortcut}
+          onSave={handleSaveShortcut}
+          onClose={handleCloseShortcutForm}
+        />
+      )}
     </div>
   )
 }

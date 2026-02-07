@@ -3,9 +3,13 @@ import {
   Trash2,
   HardDrive,
   ChevronLeft,
+  Timer,
 } from 'lucide-react'
 import { ThreadList } from './ThreadList'
-import type { Thread } from '@storage/types'
+import { ShortcutList } from './shortcuts/ShortcutList'
+import type { Thread, ScheduledShortcut } from '@storage/types'
+
+type SidebarTab = 'chats' | 'shortcuts'
 
 interface ThreadListSidebarProps {
   threads: Thread[]
@@ -23,6 +27,12 @@ interface ThreadListSidebarProps {
     messageCount: number
     estimatedSizeBytes: number
   }
+  shortcuts?: ScheduledShortcut[]
+  onEditShortcut?: (shortcut: ScheduledShortcut) => void
+  onDeleteShortcut?: (id: string) => void
+  onToggleShortcut?: (id: string, enabled: boolean) => void
+  onRunShortcutNow?: (id: string) => void
+  onCreateShortcut?: () => void
 }
 
 export const ThreadListSidebar: FC<ThreadListSidebarProps> = ({
@@ -37,8 +47,15 @@ export const ThreadListSidebar: FC<ThreadListSidebarProps> = ({
   onRenameThread,
   onDeleteAll,
   storageStats,
+  shortcuts = [],
+  onEditShortcut,
+  onDeleteShortcut,
+  onToggleShortcut,
+  onRunShortcutNow,
+  onCreateShortcut,
 }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [activeTab, setActiveTab] = useState<SidebarTab>('chats')
 
   const handleDeleteAllClick = useCallback(() => {
     setShowDeleteConfirm(true)
@@ -65,8 +82,22 @@ export const ThreadListSidebar: FC<ThreadListSidebarProps> = ({
       <aside className={`thread-sidebar ${isOpen ? 'open' : 'closed'}`}>
         {/* Header */}
         <div className="thread-sidebar-header">
-          <div className="thread-sidebar-title">
-            <span>Chats</span>
+          <div className="thread-sidebar-tabs">
+            <button
+              type="button"
+              className={`thread-sidebar-tab ${activeTab === 'chats' ? 'active' : ''}`}
+              onClick={() => setActiveTab('chats')}
+            >
+              Chats
+            </button>
+            <button
+              type="button"
+              className={`thread-sidebar-tab ${activeTab === 'shortcuts' ? 'active' : ''}`}
+              onClick={() => setActiveTab('shortcuts')}
+            >
+              <Timer size={14} />
+              Shortcuts
+            </button>
           </div>
           <button
             type="button"
@@ -78,17 +109,28 @@ export const ThreadListSidebar: FC<ThreadListSidebarProps> = ({
           </button>
         </div>
 
-        {/* Thread list */}
+        {/* Content */}
         <div className="thread-sidebar-content">
-          <ThreadList
-            threads={threads}
-            currentThreadId={currentThreadId}
-            isLoading={isLoading}
-            onNewThread={onNewThread}
-            onSelectThread={onSelectThread}
-            onDeleteThread={onDeleteThread}
-            onRenameThread={onRenameThread}
-          />
+          {activeTab === 'chats' ? (
+            <ThreadList
+              threads={threads}
+              currentThreadId={currentThreadId}
+              isLoading={isLoading}
+              onNewThread={onNewThread}
+              onSelectThread={onSelectThread}
+              onDeleteThread={onDeleteThread}
+              onRenameThread={onRenameThread}
+            />
+          ) : (
+            <ShortcutList
+              shortcuts={shortcuts}
+              onEdit={onEditShortcut ?? (() => {})}
+              onDelete={onDeleteShortcut ?? (() => {})}
+              onToggle={onToggleShortcut ?? (() => {})}
+              onRunNow={onRunShortcutNow ?? (() => {})}
+              onCreate={onCreateShortcut ?? (() => {})}
+            />
+          )}
         </div>
 
         {/* Footer */}

@@ -10,7 +10,7 @@ function generateSessionId(): string {
 }
 
 export function createSession(options: AgentOptions): AgentSession {
-  const { model, messages, tabId, groupId, maxSteps = 15, abortSignal } = options
+  const { model, messages, tabId, groupId, maxSteps = 15, abortSignal, toolExecutor } = options
 
   setCurrentTabId(tabId)
   setCurrentGroupId(groupId)
@@ -28,6 +28,7 @@ export function createSession(options: AgentOptions): AgentSession {
       maxSteps,
       tabId,
       groupId,
+      toolExecutor,
     },
     abortSignal,
   }

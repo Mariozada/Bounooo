@@ -70,10 +70,14 @@ export interface ToolCallInfo {
   completedAt?: number
 }
 
+/** Direct tool executor for background execution (bypasses chrome.runtime.sendMessage) */
+export type ToolExecutor = (name: string, params: Record<string, unknown>) => Promise<unknown>
+
 export interface AgentConfig {
   maxSteps: number
   tabId: number
   groupId?: number
+  toolExecutor?: ToolExecutor
 }
 
 export interface AgentSession {
@@ -133,4 +137,5 @@ export interface AgentOptions {
   modelName?: string  // For tracing - extracted from model
   provider?: string   // For tracing
   reasoningEnabled?: boolean  // Enable streaming reasoning/thinking
+  toolExecutor?: ToolExecutor  // Direct executor for background runs
 }

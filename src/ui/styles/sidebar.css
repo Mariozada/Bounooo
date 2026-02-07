@@ -59,6 +59,37 @@
   color: var(--foreground);
 }
 
+.thread-sidebar-tabs {
+  display: flex;
+  gap: 2px;
+}
+
+.thread-sidebar-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.thread-sidebar-tab:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--foreground);
+}
+
+.thread-sidebar-tab.active {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--foreground);
+  font-weight: 600;
+}
+
 .thread-sidebar-close {
   display: flex;
   align-items: center;

@@ -46,6 +46,35 @@ export interface StoredAttachment {
 // Size threshold for storing attachments (5MB)
 export const ATTACHMENT_SIZE_LIMIT = 5 * 1024 * 1024
 
+import type { ProviderType } from '@shared/settings'
+
+export interface ShortcutSchedule {
+  type: 'once' | 'recurring'
+  /** Timestamp (ms) for one-shot schedule */
+  date?: number
+  /** Interval in minutes for recurring schedule */
+  intervalMinutes?: number
+  /** Human-readable label, e.g. "Every 30 minutes" */
+  label?: string
+}
+
+export interface ScheduledShortcut {
+  id: string
+  name: string
+  prompt: string
+  startUrl: string
+  schedule: ShortcutSchedule
+  /** Override provider — falls back to user's current setting if undefined */
+  provider?: ProviderType
+  /** Override model — falls back to user's current setting if undefined */
+  model?: string
+  enabled: boolean
+  createdAt: number
+  lastRunAt?: number
+  lastRunStatus?: 'success' | 'error'
+  lastRunError?: string
+}
+
 export function generateId(): string {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`
 }

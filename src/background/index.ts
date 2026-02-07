@@ -13,6 +13,8 @@ import {
 } from '@tools/index'
 import { MessageTypes } from '@shared/messages'
 import { tabGroups } from './tabGroups'
+import { syncAlarms, shortcutIdFromAlarm } from './scheduler'
+import { runShortcut } from './shortcutRunner'
 
 registerTabTools()
 registerPageReadingTools()
@@ -144,6 +146,22 @@ chrome.runtime.onInstalled.addListener((details) => {
   } else if (details.reason === 'update') {
     console.log('Bouno: Extension updated')
   }
+  // Sync shortcut alarms on install/update
+  syncAlarms().catch((err) => console.error('Bouno: Failed to sync alarms on install:', err))
+})
+
+// Re-sync alarms when service worker wakes up
+syncAlarms().catch((err) => console.error('Bouno: Failed to sync alarms on startup:', err))
+
+// Handle scheduled shortcut alarms
+chrome.alarms.onAlarm.addListener((alarm) => {
+  const shortcutId = shortcutIdFromAlarm(alarm.name)
+  if (shortcutId) {
+    console.log('Bouno: Alarm fired for shortcut:', shortcutId)
+    runShortcut(shortcutId).catch((err) =>
+      console.error('Bouno: Shortcut execution failed:', err)
+    )
+  }
 })
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -211,6 +229,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.tabs.sendMessage(targetTabId, { type: MessageTypes.SET_SCREEN_GLOW, active }).catch(() => {})
     }
     sendResponse({ success: true })
+    return true
+  }
+
+  if (type === MessageTypes.SYNC_SHORTCUT_ALARMS) {
+    syncAlarms()
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
+    return true
+  }
+
+  if (type === MessageTypes.RUN_SHORTCUT_NOW) {
+    const { shortcutId } = message as { shortcutId: string }
+    runShortcut(shortcutId)
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
     return true
   }
 

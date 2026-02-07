@@ -1,4 +1,4 @@
-import type { ToolCallInfo, ToolExecutionResult, AgentSession } from './types'
+import type { ToolCallInfo, ToolExecutionResult, AgentSession, ToolExecutor } from './types'
 import { getTracer, type SpanContext, type TracingConfig } from '../tracing'
 
 const log = (...args: unknown[]) => console.log('[Workflow:Tools]', ...args)
@@ -8,9 +8,24 @@ async function sendToolMessage(
   name: string,
   params: Record<string, unknown>,
   tabId: number,
-  groupId?: number
+  groupId?: number,
+  directExecutor?: ToolExecutor
 ): Promise<unknown> {
   const paramsWithTab = { ...params, tabId, ...(groupId !== undefined && { groupId }) }
+
+  // Use direct executor when running from the background service worker
+  if (directExecutor) {
+    try {
+      const response = await directExecutor(name, paramsWithTab) as Record<string, unknown> | null
+      if (response && typeof response === 'object' && 'error' in response) {
+        return response
+      }
+      return response ?? { success: true }
+    } catch (err) {
+      logError(`Direct tool executor error: ${name}`, err)
+      return { error: err instanceof Error ? err.message : 'Unknown error' }
+    }
+  }
 
   try {
     const response = await chrome.runtime.sendMessage({
@@ -37,7 +52,8 @@ function isErrorResult(result: unknown): boolean {
 export async function executeTool(
   toolCall: ToolCallInfo,
   tabId: number,
-  groupId?: number
+  groupId?: number,
+  directExecutor?: ToolExecutor
 ): Promise<ToolExecutionResult> {
   log(`Executing: ${toolCall.name}`, toolCall.input)
 
@@ -47,7 +63,7 @@ export async function executeTool(
     startedAt: Date.now(),
   }
 
-  const result = await sendToolMessage(toolCall.name, toolCall.input, tabId, groupId)
+  const result = await sendToolMessage(toolCall.name, toolCall.input, tabId, groupId, directExecutor)
   const hasError = isErrorResult(result)
 
   updatedToolCall.result = result
@@ -134,7 +150,7 @@ export class ToolQueue {
       parentContext: this.callbacks.tracing.parentContext,
     }) : null
 
-    const result = await executeTool(toolCall, this.session.config.tabId, this.session.config.groupId)
+    const result = await executeTool(toolCall, this.session.config.tabId, this.session.config.groupId, this.session.config.toolExecutor)
     this.results.push(result)
 
     toolSpan?.end({

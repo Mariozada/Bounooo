@@ -20,6 +20,8 @@ export const MessageTypes = {
   CONTENT_SCRIPT_READY: 'CONTENT_SCRIPT_READY',
   TAKE_SCREENSHOT: 'TAKE_SCREENSHOT',
   SET_SCREEN_GLOW: 'SET_SCREEN_GLOW',
+  SYNC_SHORTCUT_ALARMS: 'SYNC_SHORTCUT_ALARMS',
+  RUN_SHORTCUT_NOW: 'RUN_SHORTCUT_NOW',
 } as const
 
 export type MessageType = typeof MessageTypes[keyof typeof MessageTypes]
