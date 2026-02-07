@@ -25,6 +25,7 @@ interface MessageComposerProps {
   onSubmit: () => void
   onStop: () => void
   onToggleReasoning: () => void
+  onCreateShortcut?: () => void
 }
 
 export const MessageComposer: FC<MessageComposerProps> = ({
@@ -41,6 +42,7 @@ export const MessageComposer: FC<MessageComposerProps> = ({
   onSubmit,
   onStop,
   onToggleReasoning,
+  onCreateShortcut,
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -125,6 +127,7 @@ export const MessageComposer: FC<MessageComposerProps> = ({
               onFilesSelected={handleFilesSelected}
               disabled={isStreaming || isDisabled}
               tabId={tabId}
+              onCreateShortcut={onCreateShortcut}
             />
             {showReasoningToggle && (
               <button
