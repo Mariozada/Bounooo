@@ -1,13 +1,7 @@
 import {
   executeTool,
   getRegisteredTools,
-  registerTabTools,
-  registerPageReadingTools,
-  registerInteractionTools,
-  registerDebuggingTools,
-  registerMediaTools,
-  registerUiTools,
-  registerOutputReadingTools,
+  registerAllHandlers,
   addConsoleMessage,
   addNetworkRequest,
   clearTabData
@@ -17,13 +11,7 @@ import { tabGroups } from './tabGroups'
 import { syncAlarms, shortcutIdFromAlarm } from './scheduler'
 import { runShortcut } from './shortcutRunner'
 
-registerTabTools()
-registerPageReadingTools()
-registerInteractionTools()
-registerDebuggingTools()
-registerMediaTools()
-registerUiTools()
-registerOutputReadingTools()
+registerAllHandlers()
 
 console.log('Bouno: Registered tools:', getRegisteredTools())
 
@@ -188,6 +176,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           title: tabs[0].title,
           id: tabs[0].id
         })
+      } else {
+        sendResponse({ error: 'No active tab found' })
       }
     })
     return true
@@ -197,6 +187,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]?.id) {
         chrome.tabs.sendMessage(tabs[0].id, message, sendResponse)
+      } else {
+        sendResponse({ error: 'No active tab found' })
       }
     })
     return true
@@ -273,14 +265,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }
 
     // Validate that the target tab belongs to the agent's group
-    if (toolGroupId !== undefined && toolTabId !== undefined) {
-      if (!tabGroups.isTabInGroup(toolTabId, toolGroupId)) {
-        sendResponse({ success: false, error: `Tab ${toolTabId} is not in the agent's tab group` })
-        return true
+    // If the in-memory state is stale (e.g. service worker restarted), try to recover
+    const validateAndExecute = async () => {
+      if (toolGroupId !== undefined && toolTabId !== undefined) {
+        if (!tabGroups.isTabInGroup(toolTabId, toolGroupId)) {
+          const recovered = await tabGroups.checkAndAdoptGroup(toolTabId)
+          if (!recovered || recovered.groupId !== toolGroupId) {
+            sendResponse({ success: false, error: `Tab ${toolTabId} is not in the agent's tab group` })
+            return
+          }
+        }
       }
-    }
 
-    executeTool(tool, params).then((result) => {
+      const result = await executeTool(tool, params)
       console.log(`[Bouno:background] EXECUTE_TOOL result:`, result)
 
       // For tabs_create, glow the newly created tab
@@ -296,7 +293,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       sendResponse(result)
-    }).catch((err) => {
+    }
+
+    validateAndExecute().catch((err) => {
       console.log(`[Bouno:background] EXECUTE_TOOL error:`, err)
       sendResponse({ success: false, error: err.message })
     })
@@ -325,11 +324,15 @@ chrome.webRequest.onCompleted.addListener(
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.status === 'loading' && changeInfo.url) {
-    const currentDomain = tab.url ? new URL(tab.url).hostname : ''
-    const newDomain = changeInfo.url ? new URL(changeInfo.url).hostname : ''
+    try {
+      const currentDomain = tab.url ? new URL(tab.url).hostname : ''
+      const newDomain = changeInfo.url ? new URL(changeInfo.url).hostname : ''
 
-    if (currentDomain !== newDomain) {
-      clearTabData(tabId)
+      if (currentDomain !== newDomain) {
+        clearTabData(tabId)
+      }
+    } catch {
+      // Ignore malformed URLs (about:blank, data:, etc.)
     }
   }
 

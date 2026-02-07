@@ -98,8 +98,14 @@ class TabGroupService {
         return null
       }
 
+      // If group is already tracked, ensure this tab is in it
       if (this.groups.has(tab.groupId)) {
-        return this.groups.get(tab.groupId)!
+        const existing = this.groups.get(tab.groupId)!
+        if (!existing.tabIds.has(tabId)) {
+          existing.tabIds.add(tabId)
+          this.tabToGroup.set(tabId, tab.groupId)
+        }
+        return existing
       }
 
       console.log('[TabGroups] Adopting orphaned group', tab.groupId)
