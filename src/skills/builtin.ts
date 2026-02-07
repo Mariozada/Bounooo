@@ -2,10 +2,12 @@
  * Built-in Skills
  *
  * These skills ship with Bouno and are installed on first run.
+ * Commands (user-invocable only, auto-discover: false) don't expose
+ * themselves to the agent — they're just slash-command prompt templates.
  */
 
 /**
- * Page summarizer skill
+ * Page summarizer — available as /summary command
  */
 const SUMMARY = `---
 name: summary
@@ -13,7 +15,7 @@ description: Summarize the current web page content and structure
 version: 1.0.0
 author: Bouno
 user-invocable: true
-auto-discover: true
+auto-discover: false
 ---
 
 # Page Summary Skill
@@ -33,7 +35,7 @@ Keep it short and useful.
 `
 
 /**
- * All built-in skills
+ * All built-in skills/commands
  */
 export const BUILTIN_SKILLS = [
   SUMMARY,

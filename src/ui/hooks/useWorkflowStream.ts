@@ -15,7 +15,7 @@ import {
   getSkillByNameFromCache,
   parseSkillArguments,
   initializeBuiltinSkills,
-  loadSkills,
+  getAutoDiscoverableSkills,
   type Skill,
 } from '@skills/index'
 
@@ -252,8 +252,8 @@ export function useWorkflowStream({
         }
       }
 
-      // Load all enabled skills so the agent knows about them
-      const availableSkills = await loadSkills()
+      // Only pass auto-discoverable skills (not commands like /summary)
+      const availableSkills = await getAutoDiscoverableSkills()
 
       const conversationHistory = buildConversationHistory(messages)
 

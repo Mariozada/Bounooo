@@ -25,13 +25,16 @@ export function createSession(options: AgentOptions): AgentSession {
   setCurrentTabId(tabId)
   setCurrentGroupId(groupId)
 
-  const toolDefinitions = getEnabledToolDefinitions()
+  const hasSkills = (availableSkills && availableSkills.length > 0) || activeSkill
+  const toolDefinitions = getEnabledToolDefinitions().filter(
+    t => hasSkills || t.category !== 'skills'
+  )
 
   // Render system prompt with optional skills
   const systemPrompt = renderSystemPrompt({
     tools: toolDefinitions,
     activeSkill,
-    availableSkills,
+    availableSkills: hasSkills ? availableSkills : undefined,
   })
 
   return {
