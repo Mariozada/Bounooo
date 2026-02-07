@@ -215,7 +215,6 @@ export const AgentChat: FC<AgentChatProps> = ({
     <LazyMotion features={domAnimation}>
       <MotionConfig reducedMotion="user">
         <div className="agent-chat aui-thread-root">
-          <div className="glow-border" />
           <ChatTopBar
             providerName={currentProvider.name}
             modelName={settings.model}
