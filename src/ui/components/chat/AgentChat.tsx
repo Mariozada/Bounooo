@@ -5,7 +5,7 @@ import { useWorkflowStream } from '../../hooks/useWorkflowStream'
 import type { ThreadMessage } from '../../hooks/useThreads'
 import { validateSettings, PROVIDER_CONFIGS, getModelConfig, type ToolCallInfo } from '@agent/index'
 import { SettingsPanel } from '../settings'
-import { ErrorNotification, createError, type NotificationError } from '../ErrorNotification'
+import { ErrorNotification, type NotificationError } from '../ErrorNotification'
 import { type AttachmentFile } from '../FileAttachment'
 import { ChatTopBar } from './ChatTopBar'
 import { MessageList, type Message } from './MessageList'
@@ -17,7 +17,6 @@ interface AddUserMessageResult extends ThreadMessage {
 }
 
 interface AgentChatProps {
-  threadId?: string | null
   messages?: ThreadMessage[]
   onAddUserMessage?: (content: string, attachments?: AttachmentFile[]) => Promise<AddUserMessageResult>
   onAddAssistantMessage?: (threadId?: string, parentId?: string, modelInfo?: { model: string; provider: string }) => Promise<ThreadMessage>
@@ -26,10 +25,8 @@ interface AgentChatProps {
     updates: { content?: string; reasoning?: string; toolCalls?: ToolCallInfo[]; model?: string; provider?: string }
   ) => void
   onClearThread?: () => Promise<void>
-  onNewThread?: () => Promise<void>
   onEditUserMessage?: (messageId: string, newContent: string, attachments?: AttachmentFile[]) => Promise<AddUserMessageResult>
   onNavigateBranch?: (messageId: string, direction: 'prev' | 'next') => Promise<void>
-  onRegenerateAssistant?: (messageId: string) => Promise<void>
   sidebarOpen?: boolean
   onToggleSidebar?: () => void
 }
@@ -147,16 +144,27 @@ export const AgentChat: FC<AgentChatProps> = ({
     [onNavigateBranch, isStreaming]
   )
 
-  const handleCopyMessage = useCallback((messageId: string, text: string) => {
+  const handleCopyMessage = useCallback((_messageId: string, text: string) => {
     navigator.clipboard.writeText(text)
   }, [])
 
-  const handleRetry = useCallback(() => {
-    const lastUser = [...messages].reverse().find((m) => m.role === 'user')
-    if (lastUser?.content) {
-      sendMessage(lastUser.content)
-    }
-  }, [messages, sendMessage])
+  const handleRegenerate = useCallback(async (assistantMessageId: string) => {
+    if (!onEditUserMessage) return
+
+    const assistantIndex = messages.findIndex((m) => m.id === assistantMessageId)
+    if (assistantIndex === -1) return
+
+    // Find the parent user message
+    const assistantMsg = messages[assistantIndex]
+    const parentUserMsg = messages.find((m) => m.id === assistantMsg.parentId)
+    if (!parentUserMsg) return
+
+    // Use the edit flow with the same user content to create a user-level branch
+    const userMsgIndex = messages.findIndex((m) => m.id === parentUserMsg.id)
+    const messagesBeforeUser = messages.slice(0, userMsgIndex)
+
+    await sendEditedMessage(parentUserMsg.id, parentUserMsg.content, messagesBeforeUser, onEditUserMessage)
+  }, [messages, onEditUserMessage, sendEditedMessage])
 
   const handleDismissError = useCallback((id: string) => {
     setNotificationErrors((prev) => prev.filter((e) => e.id !== id))
@@ -246,7 +254,7 @@ export const AgentChat: FC<AgentChatProps> = ({
             onSubmitEdit={handleSubmitEdit}
             onNavigateBranch={handleNavigateBranch}
             onCopyMessage={handleCopyMessage}
-            onRetry={handleRetry}
+            onRetry={handleRegenerate}
             onStop={stop}
             onSuggestionClick={handleSuggestion}
           />

@@ -38,7 +38,7 @@ export interface UseThreadsReturn {
   clearCurrentThread: () => Promise<void>
   editUserMessage: (messageId: string, newContent: string, attachments?: AttachmentFile[]) => Promise<AddUserMessageResult>
   navigateBranch: (messageId: string, direction: 'prev' | 'next') => Promise<void>
-  regenerateAssistant: (messageId: string) => Promise<void>
+  regenerateAssistant: (messageId: string, modelInfo?: { model: string; provider: string }) => Promise<AddUserMessageResult | null>
   deleteAllData: () => Promise<void>
   getStats: () => Promise<{ threadCount: number; messageCount: number; attachmentCount: number; estimatedSizeBytes: number }>
   refresh: () => Promise<void>

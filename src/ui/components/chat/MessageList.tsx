@@ -29,7 +29,7 @@ interface MessageListProps {
   onSubmitEdit: () => void
   onNavigateBranch: (messageId: string, direction: 'prev' | 'next') => void
   onCopyMessage: (messageId: string, text: string) => void
-  onRetry: () => void
+  onRetry: (messageId: string) => void
   onStop: () => void
   onSuggestionClick: (action: string) => void
 }
@@ -134,7 +134,7 @@ export const MessageList: FC<MessageListProps> = ({
             onMouseEnter={() => handleMouseEnter(message.id)}
             onMouseLeave={handleMouseLeave}
             onCopy={() => handleCopyMessage(message.id, message.content)}
-            onRetry={onRetry}
+            onRetry={() => onRetry(message.id)}
             onStop={onStop}
           />
         )

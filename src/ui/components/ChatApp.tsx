@@ -33,7 +33,6 @@ export const ChatApp: FC = () => {
     // Branch operations
     editUserMessage,
     navigateBranch,
-    regenerateAssistant,
     deleteAllData,
     getStats,
     refresh,
@@ -101,16 +100,13 @@ export const ChatApp: FC = () => {
       <main className={`main-content ${sidebarOpen ? 'sidebar-open' : ''}`}>
         <AgentChat
           key={viewKey}
-          threadId={currentThreadId}
           messages={messages}
           onAddUserMessage={addUserMessage}
           onAddAssistantMessage={addAssistantMessage}
           onUpdateAssistantMessage={updateAssistantMessage}
           onClearThread={clearCurrentThread}
-          onNewThread={handleNewThread}
           onEditUserMessage={editUserMessage}
           onNavigateBranch={navigateBranch}
-          onRegenerateAssistant={regenerateAssistant}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={handleToggleSidebar}
         />

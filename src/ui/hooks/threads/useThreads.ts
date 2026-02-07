@@ -18,7 +18,6 @@ import {
   getBranchState,
   updateBranchState,
   getSiblings,
-  deleteMessageTree,
   type MessageInput,
 } from '@storage/chatStorage'
 import type { AttachmentFile } from '@ui/components/FileAttachment'
@@ -343,17 +342,36 @@ export function useThreads(): UseThreadsReturn {
   )
 
   const regenerateAssistant = useCallback(
-    async (messageId: string) => {
+    async (messageId: string, modelInfo?: { model: string; provider: string }): Promise<AddUserMessageResult | null> => {
       const threadId = currentThreadIdRef.current
-      if (!threadId) return
+      if (!threadId) return null
 
       const assistantMessage = await getMessage(messageId)
-      if (!assistantMessage || assistantMessage.role !== 'assistant') return
+      if (!assistantMessage || assistantMessage.role !== 'assistant') return null
 
-      await deleteMessageTree(messageId)
+      // Create a new sibling assistant message with the same parent
+      const input: MessageInput = {
+        role: 'assistant',
+        content: '',
+        parentId: assistantMessage.parentId,
+        model: modelInfo?.model,
+        provider: modelInfo?.provider,
+      }
+      const stored = await addMessage(threadId, input)
+
+      // Switch active branch to the new message
+      await updateBranchState(threadId, assistantMessage.parentId, stored.id)
       await loadMessagesForThread(threadId)
 
-      log('Deleted assistant message for regeneration:', messageId)
+      log('Regenerated assistant message, created branch:', stored.id, 'sibling of:', messageId)
+
+      return {
+        id: stored.id,
+        parentId: stored.parentId,
+        role: 'assistant',
+        content: '',
+        threadId,
+      }
     },
     [loadMessagesForThread]
   )

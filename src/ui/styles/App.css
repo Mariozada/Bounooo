@@ -398,6 +398,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  align-self: flex-end;
   gap: 4px;
   margin-top: 6px;
 }
