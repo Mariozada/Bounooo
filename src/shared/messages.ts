@@ -19,6 +19,7 @@ export const MessageTypes = {
   CONSOLE_MESSAGE: 'CONSOLE_MESSAGE',
   CONTENT_SCRIPT_READY: 'CONTENT_SCRIPT_READY',
   TAKE_SCREENSHOT: 'TAKE_SCREENSHOT',
+  SET_SCREEN_GLOW: 'SET_SCREEN_GLOW',
 } as const
 
 export type MessageType = typeof MessageTypes[keyof typeof MessageTypes]

@@ -7,6 +7,7 @@ import { handleFormInput } from './formHandler'
 import { handleComputerAction } from './eventSimulator'
 import { setupConsoleCapture, getConsoleMessages, clearConsoleMessages } from './consoleCapture'
 import { handleUploadImage } from './imageUpload'
+import { setScreenGlow } from './screenGlow'
 
 console.log('[Bouno:content] All imports successful')
 
@@ -95,6 +96,12 @@ const handlers: Record<string, MessageHandler> = {
       alt: (img as HTMLImageElement).alt
     }))
     return { images }
+  },
+
+  [MessageTypes.SET_SCREEN_GLOW]: (message) => {
+    const { active } = message as { active: boolean }
+    setScreenGlow(active)
+    return { success: true }
   }
 }
 

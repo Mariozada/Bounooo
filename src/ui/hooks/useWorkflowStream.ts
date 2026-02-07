@@ -7,6 +7,7 @@ import {
   type Message as AgentMessage,
   type ContentPart,
 } from '@agent/index'
+import { MessageTypes } from '@shared/messages'
 import type { ProviderSettings, TracingSettings } from '@shared/settings'
 import type { AttachmentFile } from '@ui/components/FileAttachment'
 
@@ -15,6 +16,15 @@ const MAX_STEPS = 15
 const log = (...args: unknown[]) => DEBUG && console.log('[useWorkflowStream]', ...args)
 const logWarn = (...args: unknown[]) => DEBUG && console.warn('[useWorkflowStream]', ...args)
 const logError = (...args: unknown[]) => console.error('[useWorkflowStream]', ...args)
+
+function sendScreenGlow(active: boolean, tabId: number, groupId?: number): void {
+  chrome.runtime.sendMessage({
+    type: MessageTypes.SET_SCREEN_GLOW,
+    active,
+    tabId,
+    groupId,
+  }).catch(() => {})
+}
 
 interface Message {
   id: string
@@ -217,6 +227,7 @@ export function useWorkflowStream({
       ]
 
       setIsStreaming(true)
+      sendScreenGlow(true, tabId, groupId)
       abortControllerRef.current = new AbortController()
 
       try {
@@ -230,12 +241,13 @@ export function useWorkflowStream({
           setError(errorMessage)
         }
       } finally {
+        sendScreenGlow(false, tabId, groupId)
         setIsStreaming(false)
         abortControllerRef.current = null
         log('=== Agent loop finished ===')
       }
     },
-    [isStreaming, messages, settings, onAddUserMessage, onAddAssistantMessage, runAgentWorkflow]
+    [isStreaming, messages, settings, tabId, groupId, onAddUserMessage, onAddAssistantMessage, runAgentWorkflow]
   )
 
   const sendEditedMessage = useCallback(
@@ -248,6 +260,7 @@ export function useWorkflowStream({
       const conversationHistory = buildConversationHistory(messagesBeforeEdit)
 
       setIsStreaming(true)
+      sendScreenGlow(true, tabId, groupId)
       abortControllerRef.current = new AbortController()
 
       try {
@@ -269,6 +282,7 @@ export function useWorkflowStream({
       } catch (err) {
         logError('Edit message failed:', err)
       } finally {
+        sendScreenGlow(false, tabId, groupId)
         setIsStreaming(false)
         abortControllerRef.current = null
       }

@@ -199,6 +199,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (type === MessageTypes.SET_SCREEN_GLOW) {
+    const { active, tabId: targetTabId, groupId: targetGroupId } = message as { active: boolean; tabId?: number; groupId?: number }
+
+    if (targetGroupId !== undefined) {
+      const groupTabIds = tabGroups.getGroupTabs(targetGroupId)
+      for (const tid of groupTabIds) {
+        chrome.tabs.sendMessage(tid, { type: MessageTypes.SET_SCREEN_GLOW, active }).catch(() => {})
+      }
+    } else if (targetTabId) {
+      chrome.tabs.sendMessage(targetTabId, { type: MessageTypes.SET_SCREEN_GLOW, active }).catch(() => {})
+    }
+    sendResponse({ success: true })
+    return true
+  }
+
   if (type === MessageTypes.EXECUTE_TOOL) {
     const { tool, params } = message as { tool: string; params: Record<string, unknown> }
     console.log(`[Bouno:background] EXECUTE_TOOL received: tool=${tool}, params=`, params)
