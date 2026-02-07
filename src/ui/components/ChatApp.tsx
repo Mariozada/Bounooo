@@ -158,6 +158,7 @@ export const ChatApp: FC = () => {
           onNavigateBranch={navigateBranch}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={handleToggleSidebar}
+          onCreateShortcut={handleCreateShortcut}
         />
       </main>
       {showShortcutForm && (
