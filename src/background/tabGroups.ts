@@ -132,6 +132,11 @@ class TabGroupService {
   isTabManaged(tabId: number): boolean {
     return this.tabToGroup.has(tabId)
   }
+
+  isTabInGroup(tabId: number, groupId: number): boolean {
+    const group = this.groups.get(groupId)
+    return group ? group.tabIds.has(tabId) : false
+  }
 }
 
 export const tabGroups = new TabGroupService()

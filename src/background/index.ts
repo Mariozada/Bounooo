@@ -204,6 +204,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log(`[Bouno:background] EXECUTE_TOOL received: tool=${tool}, params=`, params)
     console.log(`[Bouno:background] Sender:`, sender.tab?.id, sender.url)
 
+    const toolGroupId = params.groupId as number | undefined
+    const toolTabId = params.tabId as number | undefined
+
+    // Validate that the target tab belongs to the agent's group
+    if (toolGroupId !== undefined && toolTabId !== undefined) {
+      if (!tabGroups.isTabInGroup(toolTabId, toolGroupId)) {
+        sendResponse({ success: false, error: `Tab ${toolTabId} is not in the agent's tab group` })
+        return true
+      }
+    }
+
     executeTool(tool, params).then((result) => {
       console.log(`[Bouno:background] EXECUTE_TOOL result:`, result)
       sendResponse(result)

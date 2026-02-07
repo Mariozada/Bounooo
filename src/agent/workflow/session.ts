@@ -1,7 +1,7 @@
 import type { AgentSession, AgentOptions, Message } from './types'
 import { renderSystemPrompt } from '@prompts/render'
 import { getEnabledToolDefinitions } from '@tools/definitions'
-import { setCurrentTabId } from '../tools'
+import { setCurrentTabId, setCurrentGroupId } from '../tools'
 
 let sessionCounter = 0
 
@@ -10,9 +10,10 @@ function generateSessionId(): string {
 }
 
 export function createSession(options: AgentOptions): AgentSession {
-  const { model, messages, tabId, maxSteps = 15, abortSignal } = options
+  const { model, messages, tabId, groupId, maxSteps = 15, abortSignal } = options
 
   setCurrentTabId(tabId)
+  setCurrentGroupId(groupId)
 
   const toolDefinitions = getEnabledToolDefinitions()
   const systemPrompt = renderSystemPrompt(toolDefinitions)
@@ -26,6 +27,7 @@ export function createSession(options: AgentOptions): AgentSession {
     config: {
       maxSteps,
       tabId,
+      groupId,
     },
     abortSignal,
   }

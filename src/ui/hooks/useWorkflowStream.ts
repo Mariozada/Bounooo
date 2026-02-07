@@ -32,6 +32,7 @@ interface StreamCallbacks {
 interface UseWorkflowStreamOptions {
   settings: ProviderSettings
   tabId: number
+  groupId?: number
   messages: Message[]
   callbacks: StreamCallbacks
 }
@@ -80,6 +81,7 @@ function buildConversationHistory(messages: Message[]): AgentMessage[] {
 export function useWorkflowStream({
   settings,
   tabId,
+  groupId,
   messages,
   callbacks,
 }: UseWorkflowStreamOptions): UseWorkflowStreamReturn {
@@ -122,6 +124,7 @@ export function useWorkflowStream({
         model,
         messages: agentMessages,
         tabId,
+        groupId,
         maxSteps: MAX_STEPS,
         abortSignal,
         callbacks: {
@@ -171,7 +174,7 @@ export function useWorkflowStream({
 
       return result
     },
-    [settings, tabId, onUpdateAssistantMessage]
+    [settings, tabId, groupId, onUpdateAssistantMessage]
   )
 
   const sendMessage = useCallback(

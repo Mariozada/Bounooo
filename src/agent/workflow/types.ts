@@ -73,6 +73,7 @@ export interface ToolCallInfo {
 export interface AgentConfig {
   maxSteps: number
   tabId: number
+  groupId?: number
 }
 
 export interface AgentSession {
@@ -124,6 +125,7 @@ export interface AgentOptions {
   model: LanguageModel
   messages: Message[]
   tabId: number
+  groupId?: number
   maxSteps?: number
   abortSignal?: AbortSignal
   callbacks?: AgentCallbacks

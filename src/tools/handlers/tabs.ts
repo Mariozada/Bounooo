@@ -1,8 +1,16 @@
 import { registerTool } from '../registry'
 import type { TabInfo } from '@shared/types'
+import { tabGroups } from '@background/tabGroups'
 
-async function tabsContext(): Promise<{ tabs: TabInfo[] }> {
-  const tabs = await chrome.tabs.query({})
+async function tabsContext(params: { groupId?: number }): Promise<{ tabs: TabInfo[] }> {
+  const { groupId } = params
+
+  let tabs: chrome.tabs.Tab[]
+  if (groupId !== undefined) {
+    tabs = await chrome.tabs.query({ groupId })
+  } else {
+    tabs = await chrome.tabs.query({})
+  }
 
   return {
     tabs: tabs.map(tab => ({
@@ -18,11 +26,17 @@ async function tabsContext(): Promise<{ tabs: TabInfo[] }> {
   }
 }
 
-async function tabsCreate(params: { url?: string }): Promise<TabInfo> {
+async function tabsCreate(params: { url?: string; groupId?: number }): Promise<TabInfo> {
+  const { url, groupId } = params
+
   const tab = await chrome.tabs.create({
     active: true,
-    url: params.url || 'about:blank'
+    url: url || 'about:blank'
   })
+
+  if (groupId !== undefined && tab.id) {
+    await tabGroups.addTabToGroup(tab.id, groupId)
+  }
 
   return {
     id: tab.id!,
@@ -160,7 +174,7 @@ async function webFetch(params: { url: string }): Promise<{
 }
 
 export function registerTabTools(): void {
-  registerTool('tabs_context', tabsContext)
+  registerTool('tabs_context', tabsContext as (params: Record<string, unknown>) => Promise<unknown>)
   registerTool('tabs_create', tabsCreate as (params: Record<string, unknown>) => Promise<unknown>)
   registerTool('navigate', navigate as (params: Record<string, unknown>) => Promise<unknown>)
   registerTool('resize_window', resizeWindow as (params: Record<string, unknown>) => Promise<unknown>)

@@ -7,9 +7,10 @@ const logError = (...args: unknown[]) => console.error('[Workflow:Tools]', ...ar
 async function sendToolMessage(
   name: string,
   params: Record<string, unknown>,
-  tabId: number
+  tabId: number,
+  groupId?: number
 ): Promise<unknown> {
-  const paramsWithTab = { ...params, tabId }
+  const paramsWithTab = { ...params, tabId, ...(groupId !== undefined && { groupId }) }
 
   try {
     const response = await chrome.runtime.sendMessage({
@@ -35,7 +36,8 @@ function isErrorResult(result: unknown): boolean {
 
 export async function executeTool(
   toolCall: ToolCallInfo,
-  tabId: number
+  tabId: number,
+  groupId?: number
 ): Promise<ToolExecutionResult> {
   log(`Executing: ${toolCall.name}`, toolCall.input)
 
@@ -45,7 +47,7 @@ export async function executeTool(
     startedAt: Date.now(),
   }
 
-  const result = await sendToolMessage(toolCall.name, toolCall.input, tabId)
+  const result = await sendToolMessage(toolCall.name, toolCall.input, tabId, groupId)
   const hasError = isErrorResult(result)
 
   updatedToolCall.result = result
@@ -94,7 +96,7 @@ export async function executeTools(
       parentContext: callbacks.tracing.parentContext,
     }) : null
 
-    const result = await executeTool(toolCall, session.config.tabId)
+    const result = await executeTool(toolCall, session.config.tabId, session.config.groupId)
     results.push(result)
 
     // End tool span

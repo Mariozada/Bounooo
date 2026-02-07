@@ -69,14 +69,18 @@ export const AgentChat: FC<AgentChatProps> = ({
     [messagesProp]
   )
 
-  const tabId = useMemo(() => {
+  const { tabId, groupId } = useMemo(() => {
     const params = new URLSearchParams(window.location.search)
-    return parseInt(params.get('tabId') || '0', 10)
+    return {
+      tabId: parseInt(params.get('tabId') || '0', 10),
+      groupId: params.get('groupId') ? parseInt(params.get('groupId')!, 10) : undefined,
+    }
   }, [])
 
   const { isStreaming, error, sendMessage, sendEditedMessage, stop, clearError } = useWorkflowStream({
     settings,
     tabId,
+    groupId,
     messages,
     callbacks: {
       onAddUserMessage,

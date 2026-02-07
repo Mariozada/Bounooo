@@ -2,20 +2,33 @@ import { tool } from 'ai'
 import { z } from 'zod'
 
 let currentTabId = 0
+let currentGroupId: number | undefined
 
 export function setCurrentTabId(tabId: number): void {
   currentTabId = tabId
+}
+
+export function setCurrentGroupId(groupId: number | undefined): void {
+  currentGroupId = groupId
 }
 
 export function getCurrentTabId(): number {
   return currentTabId
 }
 
+export function getCurrentGroupId(): number | undefined {
+  return currentGroupId
+}
+
 async function executeViaChromeMessage(
   toolName: string,
   params: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  const paramsWithTab = { ...params, tabId: params.tabId ?? currentTabId }
+  const paramsWithTab = {
+    ...params,
+    tabId: params.tabId ?? currentTabId,
+    ...(currentGroupId !== undefined && { groupId: currentGroupId }),
+  }
 
   console.log(`[Agent:Tool:${toolName}] Executing with params:`, paramsWithTab)
 

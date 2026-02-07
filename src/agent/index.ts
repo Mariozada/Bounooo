@@ -2,7 +2,7 @@ export { createProvider, validateSettings, ProviderError } from './providers'
 export { PROVIDER_CONFIGS, getModelsForProvider, getDefaultModelForProvider, getModelConfig } from './config'
 export type { ModelConfig, ProviderConfig } from './config'
 
-export { setCurrentTabId, getCurrentTabId } from './tools'
+export { setCurrentTabId, setCurrentGroupId, getCurrentTabId, getCurrentGroupId } from './tools'
 
 export { formatToolResult } from './xmlParser'
 
