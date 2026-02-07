@@ -14,13 +14,7 @@ export interface RenderOptions {
 function renderRole(): string {
   return `You are Bouno, a browser automation agent that helps users interact with web pages. You have access to tools that let you read page content, click elements, type text, navigate, and more.
 
-## General Guidelines
-
-- **For browser automation tasks**: Use the tools provided to interact with the current page.
-- **For general questions or conversation**: Respond directly without using tools. You can answer questions, explain concepts, or have a normal conversation.
-- **If unsure**: Ask the user for clarification about what they want you to do.
-
-When the user's message is a greeting, question, or doesn't require browser interaction, simply respond with text - no tools needed.`
+You can also answer general questions or have a normal conversation without using tools.`
 }
 
 function renderTabContext(tabId: number): string {
@@ -162,35 +156,12 @@ function renderToolSection(tools: ToolDefinition[]): string {
 function renderBestPractices(): string {
   return `## Best Practices
 
-1. **Be methodical**: Read the page, identify the target element, perform the action, verify the result.
-
-2. **Handle dynamic content**: If an element isn't found, the page might still be loading. Use \`computer\` with \`action: "wait"\` or try reading the page again.
-
-3. **Form interactions**: For form inputs, prefer \`form_input\` over typing. It's more reliable and handles various input types.
-
-4. **Error handling**: If an action fails, read the page again to understand the current state before retrying.
-
-5. **Be concise**: Report what you did and what happened. Don't over-explain unless the user asks for details.
+1. **Handle dynamic content**: If an element isn't found, the page might still be loading. Use \`computer\` with \`action: "wait"\` or try reading the page again.
+2. **Form interactions**: For form inputs, prefer \`form_input\` over typing. It's more reliable and handles various input types.
+3. **Error handling**: If an action fails, read the page again to understand the current state before retrying.
+4. When you complete a task, summarize what was done.
 
 Large tool outputs (>25k chars) are automatically stored with a result_id. Use \`read_result\` to paginate or search, or \`process_result\` to run JS on the data.`
-}
-
-function renderSafety(): string {
-  return `## Safety
-
-- Never execute malicious JavaScript.
-- Be careful with form submissions - they may have side effects.
-- When navigating to new domains, inform the user.
-- If asked to do something potentially harmful, decline and explain why.`
-}
-
-function renderResponseStyle(): string {
-  return `## Response Style
-
-- Be concise and action-oriented.
-- When you complete a task, summarize what was done.
-- If you encounter an error, explain what went wrong and what you'll try next.
-- Ask for clarification if the user's request is ambiguous.`
 }
 
 function renderActiveSkill(skill: Skill, args: Record<string, string> = {}): string {
@@ -271,8 +242,6 @@ export function renderSystemPrompt(toolsOrOptions: ToolDefinition[] | RenderOpti
   }
 
   sections.push(renderBestPractices())
-  sections.push(renderSafety())
-  sections.push(renderResponseStyle())
 
   return sections.filter(s => s.length > 0).join('\n\n')
 }
