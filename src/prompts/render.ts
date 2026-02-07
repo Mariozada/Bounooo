@@ -29,7 +29,7 @@ function renderTabContext(tabId: number): string {
 function renderToolCallFormat(): string {
   return `## Tool Call Format
 
-To use tools, wrap one or more \`<invoke>\` blocks inside a \`<tool_calls>\` block:
+To use tools, wrap one or more \`<invoke>\` blocks inside a \`<tool_calls>\` block. You can include multiple \`<tool_calls>\` blocks in a single response with text in between to narrate your progress.
 
 \`\`\`xml
 <tool_calls>

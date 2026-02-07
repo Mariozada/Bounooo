@@ -26,6 +26,14 @@ Browser automation Chrome extension. Control web pages using natural language th
 4. Enable **Developer mode**
 5. Click **Load unpacked** and select the unzipped folder
 
+### Dev Build (latest from main)
+
+1. Download [bouno-dev.zip](https://nightly.link/Mariozada/Bouno/workflows/build/main/bouno-dev.zip)
+2. Unzip the file
+3. Open `chrome://extensions`
+4. Enable **Developer mode**
+5. Click **Load unpacked** and select the unzipped folder
+
 ### Build from Source
 
 ```bash
