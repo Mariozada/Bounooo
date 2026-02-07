@@ -2,7 +2,7 @@
   "lockfileVersion": 1,
   "workspaces": {
     "": {
-      "name": "browserun",
+      "name": "bouno",
       "dependencies": {
         "@ai-sdk/anthropic": "^3.0.9",
         "@ai-sdk/google": "^3.0.6",
