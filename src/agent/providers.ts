@@ -2,6 +2,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createGoogleGenerativeAI } from '@ai-sdk/google'
 import { createGroq } from '@ai-sdk/groq'
+import { createXai } from '@ai-sdk/xai'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
@@ -124,6 +125,17 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
         })
         const model = groq(settings.model)
         log('Groq model created:', model)
+        return wrapWithDebugMiddleware(model)
+      }
+
+      case 'xai': {
+        log('Creating xAI provider...')
+        const xai = createXai({
+          apiKey,
+          fetch: createFetchWithLogging('xAI'),
+        })
+        const model = xai(settings.model)
+        log('xAI model created:', model)
         return wrapWithDebugMiddleware(model)
       }
 

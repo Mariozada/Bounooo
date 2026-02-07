@@ -19,6 +19,7 @@
     "@ai-sdk/openai": "^3.0.7",
     "@ai-sdk/openai-compatible": "^2.0.4",
     "@ai-sdk/react": "^3.0.29",
+    "@ai-sdk/xai": "^3.0.48",
     "@openrouter/ai-sdk-provider": "^1.5.4",
     "ai": "^6.0.27",
     "dexie": "^4.2.1",

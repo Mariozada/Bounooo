@@ -70,6 +70,19 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
       { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', vision: false },
     ],
   },
+  xai: {
+    name: 'xAI',
+    description: 'Grok models',
+    apiKeyPlaceholder: 'xai-...',
+    apiKeyUrl: 'https://console.x.ai',
+    models: [
+      { id: 'grok-4-1-fast-reasoning', name: 'Grok 4.1 Fast Reasoning', vision: false, recommended: true, reasoning: 'always' },
+      { id: 'grok-4-1-fast-non-reasoning', name: 'Grok 4.1 Fast', vision: false },
+      { id: 'grok-code-fast-1', name: 'Grok Code Fast 1', vision: false, reasoning: 'always' },
+      { id: 'grok-4-fast-reasoning', name: 'Grok 4 Fast Reasoning', vision: false, reasoning: 'always' },
+      { id: 'grok-4-fast-non-reasoning', name: 'Grok 4 Fast', vision: false },
+    ],
+  },
   openrouter: {
     name: 'OpenRouter',
     description: 'Access many models with one API key',
