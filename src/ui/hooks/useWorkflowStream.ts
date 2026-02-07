@@ -10,6 +10,14 @@ import {
 import { MessageTypes } from '@shared/messages'
 import type { ProviderSettings, TracingSettings } from '@shared/settings'
 import type { AttachmentFile } from '@ui/components/FileAttachment'
+import {
+  parseSlashCommand,
+  getSkillByNameFromCache,
+  parseSkillArguments,
+  initializeBuiltinSkills,
+  loadSkills,
+  type Skill,
+} from '@skills/index'
 
 const DEBUG = true
 const MAX_STEPS = 15
@@ -95,15 +103,31 @@ export function useWorkflowStream({
 }: UseWorkflowStreamOptions): UseWorkflowStreamReturn {
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [skillsReady, setSkillsReady] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const { onAddUserMessage, onAddAssistantMessage, onUpdateAssistantMessage } = callbacks
+
+  // Initialize skills on mount
+  useEffect(() => {
+    initializeBuiltinSkills()
+      .then(() => loadSkills())
+      .then(() => setSkillsReady(true))
+      .catch((err) => {
+        logError('Failed to initialize skills:', err)
+        setSkillsReady(true) // Continue without skills
+      })
+  }, [])
 
   const runAgentWorkflow = useCallback(
     async (
       agentMessages: AgentMessage[],
       assistantMessageId: string,
-      abortSignal: AbortSignal
+      abortSignal: AbortSignal,
+      skillOptions?: {
+        activeSkill?: { skill: Skill; args?: Record<string, string> }
+        availableSkills?: Skill[]
+      }
     ) => {
       const model = createProvider(settings)
       let accumulatedText = ''
@@ -163,6 +187,9 @@ export function useWorkflowStream({
         modelName: settings.model,
         provider: settings.provider,
         reasoningEnabled: effectiveReasoningEnabled,
+        // Pass skill options to workflow
+        activeSkill: skillOptions?.activeSkill,
+        availableSkills: skillOptions?.availableSkills,
       })
 
       log('Agent loop complete:', {
@@ -196,11 +223,44 @@ export function useWorkflowStream({
 
       setError(null)
 
+      // Check for slash command (skill invocation)
+      let activeSkill: { skill: Skill; args?: Record<string, string> } | undefined
+      let messageToSend = text
+      const slashCommand = parseSlashCommand(text)
+
+      if (slashCommand) {
+        log('Slash command detected:', slashCommand)
+        const skill = await getSkillByNameFromCache(slashCommand.skillName)
+
+        if (skill) {
+          log('Skill found:', skill.name)
+          const args = parseSkillArguments(slashCommand.args, skill.arguments)
+          activeSkill = { skill, args }
+
+          // Transform the message: remove slash command, keep just the task
+          // If there are args, treat them as the user's actual request
+          // Otherwise, create a clear instruction based on the skill
+          if (slashCommand.args.trim()) {
+            messageToSend = slashCommand.args.trim()
+          } else {
+            // Default messages for known skills
+            messageToSend = `Use the ${skill.name} skill on the current web page. Follow the skill instructions.`
+          }
+        } else {
+          log('Skill not found:', slashCommand.skillName)
+          // Not a valid skill - treat as regular message
+        }
+      }
+
+      // Load all enabled skills so the agent knows about them
+      const availableSkills = await loadSkills()
+
       const conversationHistory = buildConversationHistory(messages)
 
       let userMessageId: string
       let messageThreadId: string | undefined
       if (onAddUserMessage) {
+        // Store the original message (including slash command) for history
         const stored = await onAddUserMessage(text, messageAttachments)
         userMessageId = stored.id
         messageThreadId = stored.threadId
@@ -221,14 +281,19 @@ export function useWorkflowStream({
 
       const agentMessages: AgentMessage[] = [
         ...conversationHistory,
-        { role: 'user' as const, content: buildMessageContent(text, messageAttachments) },
+        { role: 'user' as const, content: buildMessageContent(messageToSend, messageAttachments) },
       ]
 
       setIsStreaming(true)
       abortControllerRef.current = new AbortController()
 
       try {
-        await runAgentWorkflow(agentMessages, assistantMessageId, abortControllerRef.current.signal)
+        await runAgentWorkflow(
+          agentMessages,
+          assistantMessageId,
+          abortControllerRef.current.signal,
+          { activeSkill, availableSkills }
+        )
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error'
         logError('Agent loop error:', err)

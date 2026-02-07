@@ -5,8 +5,9 @@ import { useSettingsForm } from './useSettingsForm'
 import { ProviderTab } from './ProviderTab'
 import { TracingTab } from './TracingTab'
 import { DataTab } from './DataTab'
+import { SkillsTab } from './SkillsTab'
 
-type SettingsTab = 'provider' | 'tracing' | 'data'
+type SettingsTab = 'provider' | 'tracing' | 'skills' | 'data'
 
 interface SettingsPanelProps {
   settings: ProviderSettings
@@ -131,6 +132,13 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
             </button>
             <button
               type="button"
+              className={`settings-tab ${activeTab === 'skills' ? 'active' : ''}`}
+              onClick={() => setActiveTab('skills')}
+            >
+              Skills
+            </button>
+            <button
+              type="button"
               className={`settings-tab ${activeTab === 'data' ? 'active' : ''}`}
               onClick={() => setActiveTab('data')}
             >
@@ -167,6 +175,8 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
                 {renderActions()}
               </>
             )}
+
+            {activeTab === 'skills' && <SkillsTab />}
 
             {activeTab === 'data' && <DataTab onRefreshThreads={onRefreshThreads} />}
           </div>

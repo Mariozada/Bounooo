@@ -1,4 +1,14 @@
 import type { ToolDefinition } from '@tools/definitions'
+import type { Skill } from '@skills/types'
+
+export interface RenderOptions {
+  tools: ToolDefinition[]
+  activeSkill?: {
+    skill: Skill
+    args?: Record<string, string>
+  }
+  availableSkills?: Skill[]
+}
 
 function renderRole(): string {
   return `You are Bouno, a browser automation agent that helps users interact with web pages. You have access to tools that let you read page content, click elements, type text, navigate, and more.
@@ -168,14 +178,85 @@ function renderResponseStyle(): string {
 - Ask for clarification if the user's request is ambiguous.`
 }
 
-export function renderSystemPrompt(tools: ToolDefinition[]): string {
-  return [
+function renderActiveSkill(skill: Skill, args: Record<string, string> = {}): string {
+  let instructions = skill.instructions
+
+  // Substitute $argName or ${argName} placeholders
+  for (const [key, value] of Object.entries(args)) {
+    instructions = instructions.replace(
+      new RegExp(`\\$\\{${key}\\}|\\$${key}\\b`, 'g'),
+      value
+    )
+  }
+
+  return `## Active Skill: ${skill.name}
+
+${instructions}`
+}
+
+function renderAvailableSkills(skills: Skill[]): string {
+  if (skills.length === 0) {
+    return ''
+  }
+
+  const lines: string[] = [
+    '## Installed Skills',
+    '',
+    'The following skills are installed:',
+    '',
+  ]
+
+  for (const skill of skills) {
+    lines.push(`- **${skill.name}**: ${skill.description}`)
+  }
+
+  lines.push('')
+  lines.push('### How to use skills:')
+  lines.push('')
+  lines.push('1. **User invokes with slash command**: When the user types `/summary`, the skill instructions are automatically added to your prompt.')
+  lines.push('')
+  lines.push('2. **You invoke with tool**: You can also invoke a skill yourself using the `invoke_skill` tool:')
+  lines.push('```xml')
+  lines.push('<tool_calls>')
+  lines.push('<invoke name="invoke_skill">')
+  lines.push('<parameter name="skill_name">summary</parameter>')
+  lines.push('</invoke>')
+  lines.push('</tool_calls>')
+  lines.push('```')
+  lines.push('')
+  lines.push('**If the user asks "what skills do you have", list the skills above.**')
+
+  return lines.join('\n')
+}
+
+export function renderSystemPrompt(tools: ToolDefinition[]): string
+export function renderSystemPrompt(options: RenderOptions): string
+export function renderSystemPrompt(toolsOrOptions: ToolDefinition[] | RenderOptions): string {
+  // Handle both signatures for backwards compatibility
+  const options: RenderOptions = Array.isArray(toolsOrOptions)
+    ? { tools: toolsOrOptions }
+    : toolsOrOptions
+
+  const sections: string[] = [
     renderRole(),
     renderToolCallFormat(),
     renderWorkflow(),
-    renderToolSection(tools),
-    renderBestPractices(),
-    renderSafety(),
-    renderResponseStyle(),
-  ].join('\n\n')
+    renderToolSection(options.tools),
+  ]
+
+  // Add available skills section if there are auto-discoverable skills
+  if (options.availableSkills && options.availableSkills.length > 0) {
+    sections.push(renderAvailableSkills(options.availableSkills))
+  }
+
+  // Add active skill section if a skill is being invoked
+  if (options.activeSkill) {
+    sections.push(renderActiveSkill(options.activeSkill.skill, options.activeSkill.args))
+  }
+
+  sections.push(renderBestPractices())
+  sections.push(renderSafety())
+  sections.push(renderResponseStyle())
+
+  return sections.filter(s => s.length > 0).join('\n\n')
 }

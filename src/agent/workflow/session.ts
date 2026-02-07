@@ -10,13 +10,29 @@ function generateSessionId(): string {
 }
 
 export function createSession(options: AgentOptions): AgentSession {
-  const { model, messages, tabId, groupId, maxSteps = 15, abortSignal, toolExecutor } = options
+  const {
+    model,
+    messages,
+    tabId,
+    groupId,
+    maxSteps = 15,
+    abortSignal,
+    toolExecutor,
+    activeSkill,
+    availableSkills,
+  } = options
 
   setCurrentTabId(tabId)
   setCurrentGroupId(groupId)
 
   const toolDefinitions = getEnabledToolDefinitions()
-  const systemPrompt = renderSystemPrompt(toolDefinitions)
+
+  // Render system prompt with optional skills
+  const systemPrompt = renderSystemPrompt({
+    tools: toolDefinitions,
+    activeSkill,
+    availableSkills,
+  })
 
   return {
     id: generateSessionId(),

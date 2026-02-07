@@ -19,6 +19,7 @@ export const aliases = {
   '@agent': resolve(__dirname, 'src/agent'),
   '@prompts': resolve(__dirname, 'src/prompts'),
   '@storage': resolve(__dirname, 'src/storage'),
+  '@skills': resolve(__dirname, 'src/skills'),
 }
 
 /**

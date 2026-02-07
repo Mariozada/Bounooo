@@ -5,6 +5,7 @@ import { navigationTools } from './navigation'
 import { debuggingTools } from './debugging'
 import { mediaTools } from './media'
 import { uiTools } from './ui'
+import { skillTools } from './skills'
 
 export type { ToolDefinition, ToolParameter, ToolParameterType, ToolCategory } from './types'
 
@@ -14,7 +15,8 @@ const allToolDefinitions: ToolDefinition[] = [
   ...navigationTools,
   ...debuggingTools,
   ...mediaTools,
-  ...uiTools
+  ...uiTools,
+  ...skillTools,
 ]
 
 const toolStateMap = new Map<string, boolean>()
@@ -70,7 +72,8 @@ export function getToolNamesByCategory(): Record<ToolCategory, string[]> {
     navigation: [],
     debugging: [],
     media: [],
-    ui: []
+    ui: [],
+    skills: [],
   }
 
   for (const tool of allToolDefinitions) {

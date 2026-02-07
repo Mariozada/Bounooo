@@ -1,6 +1,7 @@
 import type { LanguageModel } from 'ai'
 import type { ToolDefinition } from '@tools/definitions'
 import type { TracingConfig } from '../tracing'
+import type { Skill } from '@skills/types'
 
 // Content part types for multimodal messages
 export interface TextPart {
@@ -138,4 +139,11 @@ export interface AgentOptions {
   provider?: string   // For tracing
   reasoningEnabled?: boolean  // Enable streaming reasoning/thinking
   toolExecutor?: ToolExecutor  // Direct executor for background runs
+
+  // Skills
+  activeSkill?: {
+    skill: Skill
+    args?: Record<string, string>
+  }
+  availableSkills?: Skill[]  // Auto-discoverable skills to include in prompt
 }

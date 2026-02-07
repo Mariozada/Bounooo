@@ -5,6 +5,7 @@ export { registerDebuggingTools, addConsoleMessage, addNetworkRequest, clearTabD
 export { registerMediaTools, addFrame } from './media'
 export { registerUiTools, getCurrentPlan, clearPlan } from './ui'
 export { registerOutputReadingTools } from './outputReading'
+export { registerSkillTools } from './skills'
 
 import { registerTabTools } from './tabs'
 import { registerPageReadingTools } from './pageReading'
@@ -13,6 +14,7 @@ import { registerDebuggingTools } from './debugging'
 import { registerMediaTools } from './media'
 import { registerUiTools } from './ui'
 import { registerOutputReadingTools } from './outputReading'
+import { registerSkillTools } from './skills'
 
 export function registerAllHandlers(): void {
   registerTabTools()
@@ -22,4 +24,5 @@ export function registerAllHandlers(): void {
   registerMediaTools()
   registerUiTools()
   registerOutputReadingTools()
+  registerSkillTools()
 }
