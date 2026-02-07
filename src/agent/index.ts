@@ -4,9 +4,9 @@ export type { ModelConfig, ProviderConfig } from './config'
 
 export { setCurrentTabId, setCurrentGroupId, getCurrentTabId, getCurrentGroupId } from './tools'
 
-export { formatToolResult } from './xmlParser'
+export { formatToolResults } from './xmlParser'
 
-export { XMLStreamParser, STREAM_EVENT_TYPES, parsePartialJSON } from './streamParser'
+export { XMLStreamParser, STREAM_EVENT_TYPES } from './streamParser'
 export type { StreamEvent, ToolCallEvent, ToolResultEvent } from './streamParser'
 
 export { runWorkflow, getMessageText, hasAttachments, getAttachments } from './workflow'

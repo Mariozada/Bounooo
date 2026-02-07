@@ -60,11 +60,7 @@ export async function executeTool(
 
   log(`Completed: ${toolCall.name}`, hasError ? 'error' : 'success')
 
-  return {
-    toolCall: updatedToolCall,
-    result,
-    hasError,
-  }
+  return { toolCall: updatedToolCall, result, hasError }
 }
 
 export interface ToolTracingOptions {
@@ -72,43 +68,85 @@ export interface ToolTracingOptions {
   parentContext: SpanContext
 }
 
-export interface ExecuteToolsCallbacks {
+export interface ToolQueueCallbacks {
   onToolStart?: (toolCall: ToolCallInfo) => void
   onToolDone?: (toolCall: ToolCallInfo) => void
   tracing?: ToolTracingOptions
 }
 
-export async function executeTools(
-  toolCalls: ToolCallInfo[],
-  session: AgentSession,
-  callbacks?: ExecuteToolsCallbacks
-): Promise<ToolExecutionResult[]> {
-  const results: ToolExecutionResult[] = []
-  const tracer = getTracer(callbacks?.tracing?.config)
+/**
+ * Sequential tool execution queue. Tool calls are pushed in as they are parsed
+ * from the stream and executed one at a time in order. Call `drain()` after the
+ * stream ends to wait for remaining tools to finish.
+ */
+export class ToolQueue {
+  private queue: ToolCallInfo[] = []
+  private results: ToolExecutionResult[] = []
+  private processing = false
+  private done = false
+  private resolve: (() => void) | null = null
 
-  for (const toolCall of toolCalls) {
-    callbacks?.onToolStart?.(toolCall)
+  constructor(
+    private session: AgentSession,
+    private callbacks?: ToolQueueCallbacks
+  ) {}
 
-    // Start tool span if tracing enabled
-    const toolSpan = callbacks?.tracing ? tracer.startToolSpan({
+  /** Push a parsed tool call into the queue. Starts processing if idle. */
+  push(toolCall: ToolCallInfo): void {
+    this.queue.push(toolCall)
+    if (!this.processing) {
+      this._processNext()
+    }
+  }
+
+  /** Signal that no more tool calls will arrive and wait for the queue to empty. */
+  async drain(): Promise<ToolExecutionResult[]> {
+    this.done = true
+    if (!this.processing && this.queue.length === 0) {
+      return this.results
+    }
+    await new Promise<void>(resolve => { this.resolve = resolve })
+    return this.results
+  }
+
+  getResults(): ToolExecutionResult[] {
+    return this.results
+  }
+
+  private async _processNext(): Promise<void> {
+    if (this.queue.length === 0) {
+      this.processing = false
+      if (this.done && this.resolve) {
+        this.resolve()
+      }
+      return
+    }
+
+    this.processing = true
+    const toolCall = this.queue.shift()!
+    const tracer = getTracer(this.callbacks?.tracing?.config)
+
+    this.callbacks?.onToolStart?.(toolCall)
+
+    const toolSpan = this.callbacks?.tracing ? tracer.startToolSpan({
       name: toolCall.name,
       input: toolCall.input,
-      parentContext: callbacks.tracing.parentContext,
+      parentContext: this.callbacks.tracing.parentContext,
     }) : null
 
-    const result = await executeTool(toolCall, session.config.tabId, session.config.groupId)
-    results.push(result)
+    const result = await executeTool(toolCall, this.session.config.tabId, this.session.config.groupId)
+    this.results.push(result)
 
-    // End tool span
     toolSpan?.end({
       output: result.result,
       error: result.hasError ? result.toolCall.error : undefined,
     })
 
-    callbacks?.onToolDone?.(result.toolCall)
-  }
+    this.callbacks?.onToolDone?.(result.toolCall)
 
-  return results
+    // Process next (without awaiting to avoid deep stack, use microtask)
+    void this._processNext()
+  }
 }
 
 export function getToolCallsFromResults(results: ToolExecutionResult[]): ToolCallInfo[] {
