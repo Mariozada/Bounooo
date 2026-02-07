@@ -463,16 +463,10 @@ body {
   pointer-events: none;
 }
 
-.aui-assistant-message-root:hover .aui-action-bar-hidden {
-  opacity: 1;
-  pointer-events: auto;
-}
-
 .aui-action-bar-floating {
   position: absolute;
   bottom: 100%;
   left: 8px;
-  margin-bottom: 4px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 8px;

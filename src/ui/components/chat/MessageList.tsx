@@ -53,6 +53,22 @@ export const MessageList: FC<MessageListProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleMouseEnter = useCallback((messageId: string) => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+    setHoveredMessageId(messageId)
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    hoverTimeoutRef.current = setTimeout(() => {
+      setHoveredMessageId(null)
+      hoverTimeoutRef.current = null
+    }, 100)
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -93,8 +109,8 @@ export const MessageList: FC<MessageListProps> = ({
               editContent={editContent}
               isStreaming={isStreaming}
               canEdit={canEditMessages}
-              onMouseEnter={() => setHoveredMessageId(message.id)}
-              onMouseLeave={() => setHoveredMessageId(null)}
+              onMouseEnter={() => handleMouseEnter(message.id)}
+              onMouseLeave={handleMouseLeave}
               onStartEdit={() => onStartEdit(message.id, message.content)}
               onCancelEdit={onCancelEdit}
               onSubmitEdit={onSubmitEdit}
@@ -115,8 +131,8 @@ export const MessageList: FC<MessageListProps> = ({
             isLastMessage={isLastMessage}
             isHovered={hoveredMessageId === message.id}
             isCopied={copiedMessageId === message.id}
-            onMouseEnter={() => setHoveredMessageId(message.id)}
-            onMouseLeave={() => setHoveredMessageId(null)}
+            onMouseEnter={() => handleMouseEnter(message.id)}
+            onMouseLeave={handleMouseLeave}
             onCopy={() => handleCopyMessage(message.id, message.content)}
             onRetry={onRetry}
             onStop={onStop}

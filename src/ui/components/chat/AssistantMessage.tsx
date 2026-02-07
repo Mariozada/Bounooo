@@ -76,7 +76,7 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
         )}
       </div>
       <div
-        className={`aui-assistant-action-bar-root ${showActionBar ? '' : 'aui-action-bar-hidden'} ${isHovered && !isLastMessage ? 'aui-action-bar-floating' : ''}`}
+        className={`aui-assistant-action-bar-root ${showActionBar ? '' : 'aui-action-bar-hidden'} ${!isLastMessage ? 'aui-action-bar-floating' : ''}`}
       >
         <TooltipIconButton
           tooltip={isCopied ? 'Copied' : 'Copy'}
