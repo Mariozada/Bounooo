@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type FC } from 'react'
-import { Plus, Paperclip, X, Camera } from 'lucide-react'
+import { Plus, Paperclip, X, Camera, Timer } from 'lucide-react'
 import { MessageTypes } from '@shared/messages'
 import { type AttachmentFile, fileToDataUrl, getFileType, generateId, MAX_FILE_SIZE } from './FileAttachment'
 
@@ -7,12 +7,14 @@ interface ComposerMenuProps {
   onFilesSelected: (files: AttachmentFile[]) => void
   disabled?: boolean
   tabId?: number
+  onCreateShortcut?: () => void
 }
 
 export const ComposerMenu: FC<ComposerMenuProps> = ({
   onFilesSelected,
   disabled = false,
   tabId,
+  onCreateShortcut,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const [isCapturing, setIsCapturing] = useState(false)
@@ -186,6 +188,19 @@ export const ComposerMenu: FC<ComposerMenuProps> = ({
             <Paperclip size={16} />
             <span>Attach file</span>
           </button>
+          {onCreateShortcut && (
+            <button
+              type="button"
+              className="composer-menu-item"
+              onClick={() => {
+                onCreateShortcut()
+                setIsOpen(false)
+              }}
+            >
+              <Timer size={16} />
+              <span>Schedule task</span>
+            </button>
+          )}
         </div>
       )}
     </div>
