@@ -19,7 +19,7 @@ export default defineConfig({
     {
       name: 'fix-sidepanel-html',
       writeBundle() {
-        const distDir = resolve(__dirname, './dist')
+        const distDir = resolve(__dirname, '../dist')
         const srcDir = resolve(distDir, 'src')
         const srcPath = resolve(srcDir, 'sidepanel.html')
         const destPath = resolve(distDir, 'sidepanel.html')
@@ -48,7 +48,7 @@ export default defineConfig({
   resolve: resolveConfig,
   base: './',
   build: {
-    outDir: './dist',
+    outDir: '../dist',
     emptyOutDir: true, // Only UI build clears the directory
     minify: false, // Disable minification for debugging
     rollupOptions: {

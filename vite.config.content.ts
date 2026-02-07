@@ -16,7 +16,7 @@ export default defineConfig({
   resolve: resolveConfig,
   base: './',
   build: {
-    outDir: './dist',
+    outDir: '../dist',
     emptyOutDir: false, // Don't clear - UI build already did
     lib: {
       entry: resolve(__dirname, 'src/content/index.ts'),
