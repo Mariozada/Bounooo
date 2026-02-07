@@ -10,6 +10,7 @@ import { createSession, isAborted } from './session'
 import { streamLLMResponse, hasToolCalls } from './stream'
 import { ToolQueue, getToolCallsFromResults } from './tools'
 import { appendStepMessages } from './messages'
+import { clearOutputs } from '@shared/outputStore'
 import { getTracer, type SpanContext, type TracingConfig } from '../tracing'
 
 const log = (...args: unknown[]) => console.log('[Workflow:Runner]', ...args)
@@ -130,6 +131,7 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
 export async function runWorkflow(options: AgentOptions): Promise<AgentResult> {
   const { callbacks, tracing, modelName, provider, reasoningEnabled } = options
   const session = createSession(options)
+  clearOutputs()
 
   log('Starting workflow', {
     sessionId: session.id,

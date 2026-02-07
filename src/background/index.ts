@@ -7,6 +7,7 @@ import {
   registerDebuggingTools,
   registerMediaTools,
   registerUiTools,
+  registerOutputReadingTools,
   addConsoleMessage,
   addNetworkRequest,
   clearTabData
@@ -22,6 +23,7 @@ registerInteractionTools()
 registerDebuggingTools()
 registerMediaTools()
 registerUiTools()
+registerOutputReadingTools()
 
 console.log('Bouno: Registered tools:', getRegisteredTools())
 

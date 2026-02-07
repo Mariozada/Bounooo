@@ -19,6 +19,7 @@ export {
   registerDebuggingTools,
   registerMediaTools,
   registerUiTools,
+  registerOutputReadingTools,
   registerAllHandlers,
   getScreenshot,
   addConsoleMessage,

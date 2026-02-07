@@ -48,5 +48,57 @@ export const readingTools: ToolDefinition[] = [
     ],
     enabled: true,
     category: 'reading'
+  },
+  {
+    name: 'read_result',
+    description: 'Read a stored large tool output with pagination and search. When a tool returns more than 25,000 characters, the output is stored and you receive a preview with a result_id. Use this tool to explore the full output.',
+    parameters: [
+      {
+        name: 'result_id',
+        type: 'string',
+        description: 'ID of the stored output (e.g., "read_page_1")',
+        required: true
+      },
+      {
+        name: 'offset',
+        type: 'number',
+        description: 'Line number to start reading from (1-indexed)',
+        default: 1
+      },
+      {
+        name: 'limit',
+        type: 'number',
+        description: 'Number of lines to return',
+        default: 200
+      },
+      {
+        name: 'pattern',
+        type: 'string',
+        description: 'Regex pattern to filter lines. Returns only matching lines with their line numbers.',
+        required: false
+      }
+    ],
+    enabled: true,
+    category: 'reading'
+  },
+  {
+    name: 'process_result',
+    description: 'Run JavaScript code on a stored large tool output. The stored output is available as the DATA variable (string). Use this to parse, filter, or transform large outputs.',
+    parameters: [
+      {
+        name: 'result_id',
+        type: 'string',
+        description: 'ID of the stored output (e.g., "web_fetch_3")',
+        required: true
+      },
+      {
+        name: 'code',
+        type: 'string',
+        description: 'JavaScript code to execute. The stored output is available as DATA (string). Return a value.',
+        required: true
+      }
+    ],
+    enabled: true,
+    category: 'reading'
   }
 ]

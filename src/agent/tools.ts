@@ -198,6 +198,26 @@ const browserToolsDefinition = {
     execute: async (params): Promise<Record<string, unknown>> => executeViaChromeMessage('gif_creator', params),
   }),
 
+  read_result: tool({
+    description: 'Read a stored large tool output with pagination and search. When a tool returns more than 25,000 characters, the output is stored and you receive a preview with a result_id. Use this tool to explore the full output.',
+    inputSchema: z.object({
+      result_id: z.string().describe('ID of the stored output (e.g., "read_page_1")'),
+      offset: z.number().optional().default(1).describe('Line number to start reading from (1-indexed)'),
+      limit: z.number().optional().default(200).describe('Number of lines to return'),
+      pattern: z.string().optional().describe('Regex pattern to filter lines. Returns only matching lines with their line numbers.'),
+    }),
+    execute: async (params): Promise<Record<string, unknown>> => executeViaChromeMessage('read_result', params),
+  }),
+
+  process_result: tool({
+    description: 'Run JavaScript code on a stored large tool output. The stored output is available as the DATA variable (string). Use this to parse, filter, or transform large outputs.',
+    inputSchema: z.object({
+      result_id: z.string().describe('ID of the stored output (e.g., "web_fetch_3")'),
+      code: z.string().describe('JavaScript code to execute. The stored output is available as DATA (string). Return a value.'),
+    }),
+    execute: async (params): Promise<Record<string, unknown>> => executeViaChromeMessage('process_result', params),
+  }),
+
   update_plan: tool({
     description: 'Present a plan to the user for approval before proceeding.',
     inputSchema: z.object({

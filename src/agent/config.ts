@@ -76,11 +76,11 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
     apiKeyPlaceholder: 'xai-...',
     apiKeyUrl: 'https://console.x.ai',
     models: [
-      { id: 'grok-4-1-fast-reasoning', name: 'Grok 4.1 Fast Reasoning', vision: false, recommended: true, reasoning: 'always' },
-      { id: 'grok-4-1-fast-non-reasoning', name: 'Grok 4.1 Fast', vision: false },
+      { id: 'grok-4-1-fast-reasoning', name: 'Grok 4.1 Fast Reasoning', vision: true, recommended: true, reasoning: 'always' },
+      { id: 'grok-4-1-fast-non-reasoning', name: 'Grok 4.1 Fast', vision: true },
       { id: 'grok-code-fast-1', name: 'Grok Code Fast 1', vision: false, reasoning: 'always' },
-      { id: 'grok-4-fast-reasoning', name: 'Grok 4 Fast Reasoning', vision: false, reasoning: 'always' },
-      { id: 'grok-4-fast-non-reasoning', name: 'Grok 4 Fast', vision: false },
+      { id: 'grok-4-fast-reasoning', name: 'Grok 4 Fast Reasoning', vision: true, reasoning: 'always' },
+      { id: 'grok-4-fast-non-reasoning', name: 'Grok 4 Fast', vision: true },
     ],
   },
   openrouter: {
