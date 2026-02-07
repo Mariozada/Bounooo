@@ -132,14 +132,7 @@ function getProviderOptions(provider?: string, reasoningEnabled?: boolean, model
     }
   }
 
-  // xAI Grok reasoning models
-  if (provider === 'xai') {
-    return {
-      xai: {
-        reasoningEffort: 'medium',
-      },
-    }
-  }
+  // xAI Grok reasoning models handle reasoning automatically, no provider options needed
 
   // OpenRouter - detect underlying provider from model ID
   if (provider === 'openrouter') {

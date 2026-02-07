@@ -256,9 +256,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const toolGroupId = params.groupId as number | undefined
     const toolTabId = params.tabId as number | undefined
 
-    // Auto-manage glow: turn on for first tool, move to new tab if changed
-    if (toolTabId && toolTabId !== glowTabId) {
-      if (glowTabId) {
+    // Auto-manage glow: always re-send so glow survives same-tab navigations
+    if (toolTabId) {
+      if (glowTabId && glowTabId !== toolTabId) {
         chrome.tabs.sendMessage(glowTabId, { type: MessageTypes.SET_SCREEN_GLOW, active: false }).catch(() => {})
       }
       glowTabId = toolTabId
@@ -275,6 +275,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     executeTool(tool, params).then((result) => {
       console.log(`[Bouno:background] EXECUTE_TOOL result:`, result)
+
+      // For tabs_create, glow the newly created tab
+      if (tool === 'tabs_create' && result.success && result.result) {
+        const newTabId = (result.result as { id?: number }).id
+        if (newTabId) {
+          if (glowTabId && glowTabId !== newTabId) {
+            chrome.tabs.sendMessage(glowTabId, { type: MessageTypes.SET_SCREEN_GLOW, active: false }).catch(() => {})
+          }
+          glowTabId = newTabId
+          chrome.tabs.sendMessage(newTabId, { type: MessageTypes.SET_SCREEN_GLOW, active: true }).catch(() => {})
+        }
+      }
+
       sendResponse(result)
     }).catch((err) => {
       console.log(`[Bouno:background] EXECUTE_TOOL error:`, err)

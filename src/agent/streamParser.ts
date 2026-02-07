@@ -34,7 +34,11 @@ type EventListener = (event: StreamEvent) => void
 const BLOCK_OPEN = '<tool_calls>'
 const BLOCK_CLOSE = '</tool_calls>'
 const INVOKE_CLOSE = '</invoke>'
-const domParser = new DOMParser()
+let domParser: DOMParser | null = null
+function getDOMParser(): DOMParser {
+  if (!domParser) domParser = new DOMParser()
+  return domParser
+}
 
 /**
  * Streaming parser for `<tool_calls>` blocks. Text outside blocks is emitted
@@ -158,7 +162,7 @@ export class XMLStreamParser {
     if (!raw) return
 
     // Wrap in a root so DOMParser is happy
-    const doc = domParser.parseFromString(`<r>${raw}</r>`, 'text/xml')
+    const doc = getDOMParser().parseFromString(`<r>${raw}</r>`, 'text/xml')
     if (doc.querySelector('parsererror')) {
       console.warn('[XMLStreamParser] Parse error, raw:', raw)
       return
