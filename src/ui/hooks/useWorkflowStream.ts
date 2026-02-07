@@ -17,12 +17,10 @@ const log = (...args: unknown[]) => DEBUG && console.log('[useWorkflowStream]', 
 const logWarn = (...args: unknown[]) => DEBUG && console.warn('[useWorkflowStream]', ...args)
 const logError = (...args: unknown[]) => console.error('[useWorkflowStream]', ...args)
 
-function sendScreenGlow(active: boolean, tabId: number, groupId?: number): void {
+function sendScreenGlowOff(): void {
   chrome.runtime.sendMessage({
     type: MessageTypes.SET_SCREEN_GLOW,
-    active,
-    tabId,
-    groupId,
+    active: false,
   }).catch(() => {})
 }
 
@@ -112,8 +110,6 @@ export function useWorkflowStream({
       let accumulatedReasoning = ''
       const accumulatedToolCalls: ToolCallInfo[] = []
 
-      let glowActive = false
-
       const updateAssistant = () => {
         if (onUpdateAssistantMessage) {
           onUpdateAssistantMessage(assistantMessageId, {
@@ -141,10 +137,6 @@ export function useWorkflowStream({
         abortSignal,
         callbacks: {
           onTextDelta: (delta) => {
-            if (glowActive) {
-              sendScreenGlow(false, tabId, groupId)
-              glowActive = false
-            }
             accumulatedText += delta
             updateAssistant()
           },
@@ -153,10 +145,6 @@ export function useWorkflowStream({
             updateAssistant()
           },
           onToolStart: (toolCall) => {
-            if (!glowActive) {
-              sendScreenGlow(true, tabId, groupId)
-              glowActive = true
-            }
             const exists = accumulatedToolCalls.some((tc) => tc.id === toolCall.id)
             if (!exists) {
               accumulatedToolCalls.push(toolCall)
@@ -250,7 +238,7 @@ export function useWorkflowStream({
           setError(errorMessage)
         }
       } finally {
-        sendScreenGlow(false, tabId, groupId)
+        sendScreenGlowOff()
         setIsStreaming(false)
         abortControllerRef.current = null
         log('=== Agent loop finished ===')
@@ -290,7 +278,7 @@ export function useWorkflowStream({
       } catch (err) {
         logError('Edit message failed:', err)
       } finally {
-        sendScreenGlow(false, tabId, groupId)
+        sendScreenGlowOff()
         setIsStreaming(false)
         abortControllerRef.current = null
       }

@@ -3,6 +3,7 @@ export type ProviderType =
   | 'openai'
   | 'google'
   | 'groq'
+  | 'xai'
   | 'openrouter'
   | 'openai-compatible'
 

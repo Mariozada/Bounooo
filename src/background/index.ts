@@ -25,6 +25,9 @@ registerUiTools()
 
 console.log('Bouno: Registered tools:', getRegisteredTools())
 
+// Track which tab currently has the glow overlay
+let glowTabId: number | null = null
+
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false })
 chrome.sidePanel.setOptions({ enabled: false })
 
@@ -218,15 +221,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (type === MessageTypes.SET_SCREEN_GLOW) {
-    const { active, tabId: targetTabId, groupId: targetGroupId } = message as { active: boolean; tabId?: number; groupId?: number }
+    const { active } = message as { active: boolean }
 
-    if (targetGroupId !== undefined) {
-      const groupTabIds = tabGroups.getGroupTabs(targetGroupId)
-      for (const tid of groupTabIds) {
-        chrome.tabs.sendMessage(tid, { type: MessageTypes.SET_SCREEN_GLOW, active }).catch(() => {})
-      }
-    } else if (targetTabId) {
-      chrome.tabs.sendMessage(targetTabId, { type: MessageTypes.SET_SCREEN_GLOW, active }).catch(() => {})
+    if (!active && glowTabId) {
+      chrome.tabs.sendMessage(glowTabId, { type: MessageTypes.SET_SCREEN_GLOW, active: false }).catch(() => {})
+      glowTabId = null
     }
     sendResponse({ success: true })
     return true
@@ -254,6 +253,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     const toolGroupId = params.groupId as number | undefined
     const toolTabId = params.tabId as number | undefined
+
+    // Auto-manage glow: turn on for first tool, move to new tab if changed
+    if (toolTabId && toolTabId !== glowTabId) {
+      if (glowTabId) {
+        chrome.tabs.sendMessage(glowTabId, { type: MessageTypes.SET_SCREEN_GLOW, active: false }).catch(() => {})
+      }
+      glowTabId = toolTabId
+      chrome.tabs.sendMessage(toolTabId, { type: MessageTypes.SET_SCREEN_GLOW, active: true }).catch(() => {})
+    }
 
     // Validate that the target tab belongs to the agent's group
     if (toolGroupId !== undefined && toolTabId !== undefined) {
