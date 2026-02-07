@@ -53,9 +53,47 @@ Select "OpenAI Compatible" provider:
 - **Ollama** — `http://localhost:11434/v1`
 - **LM Studio** — `http://localhost:1234/v1`
 
-## Privacy
+## Architecture
 
-All API calls go directly from your browser to the AI provider you configure. Bouno has no backend server and does not collect any user data. See [PRIVACY.md](PRIVACY.md).
+Three build targets compiled with Rolldown-Vite:
+
+- **UI** — React side panel (ES modules, code-split)
+- **Content Script** — IIFE injected into web pages for DOM interaction
+- **Background** — Service worker handling message routing and tool dispatch
+
+Communication flows: UI → Background → Content Script via Chrome messaging APIs.
+
+The agent uses an XML-based tool calling format (not native AI SDK tool calling). The agentic loop streams LLM responses, parses tool calls from XML, executes them sequentially, and loops until complete.
+
+## Development
+
+```bash
+bun run dev          # Vite dev server for UI (hot reload)
+bun run build        # Build all targets
+bun run build:ui     # Build UI only
+bun run build:content    # Build content script only
+bun run build:background # Build background script only
+bun run lint         # ESLint
+```
+
+### Project Structure
+
+```
+src/
+├── agent/           # Provider factory, XML parser, workflow runner
+├── background/      # Service worker, message routing, scheduler
+├── content/         # DOM interaction, accessibility tree, event simulation
+├── prompts/         # System prompt construction
+├── shared/          # Types, messages, constants
+├── skills/          # Extensible skill system
+├── storage/         # IndexedDB via Dexie (threads, messages, attachments)
+├── tools/           # Tool definitions and handlers
+└── ui/              # React side panel, hooks, components, styles
+```
+
+## Contributing
+
+Feel free to open a PR to contribute.
 
 ## License
 
