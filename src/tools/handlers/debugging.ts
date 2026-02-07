@@ -6,6 +6,21 @@ import { MAX_CONSOLE_MESSAGES, MAX_NETWORK_REQUESTS } from '@shared/constants'
 const consoleMessagesStore = new Map<number, ConsoleMessage[]>()
 const networkRequestsStore = new Map<number, NetworkRequest[]>()
 
+function isRestrictedPageUrl(url: string): boolean {
+  return (
+    url.startsWith('chrome://') ||
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('about:') ||
+    url.startsWith('edge://') ||
+    url.startsWith('brave://')
+  )
+}
+
+function restrictedPageError(url: string): string {
+  const origin = `${url.split('/')[0]}//...`
+  return `Cannot execute this tool on restricted page: ${origin}. Inform the user that browser-protected pages (like chrome://, extension pages, or about:) block extension automation, and ask them to switch to a regular web page.`
+}
+
 async function ensureContentScriptInjected(tabId: number): Promise<void> {
   const tab = await chrome.tabs.get(tabId)
 
@@ -13,12 +28,8 @@ async function ensureContentScriptInjected(tabId: number): Promise<void> {
     throw new Error('Cannot access tab: no URL (tab may still be loading)')
   }
 
-  if (tab.url.startsWith('chrome://') ||
-      tab.url.startsWith('chrome-extension://') ||
-      tab.url.startsWith('about:') ||
-      tab.url.startsWith('edge://') ||
-      tab.url.startsWith('brave://')) {
-    throw new Error(`Cannot access restricted page: ${tab.url.split('/')[0]}//...`)
+  if (isRestrictedPageUrl(tab.url)) {
+    throw new Error(restrictedPageError(tab.url))
   }
 
   try {
@@ -200,33 +211,114 @@ async function javascriptTool(params: {
   if (!tabId) throw new Error('tabId is required')
   if (!code) throw new Error('code (JavaScript code) is required')
 
-  try {
-    const results = await chrome.scripting.executeScript({
-      target: { tabId },
-      func: (jsCode: string) => {
-        try {
-          const result = (0, eval)(jsCode)
-          return { success: true, result }
-        } catch (err) {
-          return { success: false, error: (err as Error).message }
-        }
-      },
-      args: [code],
-      world: 'MAIN'
+  const tab = await chrome.tabs.get(tabId)
+  if (!tab.url) {
+    throw new Error('Cannot access tab: no URL (tab may still be loading)')
+  }
+  if (isRestrictedPageUrl(tab.url)) {
+    throw new Error(restrictedPageError(tab.url))
+  }
+
+  const ensureDebuggerPermission = async (): Promise<void> => {
+    const hasPermission = await new Promise<boolean>((resolve) => {
+      chrome.permissions.contains({ permissions: ['debugger'] }, (granted) => {
+        resolve(Boolean(granted))
+      })
     })
 
-    if (results?.[0]) {
-      const { result } = results[0]
-      if ((result as { success: boolean }).success) {
-        return { success: true, result: (result as { result: unknown }).result }
+    if (hasPermission) return
+
+    const granted = await new Promise<boolean>((resolve, reject) => {
+      chrome.permissions.request({ permissions: ['debugger'] }, (result) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError.message))
+          return
+        }
+        resolve(Boolean(result))
+      })
+    })
+
+    if (!granted) {
+      throw new Error('Debugger permission was denied. javascript_tool requires debugger permission to run code on this page.')
+    }
+  }
+
+  const target: chrome.debugger.Debuggee = { tabId }
+  const protocolVersion = '1.3'
+
+  const sendDebuggerCommand = <T = unknown>(
+    method: string,
+    commandParams?: object
+  ): Promise<T> => new Promise((resolve, reject) => {
+    chrome.debugger.sendCommand(target, method, commandParams, (result) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message))
       } else {
-        throw new Error((result as { error: string }).error)
+        resolve(result as T)
       }
+    })
+  })
+
+  const attachDebugger = (): Promise<void> => new Promise((resolve, reject) => {
+    chrome.debugger.attach(target, protocolVersion, () => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message))
+      } else {
+        resolve()
+      }
+    })
+  })
+
+  const detachDebugger = (): Promise<void> => new Promise((resolve) => {
+    chrome.debugger.detach(target, () => resolve())
+  })
+
+  let attached = false
+
+  try {
+    await ensureDebuggerPermission()
+    await attachDebugger()
+    attached = true
+
+    // Evaluate user code in the page JavaScript context, awaiting async results.
+    const response = await sendDebuggerCommand<{
+      result?: { value?: unknown; description?: string; unserializableValue?: string }
+      exceptionDetails?: { text?: string; exception?: { description?: string; value?: string } }
+    }>('Runtime.evaluate', {
+      expression: `(async () => { ${code}\n })()`,
+      awaitPromise: true,
+      returnByValue: true,
+      userGesture: true,
+    })
+
+    if (response.exceptionDetails) {
+      const errText = response.exceptionDetails.exception?.description
+        || response.exceptionDetails.exception?.value
+        || response.exceptionDetails.text
+        || 'Unknown JavaScript exception'
+      throw new Error(errText)
     }
 
-    throw new Error('No result from script execution')
+    const resultPayload = response.result
+    if (!resultPayload) {
+      return { success: true, result: null }
+    }
+
+    if ('value' in resultPayload) {
+      return { success: true, result: resultPayload.value }
+    }
+
+    if (resultPayload.unserializableValue !== undefined) {
+      return { success: true, result: resultPayload.unserializableValue }
+    }
+
+    return { success: true, result: resultPayload.description ?? null }
   } catch (err) {
     throw new Error(`JavaScript execution failed: ${(err as Error).message}`)
+  } finally {
+    if (attached) {
+      await detachDebugger()
+    }
   }
 }
 

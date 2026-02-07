@@ -6,6 +6,21 @@ import { MAX_SCREENSHOTS } from '@shared/constants'
 const screenshotStore = new Map<string, Screenshot>()
 let screenshotCounter = 0
 
+function isRestrictedPageUrl(url: string): boolean {
+  return (
+    url.startsWith('chrome://') ||
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('about:') ||
+    url.startsWith('edge://') ||
+    url.startsWith('brave://')
+  )
+}
+
+function restrictedPageError(url: string): string {
+  const origin = `${url.split('/')[0]}//...`
+  return `Cannot execute this tool on restricted page: ${origin}. Inform the user that browser-protected pages (like chrome://, extension pages, or about:) block extension automation, and ask them to switch to a regular web page.`
+}
+
 async function ensureContentScriptInjected(tabId: number): Promise<void> {
   const tab = await chrome.tabs.get(tabId)
 
@@ -13,12 +28,8 @@ async function ensureContentScriptInjected(tabId: number): Promise<void> {
     throw new Error('Cannot access tab: no URL (tab may still be loading)')
   }
 
-  if (tab.url.startsWith('chrome://') ||
-      tab.url.startsWith('chrome-extension://') ||
-      tab.url.startsWith('about:') ||
-      tab.url.startsWith('edge://') ||
-      tab.url.startsWith('brave://')) {
-    throw new Error(`Cannot access restricted page: ${tab.url.split('/')[0]}//...`)
+  if (isRestrictedPageUrl(tab.url)) {
+    throw new Error(restrictedPageError(tab.url))
   }
 
   try {
@@ -86,6 +97,12 @@ async function takeScreenshot(tabId: number): Promise<{
   height: number
 }> {
   const tab = await chrome.tabs.get(tabId)
+  if (!tab.url) {
+    throw new Error('Cannot access tab: no URL (tab may still be loading)')
+  }
+  if (isRestrictedPageUrl(tab.url)) {
+    throw new Error(restrictedPageError(tab.url))
+  }
   const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
 
   const imageId = `screenshot_${++screenshotCounter}_${Date.now()}`

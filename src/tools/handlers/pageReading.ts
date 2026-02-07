@@ -11,6 +11,21 @@ class InjectionError extends Error {
   }
 }
 
+function isRestrictedPageUrl(url: string): boolean {
+  return (
+    url.startsWith('chrome://') ||
+    url.startsWith('chrome-extension://') ||
+    url.startsWith('about:') ||
+    url.startsWith('edge://') ||
+    url.startsWith('brave://')
+  )
+}
+
+function restrictedPageError(url: string): string {
+  const origin = `${url.split('/')[0]}//...`
+  return `Cannot execute this tool on restricted page: ${origin}. Inform the user that browser-protected pages (like chrome://, extension pages, or about:) block extension automation, and ask them to switch to a regular web page.`
+}
+
 async function ensureContentScriptInjected(tabId: number): Promise<{ logs: string[] }> {
   const logs: string[] = []
   const log = (msg: string) => {
@@ -39,13 +54,9 @@ async function ensureContentScriptInjected(tabId: number): Promise<{ logs: strin
     return throwWithLogs('Cannot access tab: no URL (tab may still be loading)')
   }
 
-  if (tabUrl.startsWith('chrome://') ||
-      tabUrl.startsWith('chrome-extension://') ||
-      tabUrl.startsWith('about:') ||
-      tabUrl.startsWith('edge://') ||
-      tabUrl.startsWith('brave://')) {
+  if (isRestrictedPageUrl(tabUrl)) {
     log(`ERROR: Restricted URL: ${tabUrl}`)
-    return throwWithLogs(`Cannot access restricted page: ${tabUrl.split('/')[0]}//...`)
+    return throwWithLogs(restrictedPageError(tabUrl))
   }
 
   log(`URL is accessible, attempting ping...`)
