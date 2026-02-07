@@ -24,7 +24,6 @@
     "dexie": "^4.2.1",
     "lucide-react": "^0.538.0",
     "motion": "^12.15.0",
-    "nunjucks": "^3.2.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-markdown": "^10.1.0",
@@ -36,7 +35,6 @@
   "devDependencies": {
     "@eslint/js": "^9.39.1",
     "@types/chrome": "^0.0.287",
-    "@types/nunjucks": "^3.2.6",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
