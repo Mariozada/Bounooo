@@ -31,12 +31,21 @@ export interface StreamEvent {
 
 type EventListener = (event: StreamEvent) => void
 
+const BLOCK_OPEN = '<tool_calls>'
+const BLOCK_CLOSE = '</tool_calls>'
+const INVOKE_CLOSE = '</invoke>'
+const domParser = new DOMParser()
+
+/**
+ * Streaming parser for `<tool_calls>` blocks. Text outside blocks is emitted
+ * as deltas. Inside a block, each `<invoke>...</invoke>` is emitted the moment
+ * its close tag arrives — no waiting for `</tool_calls>`.
+ */
 export class XMLStreamParser {
   private buffer = ''
   private textBuffer = ''
-  private inToolCall = false
-  private toolCallBuffer = ''
-  private toolCallName = ''
+  private inBlock = false
+  private invokeBuffer = ''
   private listeners: Map<StreamEventType | '*', EventListener[]> = new Map()
   private toolCallCounter = 0
 
@@ -44,42 +53,58 @@ export class XMLStreamParser {
     this.buffer += chunk
 
     while (this.buffer.length > 0) {
-      if (this.inToolCall) {
-        const closeIndex = this.buffer.indexOf('</tool_call>')
+      if (this.inBlock) {
+        // Check for block close first — the block may end without a pending invoke
+        const blockClose = this.buffer.indexOf(BLOCK_CLOSE)
+        const invokeClose = this.buffer.indexOf(INVOKE_CLOSE)
 
-        if (closeIndex !== -1) {
-          this.toolCallBuffer += this.buffer.substring(0, closeIndex)
-          this.buffer = this.buffer.substring(closeIndex + '</tool_call>'.length)
-          this.inToolCall = false
-          this._emitToolCall()
+        if (invokeClose !== -1 && (blockClose === -1 || invokeClose < blockClose)) {
+          // Complete invoke found — emit it
+          const end = invokeClose + INVOKE_CLOSE.length
+          this.invokeBuffer += this.buffer.substring(0, end)
+          this.buffer = this.buffer.substring(end)
+          this._emitInvoke()
+        } else if (blockClose !== -1) {
+          // Block closes (any trailing whitespace between last </invoke> and </tool_calls> is ignored)
+          this.buffer = this.buffer.substring(blockClose + BLOCK_CLOSE.length)
+          this.inBlock = false
+          this.invokeBuffer = ''
         } else {
-          this.toolCallBuffer += this.buffer
-          this.buffer = ''
+          // Neither found — keep partial data, check for split close tags
+          const partial = Math.min(
+            findPartialSuffix(this.buffer, INVOKE_CLOSE),
+            findPartialSuffix(this.buffer, BLOCK_CLOSE)
+          )
+          const splitAt = partial === -1
+            ? Math.max(findPartialSuffix(this.buffer, INVOKE_CLOSE), findPartialSuffix(this.buffer, BLOCK_CLOSE))
+            : partial
+
+          if (splitAt !== -1) {
+            this.invokeBuffer += this.buffer.substring(0, splitAt)
+            this.buffer = this.buffer.substring(splitAt)
+          } else {
+            this.invokeBuffer += this.buffer
+            this.buffer = ''
+          }
+          break
         }
       } else {
-        const openMatch = this.buffer.match(/<tool_call\s+name=["']([^"']+)["']>/)
+        const openIndex = this.buffer.indexOf(BLOCK_OPEN)
 
-        if (openMatch) {
-          const openIndex = this.buffer.indexOf(openMatch[0])
-
+        if (openIndex !== -1) {
           if (openIndex > 0) {
-            const textBefore = this.buffer.substring(0, openIndex)
-            this._emitTextDelta(textBefore)
+            this._emitTextDelta(this.buffer.substring(0, openIndex))
           }
-
-          this.inToolCall = true
-          this.toolCallName = openMatch[1]
-          this.toolCallBuffer = ''
-          this.buffer = this.buffer.substring(openIndex + openMatch[0].length)
+          this.inBlock = true
+          this.invokeBuffer = ''
+          this.buffer = this.buffer.substring(openIndex + BLOCK_OPEN.length)
         } else {
-          const partialMatch = this.buffer.match(/<tool_call[^>]*$|<tool_cal$|<tool_ca$|<tool_c$|<tool_$|<tool$|<too$|<to$|<t$|<$/)
-
-          if (partialMatch) {
-            const safeText = this.buffer.substring(0, partialMatch.index)
-            if (safeText) {
-              this._emitTextDelta(safeText)
+          const partial = findPartialSuffix(this.buffer, BLOCK_OPEN)
+          if (partial !== -1) {
+            if (partial > 0) {
+              this._emitTextDelta(this.buffer.substring(0, partial))
             }
-            this.buffer = this.buffer.substring(partialMatch.index!)
+            this.buffer = this.buffer.substring(partial)
             break
           } else {
             this._emitTextDelta(this.buffer)
@@ -105,7 +130,6 @@ export class XMLStreamParser {
     const listeners = this.listeners.get(event) || []
     listeners.push(listener)
     this.listeners.set(event, listeners)
-
     return () => {
       const idx = listeners.indexOf(listener)
       if (idx >= 0) listeners.splice(idx, 1)
@@ -115,10 +139,11 @@ export class XMLStreamParser {
   reset(): void {
     this.buffer = ''
     this.textBuffer = ''
-    this.inToolCall = false
-    this.toolCallBuffer = ''
-    this.toolCallName = ''
+    this.inBlock = false
+    this.invokeBuffer = ''
   }
+
+  // ---------------------------------------------------------------------------
 
   private _emitTextDelta(text: string): void {
     if (!text) return
@@ -126,198 +151,72 @@ export class XMLStreamParser {
     this._emit({ type: STREAM_EVENT_TYPES.TEXT_DELTA, data: text })
   }
 
-  private _emitToolCall(): void {
-    const id = `tc_${++this.toolCallCounter}`
-    const params = this._parseToolParams(this.toolCallBuffer)
+  /** Parse a single `<invoke>` element from the invoke buffer and emit it. */
+  private _emitInvoke(): void {
+    const raw = this.invokeBuffer.trim()
+    this.invokeBuffer = ''
+    if (!raw) return
 
-    const toolCall: ToolCallEvent = {
-      id,
-      name: this.toolCallName,
-      params,
+    // Wrap in a root so DOMParser is happy
+    const doc = domParser.parseFromString(`<r>${raw}</r>`, 'text/xml')
+    if (doc.querySelector('parsererror')) {
+      console.warn('[XMLStreamParser] Parse error, raw:', raw)
+      return
     }
 
-    this._emit({ type: STREAM_EVENT_TYPES.TOOL_CALL_START, data: toolCall })
-    this._emit({ type: STREAM_EVENT_TYPES.TOOL_CALL_DONE, data: toolCall })
+    const invoke = doc.querySelector('invoke')
+    if (!invoke) return
 
-    this.toolCallBuffer = ''
-    this.toolCallName = ''
-  }
-
-  private _parseToolParams(content: string): Record<string, unknown> {
+    const name = invoke.getAttribute('name') || ''
     const params: Record<string, unknown> = {}
-    const paramRegex = /<(\w+)>([\s\S]*?)<\/\1>/g
-    let match: RegExpExecArray | null
 
-    while ((match = paramRegex.exec(content)) !== null) {
-      const [, paramName, rawValue] = match
-      const value = this._extractValue(rawValue)
-      params[paramName] = this._parseValue(value)
-    }
-
-    return params
-  }
-
-  private _extractValue(rawValue: string): string {
-    const cdataMatch = rawValue.match(/<!\[CDATA\[([\s\S]*?)\]\]>/)
-    if (cdataMatch) {
-      return cdataMatch[1]
-    }
-    return rawValue.trim()
-  }
-
-  private _parseValue(value: string): unknown {
-    if (value.startsWith('[') || value.startsWith('{')) {
-      try {
-        return JSON.parse(value)
-      } catch {
-        return value
+    for (const param of invoke.querySelectorAll('parameter')) {
+      const paramName = param.getAttribute('name')
+      if (paramName) {
+        params[paramName] = parseValue((param.textContent || '').trim())
       }
     }
 
-    if (value === 'true') return true
-    if (value === 'false') return false
-
-    const num = Number(value)
-    if (!isNaN(num) && value !== '') return num
-
-    return value
+    const id = `tc_${++this.toolCallCounter}`
+    const toolCall: ToolCallEvent = { id, name, params }
+    this._emit({ type: STREAM_EVENT_TYPES.TOOL_CALL_START, data: toolCall })
+    this._emit({ type: STREAM_EVENT_TYPES.TOOL_CALL_DONE, data: toolCall })
   }
 
   private _emit(event: StreamEvent): void {
-    const specific = this.listeners.get(event.type) || []
-    for (const listener of specific) {
+    for (const listener of this.listeners.get(event.type) || []) {
       listener(event)
     }
-
-    const wildcard = this.listeners.get('*') || []
-    for (const listener of wildcard) {
+    for (const listener of this.listeners.get('*') || []) {
       listener(event)
     }
   }
 }
 
-export function parsePartialJSON(jsonString: string): unknown | undefined {
-  try {
-    const tokens = tokenize(jsonString)
-    const cleanedTokens = cleanupTokens(tokens)
-    const closedTokens = closeOpenBraces(cleanedTokens)
-    const fixedJson = tokensToString(closedTokens)
-    return JSON.parse(fixedJson)
-  } catch {
-    return undefined
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Coerce a string value to a JS primitive or parsed JSON. */
+function parseValue(value: string): unknown {
+  if (value.startsWith('[') || value.startsWith('{')) {
+    try { return JSON.parse(value) } catch { return value }
   }
+  if (value === 'true') return true
+  if (value === 'false') return false
+  const num = Number(value)
+  if (!isNaN(num) && value !== '') return num
+  return value
 }
 
-interface Token {
-  type: 'brace' | 'paren' | 'separator' | 'delimiter' | 'string' | 'number' | 'name'
-  value: string
-}
-
-function tokenize(str: string): Token[] {
-  let i = 0
-  const tokens: Token[] = []
-
-  while (i < str.length) {
-    const char = str[i]
-
-    if (char === '\\') { i++; continue }
-    if (char === '{') { tokens.push({ type: 'brace', value: '{' }); i++; continue }
-    if (char === '}') { tokens.push({ type: 'brace', value: '}' }); i++; continue }
-    if (char === '[') { tokens.push({ type: 'paren', value: '[' }); i++; continue }
-    if (char === ']') { tokens.push({ type: 'paren', value: ']' }); i++; continue }
-    if (char === ':') { tokens.push({ type: 'separator', value: ':' }); i++; continue }
-    if (char === ',') { tokens.push({ type: 'delimiter', value: ',' }); i++; continue }
-
-    if (char === '"') {
-      let value = ''
-      let incomplete = false
-      let c = str[++i]
-
-      while (c !== '"') {
-        if (i === str.length) { incomplete = true; break }
-        if (c === '\\') { value += c + str[++i]; c = str[++i] }
-        else { value += c; c = str[++i] }
-      }
-
-      if (!incomplete) tokens.push({ type: 'string', value })
-      i++
-      continue
-    }
-
-    if (/\s/.test(char)) { i++; continue }
-
-    if (/[0-9\-.]/.test(char)) {
-      let numStr = ''
-      if (char === '-') { numStr += char; i++ }
-      while (/[0-9.]/.test(str[i]) && i < str.length) { numStr += str[i]; i++ }
-      tokens.push({ type: 'number', value: numStr })
-      continue
-    }
-
-    if (/[a-z]/i.test(char)) {
-      let keyword = ''
-      while (/[a-z]/i.test(str[i]) && i < str.length) { keyword += str[i]; i++ }
-      if (['true', 'false', 'null'].includes(keyword)) {
-        tokens.push({ type: 'name', value: keyword })
-      }
-      continue
-    }
-
-    i++
+/**
+ * Return the index where `buffer` ends with a prefix of `tag`, or -1.
+ * e.g. buffer="abc</inv" tag="</invoke>" → returns 3
+ */
+function findPartialSuffix(buffer: string, tag: string): number {
+  const start = Math.max(0, buffer.length - tag.length)
+  for (let i = start; i < buffer.length; i++) {
+    if (tag.startsWith(buffer.substring(i))) return i
   }
-
-  return tokens
-}
-
-function cleanupTokens(tokens: Token[]): Token[] {
-  if (tokens.length === 0) return tokens
-
-  const lastToken = tokens[tokens.length - 1]
-
-  switch (lastToken.type) {
-    case 'separator':
-    case 'delimiter':
-      return cleanupTokens(tokens.slice(0, -1))
-
-    case 'number':
-      const lastChar = lastToken.value[lastToken.value.length - 1]
-      if (lastChar === '.' || lastChar === '-') {
-        return cleanupTokens(tokens.slice(0, -1))
-      }
-      break
-
-    case 'string':
-      const prevToken = tokens[tokens.length - 2]
-      if (prevToken?.type === 'delimiter' || (prevToken?.type === 'brace' && prevToken.value === '{')) {
-        return cleanupTokens(tokens.slice(0, -1))
-      }
-      break
-  }
-
-  return tokens
-}
-
-function closeOpenBraces(tokens: Token[]): Token[] {
-  const stack: string[] = []
-
-  for (const token of tokens) {
-    if (token.type === 'brace') {
-      if (token.value === '{') stack.push('}')
-      else stack.splice(stack.lastIndexOf('}'), 1)
-    }
-    if (token.type === 'paren') {
-      if (token.value === '[') stack.push(']')
-      else stack.splice(stack.lastIndexOf(']'), 1)
-    }
-  }
-
-  stack.reverse().forEach(closer => {
-    tokens.push({ type: closer === '}' ? 'brace' : 'paren', value: closer })
-  })
-
-  return tokens
-}
-
-function tokensToString(tokens: Token[]): string {
-  return tokens.map(t => t.type === 'string' ? `"${t.value}"` : t.value).join('')
+  return -1
 }

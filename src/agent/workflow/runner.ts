@@ -8,7 +8,7 @@ import type {
 } from './types'
 import { createSession, isAborted } from './session'
 import { streamLLMResponse, hasToolCalls } from './stream'
-import { executeTools, getToolCallsFromResults } from './tools'
+import { ToolQueue, getToolCallsFromResults } from './tools'
 import { appendStepMessages } from './messages'
 import { getTracer, type SpanContext, type TracingConfig } from '../tracing'
 
@@ -52,14 +52,26 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
   log(`=== Step ${stepNumber} ===`)
   callbacks?.onStepStart?.(stepNumber)
 
-  // Start step span
   const tracer = getTracer(tracingContext?.config)
   const stepSpan = tracer.startChainSpan(`step.${stepNumber}`, tracingContext?.agentSpan.context)
 
-  // Stream LLM response with tracing
+  // Create a queue that starts executing tool calls as they arrive from the stream
+  const toolQueue = new ToolQueue(session, {
+    onToolStart: callbacks?.onToolStart,
+    onToolDone: callbacks?.onToolDone,
+    tracing: tracingContext ? {
+      config: tracingContext.config,
+      parentContext: stepSpan.context,
+    } : undefined,
+  })
+
+  // Stream LLM response — tool calls are pushed into the queue as they're parsed
   const stepResult = await streamLLMResponse(session, {
     onTextDelta: callbacks?.onTextDelta,
-    onToolCallParsed: callbacks?.onToolStart,
+    onToolCallParsed: (toolCall) => {
+      callbacks?.onToolStart?.(toolCall)
+      toolQueue.push(toolCall)
+    },
     onReasoningDelta: callbacks?.onReasoningDelta,
     tracing: tracingContext ? {
       config: tracingContext.config,
@@ -98,14 +110,8 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
     }
   }
 
-  const toolResults = await executeTools(stepResult.toolCalls, session, {
-    onToolStart: callbacks?.onToolStart,
-    onToolDone: callbacks?.onToolDone,
-    tracing: tracingContext ? {
-      config: tracingContext.config,
-      parentContext: stepSpan.context,
-    } : undefined,
-  })
+  // Wait for any remaining tool calls still in the queue to finish
+  const toolResults = await toolQueue.drain()
 
   appendStepMessages(session, stepResult, toolResults)
 
@@ -132,7 +138,6 @@ export async function runWorkflow(options: AgentOptions): Promise<AgentResult> {
     tracingEnabled: tracing?.enabled ?? false,
   })
 
-  // Initialize tracing if enabled
   const tracer = getTracer(tracing)
   let tracingContext: TracingContext | undefined
 

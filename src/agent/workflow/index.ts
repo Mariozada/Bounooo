@@ -22,5 +22,5 @@ export { getMessageText, hasAttachments, getAttachments } from './types'
 
 export { createSession, isAborted } from './session'
 export { streamLLMResponse, hasToolCalls } from './stream'
-export { executeTool, executeTools } from './tools'
+export { executeTool, ToolQueue } from './tools'
 export { buildAssistantResponse, buildToolResultsMessage } from './messages'

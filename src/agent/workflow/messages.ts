@@ -1,26 +1,30 @@
-import type { StepResult, ToolCallInfo, ToolExecutionResult, AgentSession } from './types'
-import { formatToolResult } from '../xmlParser'
+import type { StepResult, ToolExecutionResult, AgentSession } from './types'
+import { formatToolResults } from '../xmlParser'
 import { appendAssistantMessage, appendUserMessage } from './session'
 
 export function buildAssistantResponse(stepResult: StepResult): string {
   let response = stepResult.text
 
-  for (const tc of stepResult.toolCalls) {
-    response += `\n<tool_call name="${tc.name}">\n`
-    for (const [key, value] of Object.entries(tc.input)) {
-      const valueStr = typeof value === 'string' ? value : JSON.stringify(value)
-      response += `  <${key}>${valueStr}</${key}>\n`
+  if (stepResult.toolCalls.length > 0) {
+    response += '\n<tool_calls>\n'
+    for (const tc of stepResult.toolCalls) {
+      response += `<invoke name="${tc.name}">\n`
+      for (const [key, value] of Object.entries(tc.input)) {
+        const valueStr = typeof value === 'string' ? value : JSON.stringify(value)
+        response += `<parameter name="${key}">${valueStr}</parameter>\n`
+      }
+      response += `</invoke>\n`
     }
-    response += `</tool_call>`
+    response += '</tool_calls>'
   }
 
   return response
 }
 
 export function buildToolResultsMessage(toolResults: ToolExecutionResult[]): string {
-  return toolResults
-    .map(tr => formatToolResult(tr.toolCall.name, tr.result))
-    .join('\n\n')
+  return formatToolResults(
+    toolResults.map(tr => ({ name: tr.toolCall.name, result: tr.result }))
+  )
 }
 
 export function appendStepMessages(

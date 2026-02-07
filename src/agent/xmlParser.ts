@@ -1,7 +1,8 @@
-export function formatToolResult(toolName: string, result: unknown): string {
-  const resultStr = typeof result === 'string' ? result : JSON.stringify(result, null, 2)
+export function formatToolResults(results: { name: string; result: unknown }[]): string {
+  const inner = results.map(r => {
+    const output = typeof r.result === 'string' ? r.result : JSON.stringify(r.result, null, 2)
+    return `<result>\n<name>${r.name}</name>\n<output>${output}</output>\n</result>`
+  }).join('\n')
 
-  return `<tool_result name="${toolName}">
-${resultStr}
-</tool_result>`
+  return `<tool_results>\n${inner}\n</tool_results>`
 }

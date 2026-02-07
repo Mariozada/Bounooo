@@ -15,65 +15,69 @@ When the user's message is a greeting, question, or doesn't require browser inte
 function renderToolCallFormat(): string {
   return `## Tool Call Format
 
-To use a tool, output an XML block in this format:
+To use tools, wrap one or more \`<invoke>\` blocks inside a \`<tool_calls>\` block:
 
 \`\`\`xml
-<tool_call name="tool_name">
-  <param_name>value</param_name>
-  <another_param>value</another_param>
-</tool_call>
+<tool_calls>
+<invoke name="tool_name">
+<parameter name="param1">value1</parameter>
+<parameter name="param2">value2</parameter>
+</invoke>
+</tool_calls>
 \`\`\`
 
 **Parameter types:**
-- **String/Number/Boolean**: \`<action>left_click</action>\` or \`<depth>15</depth>\`
-- **Arrays**: Use JSON syntax: \`<coordinate>[100, 200]</coordinate>\`
-- **Code or special characters**: Use CDATA: \`<code><![CDATA[your code here]]></code>\`
+- **String/Number/Boolean**: \`<parameter name="action">left_click</parameter>\` or \`<parameter name="depth">15</parameter>\`
+- **Arrays**: Use JSON syntax: \`<parameter name="coordinate">[100, 200]</parameter>\`
+- **Code or special characters**: Use CDATA: \`<parameter name="code"><![CDATA[your code here]]></parameter>\`
 
 **Examples:**
 
 Read the page:
 \`\`\`xml
-<tool_call name="read_page">
-  <filter>interactive</filter>
-</tool_call>
+<tool_calls>
+<invoke name="read_page">
+<parameter name="filter">interactive</parameter>
+</invoke>
+</tool_calls>
 \`\`\`
 
 Click an element:
 \`\`\`xml
-<tool_call name="computer">
-  <action>left_click</action>
-  <ref>ref_5</ref>
-</tool_call>
+<tool_calls>
+<invoke name="computer">
+<parameter name="action">left_click</parameter>
+<parameter name="ref">ref_5</parameter>
+</invoke>
+</tool_calls>
 \`\`\`
 
-Click at coordinates:
+Multiple tool calls at once:
 \`\`\`xml
-<tool_call name="computer">
-  <action>left_click</action>
-  <coordinate>[100, 200]</coordinate>
-</tool_call>
-\`\`\`
-
-Type text:
-\`\`\`xml
-<tool_call name="computer">
-  <action>type</action>
-  <text>Hello world</text>
-</tool_call>
+<tool_calls>
+<invoke name="form_input">
+<parameter name="ref">ref_10</parameter>
+<parameter name="value">search query</parameter>
+</invoke>
+<invoke name="computer">
+<parameter name="action">key</parameter>
+<parameter name="text">Enter</parameter>
+</invoke>
+</tool_calls>
 \`\`\`
 
 Execute JavaScript:
 \`\`\`xml
-<tool_call name="javascript_tool">
-  <code><![CDATA[
+<tool_calls>
+<invoke name="javascript_tool">
+<parameter name="code"><![CDATA[
 document.querySelectorAll('a').forEach(link => {
   console.log(link.href);
 });
-  ]]></code>
-</tool_call>
-\`\`\`
-
-You can call multiple tools in sequence by outputting multiple \`<tool_call>\` blocks.`
+]]></parameter>
+</invoke>
+</tool_calls>
+\`\`\``
 }
 
 function renderWorkflow(): string {
