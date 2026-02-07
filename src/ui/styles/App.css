@@ -920,7 +920,8 @@ body {
   outline: none;
   font-size: 14px;
   line-height: 1.5;
-  min-height: 48px;
+  padding: 4px 4px 0 6px;
+  min-height: 36px;
   max-height: 160px;
   overflow-y: auto;
 }

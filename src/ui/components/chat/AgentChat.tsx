@@ -29,6 +29,7 @@ interface AgentChatProps {
   onNavigateBranch?: (messageId: string, direction: 'prev' | 'next') => Promise<void>
   sidebarOpen?: boolean
   onToggleSidebar?: () => void
+  onCreateShortcut?: () => void
 }
 
 export const AgentChat: FC<AgentChatProps> = ({
@@ -41,6 +42,7 @@ export const AgentChat: FC<AgentChatProps> = ({
   onNavigateBranch,
   sidebarOpen = false,
   onToggleSidebar,
+  onCreateShortcut,
 }) => {
   const { settings, updateSettings, isLoading: settingsLoading } = useSettings()
   const [showSettings, setShowSettings] = useState(false)
@@ -271,6 +273,7 @@ export const AgentChat: FC<AgentChatProps> = ({
             onSubmit={handleSendMessage}
             onStop={stop}
             onToggleReasoning={handleToggleReasoning}
+            onCreateShortcut={onCreateShortcut}
           />
 
           {showSettings && (
