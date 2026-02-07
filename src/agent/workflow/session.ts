@@ -33,6 +33,7 @@ export function createSession(options: AgentOptions): AgentSession {
   // Render system prompt with optional skills
   const systemPrompt = renderSystemPrompt({
     tools: toolDefinitions,
+    tabId,
     activeSkill,
     availableSkills: hasSkills ? availableSkills : undefined,
   })

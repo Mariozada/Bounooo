@@ -7,16 +7,15 @@ const logError = (...args: unknown[]) => console.error('[Workflow:Tools]', ...ar
 async function sendToolMessage(
   name: string,
   params: Record<string, unknown>,
-  tabId: number,
   groupId?: number,
   directExecutor?: ToolExecutor
 ): Promise<unknown> {
-  const paramsWithTab = { ...params, tabId, ...(groupId !== undefined && { groupId }) }
+  const paramsWithGroup = { ...params, ...(groupId !== undefined && { groupId }) }
 
   // Use direct executor when running from the background service worker
   if (directExecutor) {
     try {
-      const response = await directExecutor(name, paramsWithTab) as Record<string, unknown> | null
+      const response = await directExecutor(name, paramsWithGroup) as Record<string, unknown> | null
       if (response && typeof response === 'object' && 'error' in response) {
         return response
       }
@@ -31,7 +30,7 @@ async function sendToolMessage(
     const response = await chrome.runtime.sendMessage({
       type: 'EXECUTE_TOOL',
       tool: name,
-      params: paramsWithTab,
+      params: paramsWithGroup,
     })
 
     if (response?.success) {
@@ -51,7 +50,6 @@ function isErrorResult(result: unknown): boolean {
 
 export async function executeTool(
   toolCall: ToolCallInfo,
-  tabId: number,
   groupId?: number,
   directExecutor?: ToolExecutor
 ): Promise<ToolExecutionResult> {
@@ -63,7 +61,7 @@ export async function executeTool(
     startedAt: Date.now(),
   }
 
-  const result = await sendToolMessage(toolCall.name, toolCall.input, tabId, groupId, directExecutor)
+  const result = await sendToolMessage(toolCall.name, toolCall.input, groupId, directExecutor)
   const hasError = isErrorResult(result)
 
   updatedToolCall.result = result
@@ -150,7 +148,7 @@ export class ToolQueue {
       parentContext: this.callbacks.tracing.parentContext,
     }) : null
 
-    const result = await executeTool(toolCall, this.session.config.tabId, this.session.config.groupId, this.session.config.toolExecutor)
+    const result = await executeTool(toolCall, this.session.config.groupId, this.session.config.toolExecutor)
     this.results.push(result)
 
     toolSpan?.end({

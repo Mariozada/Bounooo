@@ -6,6 +6,12 @@ export const readingTools: ToolDefinition[] = [
     description: 'Get the accessibility tree of the current page. Use this to understand the page structure and find element refs for interaction.',
     parameters: [
       {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
+      {
         name: 'filter',
         type: 'string',
         description: 'Filter elements: "all" for complete tree, "interactive" for clickable/input elements only',
@@ -31,7 +37,14 @@ export const readingTools: ToolDefinition[] = [
   {
     name: 'get_page_text',
     description: 'Extract raw text content from the page including title, URL, and body text.',
-    parameters: [],
+    parameters: [
+      {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      }
+    ],
     enabled: true,
     category: 'reading'
   },
@@ -39,6 +52,12 @@ export const readingTools: ToolDefinition[] = [
     name: 'find',
     description: 'Find elements on the page using natural language query. Returns matching elements with their refs.',
     parameters: [
+      {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
       {
         name: 'query',
         type: 'string',

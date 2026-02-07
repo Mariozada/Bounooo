@@ -3,6 +3,7 @@ import type { Skill } from '@skills/types'
 
 export interface RenderOptions {
   tools: ToolDefinition[]
+  tabId?: number
   activeSkill?: {
     skill: Skill
     args?: Record<string, string>
@@ -20,6 +21,15 @@ function renderRole(): string {
 - **If unsure**: Ask the user for clarification about what they want you to do.
 
 When the user's message is a greeting, question, or doesn't require browser interaction, simply respond with text - no tools needed.`
+}
+
+function renderTabContext(tabId: number): string {
+  return `## Tab Context
+
+- Starting tabId: \`${tabId}\`
+- You can operate on other tabs in your tab group, but tab-targeting tools must always include an explicit \`tabId\`.
+- Required \`tabId\` tools: \`read_page\`, \`get_page_text\`, \`find\`, \`computer\`, \`form_input\`, \`upload_image\`, \`navigate\`, \`resize_window\`, \`read_console_messages\`, \`read_network_requests\`, \`javascript_tool\`.
+- Use \`tabs_context\` to discover tab IDs in your group before switching tabs.`
 }
 
 function renderToolCallFormat(): string {
@@ -47,6 +57,7 @@ Read the page:
 \`\`\`xml
 <tool_calls>
 <invoke name="read_page">
+<parameter name="tabId">123</parameter>
 <parameter name="filter">interactive</parameter>
 </invoke>
 </tool_calls>
@@ -56,6 +67,7 @@ Click an element:
 \`\`\`xml
 <tool_calls>
 <invoke name="computer">
+<parameter name="tabId">123</parameter>
 <parameter name="action">left_click</parameter>
 <parameter name="ref">ref_5</parameter>
 </invoke>
@@ -66,10 +78,12 @@ Multiple tool calls at once:
 \`\`\`xml
 <tool_calls>
 <invoke name="form_input">
+<parameter name="tabId">123</parameter>
 <parameter name="ref">ref_10</parameter>
 <parameter name="value">search query</parameter>
 </invoke>
 <invoke name="computer">
+<parameter name="tabId">123</parameter>
 <parameter name="action">key</parameter>
 <parameter name="text">Enter</parameter>
 </invoke>
@@ -80,6 +94,7 @@ Execute JavaScript:
 \`\`\`xml
 <tool_calls>
 <invoke name="javascript_tool">
+<parameter name="tabId">123</parameter>
 <parameter name="code"><![CDATA[
 document.querySelectorAll('a').forEach(link => {
   console.log(link.href);
@@ -239,6 +254,7 @@ export function renderSystemPrompt(toolsOrOptions: ToolDefinition[] | RenderOpti
 
   const sections: string[] = [
     renderRole(),
+    ...(options.tabId !== undefined ? [renderTabContext(options.tabId)] : []),
     renderToolCallFormat(),
     renderWorkflow(),
     renderToolSection(options.tools),

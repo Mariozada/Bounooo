@@ -6,6 +6,12 @@ export const navigationTools: ToolDefinition[] = [
     description: 'Navigate to a URL or go back/forward in history.',
     parameters: [
       {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
+      {
         name: 'url',
         type: 'string',
         description: 'URL to navigate to, or "back"/"forward" for history navigation',
@@ -24,7 +30,7 @@ export const navigationTools: ToolDefinition[] = [
   },
   {
     name: 'tabs_create',
-    description: 'Create a new browser tab.',
+    description: 'Create a new browser tab (opens in background).',
     parameters: [
       {
         name: 'url',
@@ -40,6 +46,12 @@ export const navigationTools: ToolDefinition[] = [
     name: 'resize_window',
     description: 'Resize the browser window.',
     parameters: [
+      {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
       {
         name: 'width',
         type: 'number',

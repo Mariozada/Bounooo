@@ -6,6 +6,12 @@ export const interactionTools: ToolDefinition[] = [
     description: 'Perform mouse and keyboard actions on the page. Use refs from read_page to target elements.',
     parameters: [
       {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
+      {
         name: 'action',
         type: 'string',
         description: 'The action to perform',
@@ -89,6 +95,12 @@ export const interactionTools: ToolDefinition[] = [
     description: 'Set form input values directly. Use for text inputs, textareas, selects, checkboxes, and radio buttons.',
     parameters: [
       {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
+      {
         name: 'ref',
         type: 'string',
         description: 'Element ref of the form input (e.g., "ref_1")',
@@ -108,6 +120,12 @@ export const interactionTools: ToolDefinition[] = [
     name: 'upload_image',
     description: 'Upload an image to a file input or drag target.',
     parameters: [
+      {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
       {
         name: 'imageId',
         type: 'string',

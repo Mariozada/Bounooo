@@ -6,6 +6,12 @@ export const debuggingTools: ToolDefinition[] = [
     description: 'Read browser console messages (logs, errors, warnings).',
     parameters: [
       {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
+      {
         name: 'pattern',
         type: 'string',
         description: 'Filter pattern for messages',
@@ -38,6 +44,12 @@ export const debuggingTools: ToolDefinition[] = [
     description: 'Read HTTP network requests made by the page.',
     parameters: [
       {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
+      {
         name: 'pattern',
         type: 'string',
         description: 'URL pattern to filter requests',
@@ -63,6 +75,12 @@ export const debuggingTools: ToolDefinition[] = [
     name: 'javascript_tool',
     description: 'Execute JavaScript code in the page context. Use with caution - prefer other tools when possible.',
     parameters: [
+      {
+        name: 'tabId',
+        type: 'number',
+        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        required: true
+      },
       {
         name: 'code',
         type: 'string',

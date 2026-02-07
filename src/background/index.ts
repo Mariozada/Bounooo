@@ -4,9 +4,12 @@ import {
   registerAllHandlers,
   addConsoleMessage,
   addNetworkRequest,
-  clearTabData
+  clearTabData,
+  addFrame,
+  isGifRecordingActive
 } from '@tools/index'
 import { MessageTypes } from '@shared/messages'
+import type { GifFrameMetadata } from '@shared/types'
 import { tabGroups } from './tabGroups'
 import { syncAlarms, shortcutIdFromAlarm } from './scheduler'
 import { runShortcut } from './shortcutRunner'
@@ -17,6 +20,95 @@ console.log('Bouno: Registered tools:', getRegisteredTools())
 
 // Track which tab currently has the glow overlay
 let glowTabId: number | null = null
+
+function asNumberPair(value: unknown): [number, number] | undefined {
+  if (!Array.isArray(value) || value.length !== 2) return undefined
+  const [x, y] = value
+  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) {
+    return undefined
+  }
+  return [Math.round(x), Math.round(y)]
+}
+
+function asString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function asPrimitive(value: unknown): string | number | boolean | undefined {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value
+  }
+  return undefined
+}
+
+function buildGifFrameMetadata(tool: string, params: Record<string, unknown>): GifFrameMetadata {
+  if (tool === 'computer') {
+    const actionType = asString(params.action)
+    const scrollDirection = asString(params.scroll_direction)
+    return {
+      tool,
+      actionType,
+      coordinate: asNumberPair(params.coordinate),
+      startCoordinate: asNumberPair(params.start_coordinate),
+      ref: asString(params.ref),
+      text: actionType === 'scroll' ? scrollDirection : asString(params.text),
+    }
+  }
+
+  if (tool === 'form_input') {
+    return {
+      tool,
+      actionType: 'form_input',
+      ref: asString(params.ref),
+      value: asPrimitive(params.value),
+    }
+  }
+
+  if (tool === 'navigate') {
+    return {
+      tool,
+      actionType: 'navigate',
+      url: asString(params.url),
+    }
+  }
+
+  if (tool === 'upload_image') {
+    return {
+      tool,
+      actionType: 'upload_image',
+      coordinate: asNumberPair(params.coordinate),
+      ref: asString(params.ref),
+      text: asString(params.filename),
+    }
+  }
+
+  return {
+    tool,
+    actionType: tool,
+  }
+}
+
+async function autoCaptureGifFrame(
+  tool: string,
+  params: Record<string, unknown>,
+  result?: { result?: unknown }
+): Promise<void> {
+  if (!isGifRecordingActive()) return
+
+  let tabId = params.tabId as number | undefined
+  if (!tabId && tool === 'tabs_create') {
+    tabId = (result?.result as { id?: number } | undefined)?.id
+  }
+  if (!tabId) return
+
+  try {
+    const tab = await chrome.tabs.get(tabId)
+    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+    addFrame(tabId, dataUrl, buildGifFrameMetadata(tool, params))
+  } catch (err) {
+    console.warn('[Bouno:background] Auto GIF frame capture failed:', err)
+  }
+}
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false })
 chrome.sidePanel.setOptions({ enabled: false })
@@ -151,9 +243,13 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   const shortcutId = shortcutIdFromAlarm(alarm.name)
   if (shortcutId) {
     console.log('Bouno: Alarm fired for shortcut:', shortcutId)
-    runShortcut(shortcutId).catch((err) =>
-      console.error('Bouno: Shortcut execution failed:', err)
-    )
+    runShortcut(shortcutId)
+      .then((result) => {
+        if (!result.success) {
+          console.warn('Bouno: Shortcut execution skipped/failed:', result.error)
+        }
+      })
+      .catch((err) => console.error('Bouno: Shortcut execution failed:', err))
   }
 })
 
@@ -242,7 +338,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (type === MessageTypes.RUN_SHORTCUT_NOW) {
     const { shortcutId } = message as { shortcutId: string }
     runShortcut(shortcutId)
-      .then(() => sendResponse({ success: true }))
+      .then(async (result) => {
+        try {
+          await syncAlarms()
+        } catch (err) {
+          console.warn('Bouno: Failed to sync alarms after run-now:', err)
+        }
+        if (result.success) {
+          sendResponse({ success: true })
+        } else {
+          sendResponse({ success: false, error: result.error || 'Shortcut run failed' })
+        }
+      })
       .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
     return true
   }
@@ -290,6 +397,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           glowTabId = newTabId
           chrome.tabs.sendMessage(newTabId, { type: MessageTypes.SET_SCREEN_GLOW, active: true }).catch(() => {})
         }
+      }
+
+      if (result.success) {
+        await autoCaptureGifFrame(tool, params, result)
       }
 
       sendResponse(result)
@@ -340,4 +451,3 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     console.log('Bouno: Tab loaded:', tab.url)
   }
 })
-

@@ -26,6 +26,7 @@ export {
   addNetworkRequest,
   clearTabData,
   addFrame,
+  isGifRecordingActive,
   getCurrentPlan,
   clearPlan
 } from './handlers'

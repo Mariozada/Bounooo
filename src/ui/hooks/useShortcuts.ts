@@ -12,8 +12,11 @@ function syncAlarms(): void {
   chrome.runtime.sendMessage({ type: MessageTypes.SYNC_SHORTCUT_ALARMS }).catch(() => {})
 }
 
-function runShortcutNow(shortcutId: string): void {
-  chrome.runtime.sendMessage({ type: MessageTypes.RUN_SHORTCUT_NOW, shortcutId }).catch(() => {})
+async function runShortcutNow(shortcutId: string): Promise<void> {
+  const response = await chrome.runtime.sendMessage({ type: MessageTypes.RUN_SHORTCUT_NOW, shortcutId })
+  if (!response?.success) {
+    throw new Error(response?.error || 'Failed to run shortcut')
+  }
 }
 
 export function useShortcuts() {
@@ -73,9 +76,13 @@ export function useShortcuts() {
     [refresh]
   )
 
-  const runNow = useCallback((id: string) => {
-    runShortcutNow(id)
-  }, [])
+  const runNow = useCallback(async (id: string) => {
+    try {
+      await runShortcutNow(id)
+    } finally {
+      await refresh()
+    }
+  }, [refresh])
 
   return {
     shortcuts,

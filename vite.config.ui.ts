@@ -2,7 +2,7 @@
  * Vite config for Side Panel UI
  *
  * Builds the React-based side panel with ES modules and code splitting enabled.
- * This runs first and clears the dist directory.
+ * Does not clear dist so standalone UI builds don't remove content/background bundles.
  */
 
 import { defineConfig } from 'vite'
@@ -47,7 +47,7 @@ export default defineConfig({
   base: './',
   build: {
     outDir: '../dist',
-    emptyOutDir: true, // Only UI build clears the directory
+    emptyOutDir: false,
     minify: false, // Disable minification for debugging
     rollupOptions: {
       input: {

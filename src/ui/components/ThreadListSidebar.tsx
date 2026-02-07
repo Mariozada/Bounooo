@@ -31,7 +31,7 @@ interface ThreadListSidebarProps {
   onEditShortcut?: (shortcut: ScheduledShortcut) => void
   onDeleteShortcut?: (id: string) => void
   onToggleShortcut?: (id: string, enabled: boolean) => void
-  onRunShortcutNow?: (id: string) => void
+  onRunShortcutNow?: (id: string) => Promise<void> | void
   onCreateShortcut?: () => void
 }
 

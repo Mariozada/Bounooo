@@ -15,6 +15,7 @@ import {
   getSkillByNameFromCache,
   parseSkillArguments,
   initializeBuiltinSkills,
+  loadSkills,
   getAutoDiscoverableSkills,
   type Skill,
 } from '@skills/index'
@@ -223,6 +224,11 @@ export function useWorkflowStream({
 
       setError(null)
 
+      // Skills are initialized async on mount; ensure commands don't race startup.
+      if (!skillsReady) {
+        await loadSkills()
+      }
+
       // Check for slash command (skill invocation)
       let activeSkill: { skill: Skill; args?: Record<string, string> } | undefined
       let messageToSend = text
@@ -309,7 +315,7 @@ export function useWorkflowStream({
         log('=== Agent loop finished ===')
       }
     },
-    [isStreaming, messages, settings, tabId, groupId, onAddUserMessage, onAddAssistantMessage, runAgentWorkflow]
+    [isStreaming, messages, settings, tabId, groupId, onAddUserMessage, onAddAssistantMessage, runAgentWorkflow, skillsReady]
   )
 
   const sendEditedMessage = useCallback(

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --config vite.config.ui.ts",
-    "build": "bun run build:ui && bun run build:content && bun run build:background",
+    "clean:dist": "rm -rf ../dist",
+    "build": "bun run clean:dist && bun run build:ui && bun run build:content && bun run build:background",
     "build:ui": "echo '=== Building UI ===' && vite build --config vite.config.ui.ts",
     "build:content": "echo '=== Building Content Script ===' && vite build --config vite.config.content.ts",
     "build:background": "echo '=== Building Background Script ===' && vite build --config vite.config.background.ts",

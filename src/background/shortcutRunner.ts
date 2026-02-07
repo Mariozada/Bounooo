@@ -8,6 +8,12 @@ import type { ProviderSettings } from '@shared/settings'
 
 const log = (...args: unknown[]) => console.log('[Bouno:ShortcutRunner]', ...args)
 const logError = (...args: unknown[]) => console.error('[Bouno:ShortcutRunner]', ...args)
+const runningShortcutIds = new Set<string>()
+
+export interface ShortcutRunResult {
+  success: boolean
+  error?: string
+}
 
 /** Wait for a tab to finish loading */
 function waitForTabLoad(tabId: number, timeoutMs = 30_000): Promise<void> {
@@ -54,23 +60,31 @@ async function directToolExecutor(name: string, params: Record<string, unknown>)
   return { error: result.error ?? 'Tool execution failed' }
 }
 
-export async function runShortcut(shortcutId: string): Promise<void> {
+export async function runShortcut(shortcutId: string): Promise<ShortcutRunResult> {
   log(`Running shortcut: ${shortcutId}`)
 
-  const shortcut = await getShortcut(shortcutId)
-  if (!shortcut) {
-    logError(`Shortcut not found: ${shortcutId}`)
-    return
+  if (runningShortcutIds.has(shortcutId)) {
+    const error = 'Shortcut is already running'
+    log(error, shortcutId)
+    return { success: false, error }
   }
+  runningShortcutIds.add(shortcutId)
 
-  if (!shortcut.enabled) {
-    log(`Shortcut "${shortcut.name}" is disabled, skipping`)
-    return
-  }
-
+  let shortcut: Awaited<ReturnType<typeof getShortcut>>
   let tabId: number | undefined
 
   try {
+    shortcut = await getShortcut(shortcutId)
+    if (!shortcut) {
+      logError(`Shortcut not found: ${shortcutId}`)
+      return { success: false, error: 'Shortcut not found' }
+    }
+
+    if (!shortcut.enabled) {
+      log(`Shortcut "${shortcut.name}" is disabled, skipping`)
+      return { success: false, error: 'Shortcut is disabled' }
+    }
+
     // Load user settings for API keys and fallback model/provider
     const settings = await loadSettings()
 
@@ -118,9 +132,17 @@ export async function runShortcut(shortcutId: string): Promise<void> {
     if (shortcut.schedule.type === 'once') {
       await updateShortcut(shortcutId, { enabled: false })
     }
+
+    return { success: true }
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : 'Unknown error'
-    logError(`Shortcut "${shortcut.name}" failed:`, err)
-    await markShortcutRun(shortcutId, 'error', errorMessage)
+    const shortcutName = shortcut?.name || shortcutId
+    logError(`Shortcut "${shortcutName}" failed:`, err)
+    if (shortcut) {
+      await markShortcutRun(shortcutId, 'error', errorMessage)
+    }
+    return { success: false, error: errorMessage }
+  } finally {
+    runningShortcutIds.delete(shortcutId)
   }
 }

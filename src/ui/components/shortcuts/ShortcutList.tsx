@@ -16,7 +16,7 @@ interface ShortcutListProps {
   onEdit: (shortcut: ScheduledShortcut) => void
   onDelete: (id: string) => void
   onToggle: (id: string, enabled: boolean) => void
-  onRunNow: (id: string) => void
+  onRunNow: (id: string) => Promise<void> | void
   onCreate: () => void
 }
 
@@ -26,6 +26,20 @@ function formatSchedule(shortcut: ScheduledShortcut): string {
     return `Once: ${new Date(shortcut.schedule.date).toLocaleString()}`
   }
   return shortcut.schedule.label ?? `Every ${shortcut.schedule.intervalMinutes} min`
+}
+
+type ScheduleTone = 'normal' | 'warning' | 'error'
+
+function getScheduleTone(shortcut: ScheduledShortcut): ScheduleTone {
+  if (shortcut.schedule.type === 'once') {
+    if (!shortcut.schedule.date) return 'error'
+    if (shortcut.schedule.date <= Date.now()) return 'warning'
+    return 'normal'
+  }
+  if (!shortcut.schedule.intervalMinutes || shortcut.schedule.intervalMinutes < 1) {
+    return 'error'
+  }
+  return 'normal'
 }
 
 function formatLastRun(shortcut: ScheduledShortcut): string {
@@ -46,6 +60,8 @@ export const ShortcutList: FC<ShortcutListProps> = ({
   onCreate,
 }) => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [runningId, setRunningId] = useState<string | null>(null)
+  const [actionErrorById, setActionErrorById] = useState<Record<string, string>>({})
 
   const handleDelete = useCallback(
     (id: string) => {
@@ -55,10 +71,31 @@ export const ShortcutList: FC<ShortcutListProps> = ({
     [onDelete]
   )
 
+  const handleRunNow = useCallback(
+    async (id: string) => {
+      try {
+        setRunningId(id)
+        setActionErrorById(prev => ({ ...prev, [id]: '' }))
+        await onRunNow(id)
+      } catch (err) {
+        setActionErrorById(prev => ({
+          ...prev,
+          [id]: err instanceof Error ? err.message : 'Failed to run shortcut'
+        }))
+      } finally {
+        setRunningId(null)
+      }
+    },
+    [onRunNow]
+  )
+
   return (
     <div className="shortcut-list">
       <div className="shortcut-list-header">
-        <h3>Shortcuts</h3>
+        <h3>
+          Shortcuts
+          {shortcuts.length > 0 && <span className="shortcut-header-count">{shortcuts.length}</span>}
+        </h3>
         <button
           type="button"
           className="shortcut-add-btn"
@@ -79,12 +116,20 @@ export const ShortcutList: FC<ShortcutListProps> = ({
         </div>
       ) : (
         <div className="shortcut-list-items">
-          {shortcuts.map((s) => (
-            <div key={s.id} className={`shortcut-item ${!s.enabled ? 'disabled' : ''}`}>
+          {shortcuts.map((s) => {
+            const scheduleTone = getScheduleTone(s)
+            return (
+            <div
+              key={s.id}
+              className={`shortcut-item ${!s.enabled ? 'disabled' : ''} ${scheduleTone === 'warning' ? 'shortcut-item--warning' : ''}`}
+            >
               <div className="shortcut-item-main">
                 <div className="shortcut-item-header">
-                  <span className="shortcut-item-name">/{s.name}</span>
-                  <div className="shortcut-item-status">
+                  <div className="shortcut-item-name-row">
+                    <span className="shortcut-item-name">/{s.name}</span>
+                    <span className={`shortcut-pill ${s.enabled ? 'is-enabled' : 'is-disabled'}`}>
+                      {s.enabled ? 'Enabled' : 'Paused'}
+                    </span>
                     {s.lastRunStatus === 'success' && (
                       <CheckCircle size={14} className="status-success" />
                     )}
@@ -94,18 +139,23 @@ export const ShortcutList: FC<ShortcutListProps> = ({
                   </div>
                 </div>
 
-                <div className="shortcut-item-prompt">{s.prompt}</div>
+                <div className="shortcut-item-prompt" title={s.prompt}>{s.prompt}</div>
 
                 <div className="shortcut-item-meta">
-                  <span className="shortcut-item-schedule">
+                  <span className={`shortcut-item-schedule shortcut-meta-chip shortcut-meta-chip--${scheduleTone}`}>
                     <Clock size={12} />
                     {formatSchedule(s)}
                   </span>
-                  <span className="shortcut-item-lastrun">{formatLastRun(s)}</span>
+                  <span className="shortcut-item-lastrun shortcut-meta-chip">
+                    Last run: {formatLastRun(s)}
+                  </span>
                 </div>
 
                 {s.lastRunStatus === 'error' && s.lastRunError && (
                   <div className="shortcut-item-error">{s.lastRunError}</div>
+                )}
+                {actionErrorById[s.id] && (
+                  <div className="shortcut-item-error">{actionErrorById[s.id]}</div>
                 )}
               </div>
 
@@ -122,8 +172,9 @@ export const ShortcutList: FC<ShortcutListProps> = ({
                 <button
                   type="button"
                   className="shortcut-action-btn"
-                  onClick={() => onRunNow(s.id)}
-                  title="Run now"
+                  onClick={() => handleRunNow(s.id)}
+                  title={runningId === s.id ? 'Running...' : 'Run now'}
+                  disabled={!s.enabled || runningId === s.id}
                 >
                   <Play size={14} />
                 </button>
@@ -168,7 +219,7 @@ export const ShortcutList: FC<ShortcutListProps> = ({
                 )}
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
     </div>

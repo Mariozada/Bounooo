@@ -32,8 +32,19 @@ const RECURRING_OPTIONS = [
 
 function formatDateForInput(timestamp?: number): string {
   if (!timestamp) return ''
+  // datetime-local expects local wall-clock values, not UTC.
   const d = new Date(timestamp)
-  return d.toISOString().slice(0, 16)
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${year}-${month}-${day}T${hours}:${minutes}`
+}
+
+function parseDateFromInput(value: string): number | null {
+  const parsed = new Date(value).getTime()
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 export const ShortcutForm: FC<ShortcutFormProps> = ({
@@ -63,6 +74,7 @@ export const ShortcutForm: FC<ShortcutFormProps> = ({
   const [error, setError] = useState<string | null>(null)
 
   const models = getModelsForProvider(provider)
+  const normalizedName = slugify(name)
 
   const handleProviderChange = useCallback(
     (newProvider: string) => {
@@ -80,6 +92,10 @@ export const ShortcutForm: FC<ShortcutFormProps> = ({
       setError('Name is required')
       return
     }
+    if (!normalizedName) {
+      setError('Name must include letters or numbers')
+      return
+    }
     if (!prompt.trim()) {
       setError('Prompt is required')
       return
@@ -95,7 +111,16 @@ export const ShortcutForm: FC<ShortcutFormProps> = ({
         setError('Date and time are required for one-time schedule')
         return
       }
-      schedule.date = new Date(scheduleDate).getTime()
+      const parsedDate = parseDateFromInput(scheduleDate)
+      if (parsedDate === null) {
+        setError('Invalid date/time format')
+        return
+      }
+      if (parsedDate <= Date.now()) {
+        setError('One-time schedule must be in the future')
+        return
+      }
+      schedule.date = parsedDate
     } else {
       schedule.intervalMinutes = intervalMinutes
       const option = RECURRING_OPTIONS.find((o) => o.minutes === intervalMinutes)
@@ -106,10 +131,14 @@ export const ShortcutForm: FC<ShortcutFormProps> = ({
     setError(null)
 
     try {
+      const normalizedUrl = startUrl.trim().match(/^[a-zA-Z]+:\/\//)
+        ? startUrl.trim()
+        : `https://${startUrl.trim()}`
+
       await onSave({
-        name: slugify(name),
+        name: normalizedName,
         prompt: prompt.trim(),
-        startUrl: startUrl.trim(),
+        startUrl: normalizedUrl,
         schedule,
         provider: useCustomModel ? provider : undefined,
         model: useCustomModel ? model : undefined,
@@ -120,11 +149,11 @@ export const ShortcutForm: FC<ShortcutFormProps> = ({
     } finally {
       setIsSaving(false)
     }
-  }, [name, prompt, startUrl, scheduleType, scheduleDate, intervalMinutes, useCustomModel, provider, model, onSave, onClose])
+  }, [name, normalizedName, prompt, startUrl, scheduleType, scheduleDate, intervalMinutes, useCustomModel, provider, model, onSave, onClose])
 
   return (
     <div className="settings-overlay" onClick={onClose}>
-      <div className="settings-panel" onClick={(e) => e.stopPropagation()}>
+      <div className="settings-panel shortcut-form-panel" onClick={(e) => e.stopPropagation()}>
         <div className="settings-header">
           <h3>{shortcut ? 'Edit Shortcut' : 'Create Shortcut'}</h3>
           <button type="button" className="close-button" onClick={onClose} aria-label="Close">
@@ -144,7 +173,7 @@ export const ShortcutForm: FC<ShortcutFormProps> = ({
                 placeholder="my-automation-task"
               />
               {name && (
-                <span className="setting-hint">/{slugify(name)}</span>
+                <span className="setting-hint">/{normalizedName}</span>
               )}
             </div>
 

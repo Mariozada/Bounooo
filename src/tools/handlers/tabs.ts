@@ -5,12 +5,10 @@ import { tabGroups } from '@background/tabGroups'
 async function tabsContext(params: { groupId?: number }): Promise<{ tabs: TabInfo[] }> {
   const { groupId } = params
 
-  let tabs: chrome.tabs.Tab[]
-  if (groupId !== undefined) {
-    tabs = await chrome.tabs.query({ groupId })
-  } else {
-    tabs = await chrome.tabs.query({})
+  if (groupId === undefined) {
+    throw new Error('tabs_context requires groupId')
   }
+  const tabs = await chrome.tabs.query({ groupId })
 
   return {
     tabs: tabs.map(tab => ({
@@ -30,7 +28,7 @@ async function tabsCreate(params: { url?: string; groupId?: number }): Promise<T
   const { url, groupId } = params
 
   const tab = await chrome.tabs.create({
-    active: true,
+    active: false,
     url: url || 'about:blank'
   })
 

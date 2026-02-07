@@ -24,19 +24,18 @@ async function executeViaChromeMessage(
   toolName: string,
   params: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  const paramsWithTab = {
+  const paramsWithContext = {
     ...params,
-    tabId: params.tabId ?? currentTabId,
     ...(currentGroupId !== undefined && { groupId: currentGroupId }),
   }
 
-  console.log(`[Agent:Tool:${toolName}] Executing with params:`, paramsWithTab)
+  console.log(`[Agent:Tool:${toolName}] Executing with params:`, paramsWithContext)
 
   try {
     const response = await chrome.runtime.sendMessage({
       type: 'EXECUTE_TOOL',
       tool: toolName,
-      params: paramsWithTab,
+      params: paramsWithContext,
     })
 
     console.log(`[Agent:Tool:${toolName}] Response:`, response?.success ? 'success' : 'error')
@@ -56,6 +55,7 @@ const browserToolsDefinition = {
   read_page: tool({
     description: 'Get the accessibility tree of the current page. Use this to understand the page structure and find element refs for interaction.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       filter: z.enum(['all', 'interactive']).optional().default('all').describe('Filter elements: "all" for complete tree, "interactive" for clickable/input elements only'),
       depth: z.number().optional().default(15).describe('Maximum depth to traverse the DOM tree'),
       ref_id: z.string().optional().describe('Focus on a specific element by ref (e.g., "ref_1")'),
@@ -65,13 +65,16 @@ const browserToolsDefinition = {
 
   get_page_text: tool({
     description: 'Extract raw text content from the page including title, URL, and body text.',
-    inputSchema: z.object({}),
+    inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
+    }),
     execute: async (params): Promise<Record<string, unknown>> => executeViaChromeMessage('get_page_text', params),
   }),
 
   find: tool({
     description: 'Find elements on the page using natural language query. Returns matching elements with their refs.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       query: z.string().describe('Natural language search query (e.g., "login button", "email input field")'),
     }),
     execute: async (params): Promise<Record<string, unknown>> => executeViaChromeMessage('find', params),
@@ -80,6 +83,7 @@ const browserToolsDefinition = {
   computer: tool({
     description: 'Perform mouse and keyboard actions on the page. Use refs from read_page to target elements.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       action: z.enum([
         'left_click', 'right_click', 'double_click', 'triple_click',
         'type', 'key', 'scroll', 'scroll_to', 'hover',
@@ -102,6 +106,7 @@ const browserToolsDefinition = {
   form_input: tool({
     description: 'Set form input values directly. Use for text inputs, textareas, selects, checkboxes, and radio buttons.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       ref: z.string().describe('Element ref of the form input (e.g., "ref_1")'),
       value: z.string().describe('Value to set in the input'),
     }),
@@ -111,6 +116,7 @@ const browserToolsDefinition = {
   upload_image: tool({
     description: 'Upload an image to a file input or drag target.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       imageId: z.string().describe('Screenshot ID from a previous computer screenshot action'),
       ref: z.string().optional().describe('File input element ref'),
       coordinate: z.tuple([z.number(), z.number()]).optional().describe('x,y coordinates for drag & drop upload'),
@@ -122,6 +128,7 @@ const browserToolsDefinition = {
   navigate: tool({
     description: 'Navigate to a URL or go back/forward in history.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       url: z.string().describe('URL to navigate to, or "back"/"forward" for history navigation'),
     }),
     execute: async (params): Promise<Record<string, unknown>> => executeViaChromeMessage('navigate', params),
@@ -144,6 +151,7 @@ const browserToolsDefinition = {
   resize_window: tool({
     description: 'Resize the browser window.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       width: z.number().describe('Window width in pixels'),
       height: z.number().describe('Window height in pixels'),
     }),
@@ -161,6 +169,7 @@ const browserToolsDefinition = {
   read_console_messages: tool({
     description: 'Read browser console messages (logs, errors, warnings).',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       pattern: z.string().optional().describe('Filter pattern for messages'),
       limit: z.number().optional().default(100).describe('Maximum number of messages'),
       onlyErrors: z.boolean().optional().default(false).describe('Only return error messages'),
@@ -172,6 +181,7 @@ const browserToolsDefinition = {
   read_network_requests: tool({
     description: 'Read HTTP network requests made by the page.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       pattern: z.string().optional().describe('URL pattern to filter requests'),
       limit: z.number().optional().default(100).describe('Maximum number of requests'),
       clear: z.boolean().optional().default(false).describe('Clear requests after reading'),
@@ -182,6 +192,7 @@ const browserToolsDefinition = {
   javascript_tool: tool({
     description: 'Execute JavaScript code in the page context. Use with caution - prefer other tools when possible.',
     inputSchema: z.object({
+      tabId: z.number().describe('Target browser tab ID'),
       code: z.string().describe('JavaScript code to execute'),
     }),
     execute: async (params): Promise<Record<string, unknown>> => executeViaChromeMessage('javascript_tool', params),

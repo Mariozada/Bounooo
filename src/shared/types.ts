@@ -141,12 +141,31 @@ export interface Screenshot {
 export interface GifFrame {
   dataUrl: string
   timestamp: number
+  tabId: number
+  tool?: string
+  actionType?: string
+  coordinate?: [number, number]
+  startCoordinate?: [number, number]
+  ref?: string
+  text?: string
+  value?: string | boolean | number
+  url?: string
   action?: string
+}
+
+export interface GifFrameMetadata {
+  tool: string
+  actionType?: string
+  coordinate?: [number, number]
+  startCoordinate?: [number, number]
+  ref?: string
+  text?: string
+  value?: string | boolean | number
+  url?: string
 }
 
 export interface GifRecordingState {
   recording: boolean
   frames: GifFrame[]
-  actions: string[]
   startTime?: number
 }

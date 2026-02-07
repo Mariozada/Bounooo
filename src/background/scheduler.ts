@@ -1,9 +1,6 @@
-import { getAllShortcuts, getEnabledShortcuts } from '@storage/shortcutStorage'
-import type { ScheduledShortcut } from '@storage/types'
+import { getEnabledShortcuts, updateShortcut } from '@storage/shortcutStorage'
 
 const log = (...args: unknown[]) => console.log('[Bouno:Scheduler]', ...args)
-const logError = (...args: unknown[]) => console.error('[Bouno:Scheduler]', ...args)
-
 const ALARM_PREFIX = 'shortcut:'
 
 function alarmName(shortcutId: string): string {
@@ -34,21 +31,43 @@ export async function syncAlarms(): Promise<void> {
     const name = alarmName(shortcut.id)
 
     if (shortcut.schedule.type === 'once') {
-      if (!shortcut.schedule.date) continue
+      if (!shortcut.schedule.date) {
+        log(`Disabling one-shot shortcut with missing date: ${shortcut.name}`)
+        await updateShortcut(shortcut.id, {
+          enabled: false,
+          lastRunStatus: 'error',
+          lastRunError: 'Shortcut disabled: missing one-time schedule date.',
+        })
+        continue
+      }
       // Skip if the scheduled time has already passed
       if (shortcut.schedule.date <= now) {
-        log(`Skipping past-due one-shot shortcut: ${shortcut.name}`)
+        log(`Disabling past-due one-shot shortcut: ${shortcut.name}`)
+        await updateShortcut(shortcut.id, {
+          enabled: false,
+          lastRunStatus: 'error',
+          lastRunError: 'Shortcut disabled: one-time schedule is in the past.',
+        })
         continue
       }
       chrome.alarms.create(name, { when: shortcut.schedule.date })
       log(`Created one-shot alarm for "${shortcut.name}" at ${new Date(shortcut.schedule.date).toLocaleString()}`)
     } else if (shortcut.schedule.type === 'recurring') {
-      if (!shortcut.schedule.intervalMinutes) continue
+      const interval = shortcut.schedule.intervalMinutes
+      if (!interval || interval < 1) {
+        log(`Disabling recurring shortcut with invalid interval: ${shortcut.name}`)
+        await updateShortcut(shortcut.id, {
+          enabled: false,
+          lastRunStatus: 'error',
+          lastRunError: 'Shortcut disabled: recurring interval must be at least 1 minute.',
+        })
+        continue
+      }
       chrome.alarms.create(name, {
-        delayInMinutes: shortcut.schedule.intervalMinutes,
-        periodInMinutes: shortcut.schedule.intervalMinutes,
+        delayInMinutes: interval,
+        periodInMinutes: interval,
       })
-      log(`Created recurring alarm for "${shortcut.name}" every ${shortcut.schedule.intervalMinutes} min`)
+      log(`Created recurring alarm for "${shortcut.name}" every ${interval} min`)
     }
   }
 
