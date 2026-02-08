@@ -1,6 +1,5 @@
 export const DEFAULT_TREE_DEPTH = 15
-export const MAX_OUTPUT_CHARS = 50000
-export const MAX_FIND_RESULTS = 20
+export const MAX_OUTPUT_CHARS = 300_000
 
 export const MAX_CONSOLE_MESSAGES = 500
 export const MAX_NETWORK_REQUESTS = 500

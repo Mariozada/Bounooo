@@ -346,7 +346,7 @@ export function handleReadPage(params: ReadPageParams): ReadPageResult {
     const pageContent = output.join('\n')
 
     if (pageContent.length > MAX_OUTPUT_CHARS) {
-      let errorMsg = `Output exceeds ${MAX_OUTPUT_CHARS} character limit (${pageContent.length} characters). `
+      let errorMsg = `Output exceeds ${MAX_OUTPUT_CHARS.toLocaleString()} character limit (${pageContent.length.toLocaleString()} characters). `
       if (ref_id) {
         errorMsg += 'The specified element has too much content. Try specifying a smaller depth parameter or focus on a more specific child element.'
       } else if (depth !== DEFAULT_TREE_DEPTH) {

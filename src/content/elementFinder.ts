@@ -1,6 +1,5 @@
 import { assignRef } from './elementRefs'
 import { getRole, getAccessibleName, isVisible, isInteractive } from './accessibilityTree'
-import { MAX_FIND_RESULTS } from '@shared/constants'
 
 interface SearchResult {
   element: Element
@@ -27,7 +26,6 @@ export function handleFindElements(params: { query: string }): {
   elements: FindResult[]
   count: number
   totalMatches: number
-  truncated: boolean
 } {
   const { query } = params
   const queryLower = query.toLowerCase()
@@ -112,8 +110,7 @@ export function handleFindElements(params: { query: string }): {
     return b.score - a.score
   })
 
-  const topResults = results.slice(0, MAX_FIND_RESULTS)
-  const elements: FindResult[] = topResults.map(r => {
+  const elements: FindResult[] = results.map(r => {
     const el = r.element
     const refId = assignRef(el)
     const rect = el.getBoundingClientRect()
@@ -138,7 +135,6 @@ export function handleFindElements(params: { query: string }): {
   return {
     elements,
     count: elements.length,
-    totalMatches: results.length,
-    truncated: results.length > MAX_FIND_RESULTS
+    totalMatches: results.length
   }
 }
