@@ -7,6 +7,7 @@ import {
   type AssistantMessageSegment,
   type Message as AgentMessage,
   type ContentPart,
+  type MessageContent,
 } from '@agent/index'
 import { MessageTypes } from '@shared/messages'
 import type { ProviderSettings, TracingSettings } from '@shared/settings'
@@ -189,16 +190,8 @@ export function useWorkflowStream({
   }, [])
 
   const dequeueNextQueuedMessage = useCallback((): QueuedMessage | null => {
-    if (afterToolResultQueueRef.current.length > 0) {
-      const queuedItems = afterToolResultQueueRef.current.splice(0)
-      const next: QueuedMessage = {
-        text: queuedItems.map((item) => item.text).join('\n'),
-        attachments: queuedItems.flatMap((item) => item.attachments),
-      }
-      syncQueueCounts()
-      return next
-    }
-
+    // afterToolResult messages are consumed by onBeforeNextStep (injected between steps),
+    // so only afterCompletion messages are dequeued here for a new run.
     const next = afterCompletionQueueRef.current.shift() ?? null
     if (next) {
       syncQueueCounts()
@@ -237,11 +230,6 @@ export function useWorkflowStream({
         afterCompletionQueueRef.current.push(queuedMessage)
       } else {
         afterToolResultQueueRef.current.push(queuedMessage)
-
-        // If a tool has already completed in this run, trigger the interruption now.
-        if (hasCompletedToolCallInRunRef.current && abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
-          abortControllerRef.current.abort()
-        }
       }
 
       syncQueueCounts()
@@ -314,6 +302,7 @@ export function useWorkflowStream({
       }
     ) => {
       const model = createProvider(settings)
+      let currentAssistantMessageId = assistantMessageId
       let accumulatedText = ''
       let accumulatedReasoning = ''
       const accumulatedToolCalls: ToolCallInfo[] = []
@@ -352,7 +341,7 @@ export function useWorkflowStream({
 
       const updateAssistant = () => {
         if (onUpdateAssistantMessage) {
-          onUpdateAssistantMessage(assistantMessageId, {
+          onUpdateAssistantMessage(currentAssistantMessageId, {
             content: accumulatedText,
             reasoning: accumulatedReasoning,
             toolCalls: [...accumulatedToolCalls],
@@ -401,11 +390,50 @@ export function useWorkflowStream({
               accumulatedToolCalls[index] = toolCall
             }
             updateAssistant()
+          },
+          onBeforeNextStep: async () => {
+            if (afterToolResultQueueRef.current.length === 0) return null
 
-            if (afterToolResultQueueRef.current.length > 0 && abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
-              log('Interrupting after completed tool call to run queued clarification')
-              abortControllerRef.current.abort()
+            // Dequeue all after-tool-result messages
+            const queued = afterToolResultQueueRef.current.splice(0)
+            syncQueueCounts()
+            log('Injecting queued messages between steps:', queued.length)
+
+            // Finalize the current assistant message with its accumulated state
+            updateAssistant()
+
+            const userMessages: MessageContent[] = []
+            let lastUserResult: { id: string; threadId: string } | undefined
+
+            for (const q of queued) {
+              // Add user message to UI/DB
+              const result = await onAddUserMessage?.(q.text, q.attachments.length > 0 ? q.attachments : undefined)
+              if (result) lastUserResult = result
+
+              // Build content for session injection
+              userMessages.push(buildMessageContent(q.text, q.attachments.length > 0 ? q.attachments : undefined))
             }
+
+            // Create new assistant message in UI/DB for the continuation.
+            // onAddAssistantMessage uses getLastMessageId() internally, which will be
+            // the last user message we just added above.
+            const newAssistant = await onAddAssistantMessage?.(
+              lastUserResult?.threadId,
+              undefined,
+              { model: settings.model, provider: settings.provider },
+            )
+
+            if (newAssistant) {
+              // Reset accumulators for the new assistant message
+              currentAssistantMessageId = newAssistant.id
+              accumulatedText = ''
+              accumulatedReasoning = ''
+              accumulatedToolCalls.length = 0
+              assistantSegments.length = 0
+              textSegmentCounter = 0
+            }
+
+            return { userMessages }
           },
         },
         tracing: settings.tracing as TracingSettings,
@@ -460,17 +488,17 @@ export function useWorkflowStream({
       }
 
       if (onUpdateAssistantMessage) {
-        onUpdateAssistantMessage(assistantMessageId, {
-          content: result.text,
+        onUpdateAssistantMessage(currentAssistantMessageId, {
+          content: accumulatedText,
           reasoning: accumulatedReasoning,
-          toolCalls: result.toolCalls,
+          toolCalls: [...accumulatedToolCalls],
           assistantSegments: cloneSegments(),
         })
       }
 
       return result
     },
-    [settings, tabId, groupId, onUpdateAssistantMessage]
+    [settings, tabId, groupId, onUpdateAssistantMessage, onAddUserMessage, onAddAssistantMessage, syncQueueCounts]
   )
 
   const runMessage = useCallback(
@@ -482,6 +510,8 @@ export function useWorkflowStream({
         return
       }
 
+      // Set streaming state immediately to prevent concurrent runs
+      setStreamingState(true)
       setError(null)
       hasCompletedToolCallInRunRef.current = false
 
@@ -567,7 +597,6 @@ export function useWorkflowStream({
         { role: 'user' as const, content: buildMessageContent(messageToSend, messageAttachments) },
       ]
 
-      setStreamingState(true)
       abortControllerRef.current = new AbortController()
 
       try {

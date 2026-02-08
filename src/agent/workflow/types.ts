@@ -140,6 +140,8 @@ export interface AgentCallbacks {
   onToolDone?: (toolCall: ToolCallInfo) => void
   onReasoningDelta?: (text: string) => void
   onReasoningDone?: (fullText: string) => void
+  /** Called between steps (after tool results appended, before next LLM call). Return user messages to inject into the session. */
+  onBeforeNextStep?: () => Promise<{ userMessages: MessageContent[] } | null>
 }
 
 export interface AgentOptions {

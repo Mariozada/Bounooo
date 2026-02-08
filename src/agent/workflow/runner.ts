@@ -189,6 +189,16 @@ export async function runWorkflow(options: AgentOptions): Promise<AgentResult> {
         return createResult('stop', finalText, allToolCalls, step + 1)
       }
 
+      // Check for queued user messages to inject before the next LLM call
+      if (callbacks?.onBeforeNextStep) {
+        const injected = await callbacks.onBeforeNextStep()
+        if (injected) {
+          for (const content of injected.userMessages) {
+            session.messages.push({ role: 'user', content })
+          }
+        }
+      }
+
       step++
     }
 

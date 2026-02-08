@@ -1,4 +1,4 @@
-import type { AgentSession, AgentOptions, Message } from './types'
+import type { AgentSession, AgentOptions, Message, MessageContent } from './types'
 import { renderSystemPrompt } from '@prompts/render'
 import { getEnabledToolDefinitions } from '@tools/definitions'
 
@@ -61,7 +61,7 @@ export function appendAssistantMessage(session: AgentSession, content: string): 
   })
 }
 
-export function appendUserMessage(session: AgentSession, content: string): void {
+export function appendUserMessage(session: AgentSession, content: MessageContent): void {
   session.messages.push({
     role: 'user',
     content,
