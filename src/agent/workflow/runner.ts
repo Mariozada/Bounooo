@@ -195,10 +195,13 @@ export async function runWorkflow(options: AgentOptions): Promise<AgentResult> {
       // Check for queued user messages to inject before the next LLM call
       if (callbacks?.onBeforeNextStep) {
         const injected = await callbacks.onBeforeNextStep()
-        if (injected) {
+        if (injected && injected.userMessages.length > 0) {
           for (const content of injected.userMessages) {
             session.messages.push({ role: 'user', content })
           }
+          // Reset step counter — new user input gets a fresh budget
+          step = 0
+          continue
         }
       }
 

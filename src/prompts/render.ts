@@ -4,6 +4,7 @@ import type { Skill } from '@skills/types'
 export interface RenderOptions {
   tools: ToolDefinition[]
   tabId?: number
+  vision?: boolean
   activeSkill?: {
     skill: Skill
     args?: Record<string, string>
@@ -184,12 +185,21 @@ function renderMcpToolSection(tools: ToolDefinition[]): string {
   return parts.join('\n').trimEnd()
 }
 
-function renderBestPractices(): string {
-  return `## Best Practices
+function renderBestPractices(vision?: boolean): string {
+  const lines = [
+    '## Best Practices',
+    '',
+    '- **Dynamic content**: If an element isn\'t found, the page might still be loading. Use `computer` with `action: "wait"` or re-read the page.',
+    '- **Stale refs**: After navigation or major page changes, old refs are invalid. Always re-read the page to get fresh refs.',
+    '- **Error recovery**: If an action fails, re-read the page to understand the current state before retrying. Don\'t retry the same action blindly.',
+    '- **New tabs**: After `tabs_create`, wait for its result to get the new tab ID before using it. Never assume a tab ID — always use the one returned by the tool.',
+  ]
 
-- **Dynamic content**: If an element isn't found, the page might still be loading. Use \`computer\` with \`action: "wait"\` or re-read the page.
-- **Stale refs**: After navigation or major page changes, old refs are invalid. Always re-read the page to get fresh refs.
-- **Error recovery**: If an action fails, re-read the page to understand the current state before retrying. Don't retry the same action blindly.`
+  if (vision) {
+    lines.push('- **Verify visually**: When you finish a task, take a `screenshot` to confirm the final result before reporting success.')
+  }
+
+  return lines.join('\n')
 }
 
 function renderActiveSkill(skill: Skill, args: Record<string, string> = {}): string {
@@ -246,7 +256,7 @@ export function renderSystemPrompt(toolsOrOptions: ToolDefinition[] | RenderOpti
     ...(options.tabId !== undefined ? [renderTabContext(options.tabId)] : []),
     renderToolCallFormat(),
     renderWorkflow(),
-    renderBestPractices(),
+    renderBestPractices(options.vision),
     renderToolSection(options.tools),
   ]
 

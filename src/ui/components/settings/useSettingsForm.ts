@@ -122,6 +122,14 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     }))
   }, [])
 
+  const handleMaxStepsChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const value = parseInt(e.target.value, 10)
+    setLocalSettings((prev) => ({
+      ...prev,
+      maxSteps: Number.isNaN(value) ? undefined : Math.max(1, Math.min(50, value)),
+    }))
+  }, [])
+
   const handleGeminiThinkingLevelChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
     setLocalSettings((prev) => ({
       ...prev,
@@ -181,6 +189,7 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     handleCustomNameChange,
     handleCustomVisionChange,
     handleCustomReasoningChange,
+    handleMaxStepsChange,
     handleGeminiThinkingLevelChange,
     handleTracingUpdate,
     handleCodexAuthChange,

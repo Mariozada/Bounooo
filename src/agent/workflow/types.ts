@@ -155,6 +155,7 @@ export interface AgentOptions {
   tracing?: TracingConfig
   modelName?: string  // For tracing - extracted from model
   provider?: string   // For tracing
+  vision?: boolean  // Whether the model supports image input
   reasoningEnabled?: boolean  // Enable streaming reasoning/thinking
   geminiThinkingLevel?: 'minimal' | 'low' | 'medium' | 'high'
   toolExecutor?: ToolExecutor  // Direct executor for background runs

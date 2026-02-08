@@ -21,6 +21,7 @@ interface ProviderTabProps {
   onCustomNameChange: (e: ChangeEvent<HTMLInputElement>) => void
   onCustomVisionChange: (e: ChangeEvent<HTMLInputElement>) => void
   onCustomReasoningChange: (e: ChangeEvent<HTMLInputElement>) => void
+  onMaxStepsChange: (e: ChangeEvent<HTMLInputElement>) => void
   onGeminiThinkingLevelChange: (e: ChangeEvent<HTMLSelectElement>) => void
   onToggleShowApiKey: () => void
   onCodexAuthChange?: () => void  // Callback to refresh settings after auth change
@@ -40,6 +41,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   onCustomNameChange,
   onCustomVisionChange,
   onCustomReasoningChange,
+  onMaxStepsChange,
   onGeminiThinkingLevelChange,
   onToggleShowApiKey,
   onCodexAuthChange,
@@ -440,6 +442,19 @@ export const ProviderTab: FC<ProviderTabProps> = ({
           <span className="help-text">Controls how much the model thinks before responding</span>
         </div>
       )}
+
+      <div className="form-group">
+        <label htmlFor="max-steps">Max Steps</label>
+        <input
+          id="max-steps"
+          type="number"
+          min={1}
+          max={50}
+          value={settings.maxSteps ?? 15}
+          onChange={onMaxStepsChange}
+        />
+        <span className="help-text">Maximum tool-use steps per response (1–50)</span>
+      </div>
 
       {isOpenAICompatible && (
         <>

@@ -1,6 +1,7 @@
 import { getShortcut, markShortcutRun, updateShortcut } from '@storage/shortcutStorage'
 import { loadSettings } from '@shared/settings'
 import { createProvider } from '@agent/providers'
+import { getModelConfig } from '@agent/config'
 import { runWorkflow } from '@agent/workflow/runner'
 import { executeTool as registryExecuteTool } from '@tools/registry'
 import type { Message } from '@agent/workflow/types'
@@ -110,12 +111,14 @@ export async function runShortcut(shortcutId: string): Promise<ShortcutRunResult
 
     // Create provider and run workflow
     const model = createProvider(effectiveSettings)
+    const shortcutModelConfig = getModelConfig(effectiveSettings.provider, effectiveSettings.model)
 
     const result = await runWorkflow({
       model,
       messages,
       tabId,
-      maxSteps: 15,
+      maxSteps: settings.maxSteps ?? 15,
+      vision: shortcutModelConfig?.vision ?? false,
       toolExecutor: directToolExecutor,
       modelName: effectiveSettings.model,
       provider: effectiveSettings.provider,

@@ -25,7 +25,7 @@ import { McpManager, loadMcpServers, parsePrefixedName } from '@mcp/index'
 import type { ToolDefinition } from '@tools/definitions'
 
 const DEBUG = true
-const MAX_STEPS = 15
+const DEFAULT_MAX_STEPS = 15
 const log = (...args: unknown[]) => DEBUG && console.log('[useWorkflowStream]', ...args)
 const logWarn = (...args: unknown[]) => DEBUG && console.warn('[useWorkflowStream]', ...args)
 const logError = (...args: unknown[]) => console.error('[useWorkflowStream]', ...args)
@@ -365,7 +365,7 @@ export function useWorkflowStream({
         messages: agentMessages,
         tabId,
         groupId,
-        maxSteps: MAX_STEPS,
+        maxSteps: settings.maxSteps ?? DEFAULT_MAX_STEPS,
         abortSignal,
         callbacks: {
           onTextDelta: (delta) => {
@@ -441,6 +441,7 @@ export function useWorkflowStream({
         tracing: settings.tracing as TracingSettings,
         modelName: settings.model,
         provider: settings.provider,
+        vision: modelConfig?.vision ?? false,
         reasoningEnabled: effectiveReasoningEnabled,
         geminiThinkingLevel: settings.geminiThinkingLevel,
         // Pass skill options to workflow
