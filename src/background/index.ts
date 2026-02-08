@@ -13,6 +13,7 @@ import { runShortcut } from './shortcutRunner'
 import { switchGlowToTab, hideAllGlowsWithMinimum, cleanupGlowForTab } from './glow'
 import { autoCaptureGifFrame } from './gifCapture'
 import { startCodexOAuth, logoutCodex, cancelCodexOAuth } from './codexOAuth'
+import { startGeminiOAuth, logoutGemini } from './geminiOAuth'
 
 registerAllHandlers()
 
@@ -253,6 +254,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (type === MessageTypes.CODEX_OAUTH_CANCEL) {
     cancelCodexOAuth()
     sendResponse({ success: true })
+    return true
+  }
+
+  if (type === MessageTypes.GEMINI_OAUTH_START) {
+    startGeminiOAuth()
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
+    return true
+  }
+
+  if (type === MessageTypes.GEMINI_OAUTH_LOGOUT) {
+    logoutGemini()
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
     return true
   }
 

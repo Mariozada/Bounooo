@@ -28,6 +28,10 @@ export const MessageTypes = {
   CODEX_OAUTH_START: 'CODEX_OAUTH_START',
   CODEX_OAUTH_LOGOUT: 'CODEX_OAUTH_LOGOUT',
   CODEX_OAUTH_CANCEL: 'CODEX_OAUTH_CANCEL',
+
+  // Gemini OAuth messages
+  GEMINI_OAUTH_START: 'GEMINI_OAUTH_START',
+  GEMINI_OAUTH_LOGOUT: 'GEMINI_OAUTH_LOGOUT',
 } as const
 
 export type MessageType = typeof MessageTypes[keyof typeof MessageTypes]

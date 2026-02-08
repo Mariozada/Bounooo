@@ -2,7 +2,7 @@
  * Auth module exports
  */
 
-export type { CodexAuth, TokenResponse, IdTokenClaims, PkceCodes, DeviceAuthResponse, DeviceTokenPollResponse } from './types'
+export type { CodexAuth, TokenResponse, IdTokenClaims, PkceCodes, DeviceAuthResponse, DeviceTokenPollResponse, GeminiAuth, GeminiTokenResponse } from './types'
 
 export {
   // Constants
@@ -33,4 +33,24 @@ export {
   createCodexFetch,
 } from './codex'
 
-export type { DeviceAuthResponse } from './codex'
+// Gemini OAuth exports
+export {
+  // Constants
+  GEMINI_CLIENT_ID,
+  GEMINI_CLIENT_SECRET,
+  GOOGLE_AUTH_URL,
+  GOOGLE_TOKEN_URL,
+  GEMINI_SCOPES,
+  // PKCE functions
+  generateGeminiPKCE,
+  generateGeminiState,
+  // OAuth functions
+  buildGeminiAuthUrl,
+  exchangeGeminiCodeForTokens,
+  refreshGeminiAccessToken,
+  getGeminiUserInfo,
+  // Auth helpers
+  isGeminiTokenExpired,
+  createGeminiAuth,
+  createGeminiFetch,
+} from './gemini'

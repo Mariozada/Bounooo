@@ -1,5 +1,5 @@
 /**
- * Codex OAuth authentication types
+ * OAuth authentication types
  * Based on OpenCode's implementation
  */
 
@@ -11,11 +11,28 @@ export interface CodexAuth {
   accountId?: string // ChatGPT account ID for team/org subscriptions
 }
 
+export interface GeminiAuth {
+  type: 'gemini-oauth'
+  accessToken: string
+  refreshToken: string
+  expiresAt: number  // Unix timestamp in milliseconds
+  email?: string     // User's Google email
+}
+
 export interface TokenResponse {
   id_token: string
   access_token: string
   refresh_token: string
   expires_in?: number
+}
+
+export interface GeminiTokenResponse {
+  access_token: string
+  refresh_token: string
+  expires_in?: number
+  token_type?: string
+  scope?: string
+  id_token?: string
 }
 
 export interface IdTokenClaims {

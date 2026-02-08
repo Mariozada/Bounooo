@@ -8,8 +8,9 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import type { LanguageModel } from 'ai'
 import type { ProviderSettings } from '@shared/settings'
 import { wrapWithDebugMiddleware } from './debugMiddleware'
-import { createCodexFetch, isTokenExpired, refreshAccessToken, createCodexAuth, CODEX_API_ENDPOINT } from '@auth/codex'
-import type { CodexAuth } from '@auth/types'
+import { createCodexFetch } from '@auth/codex'
+import { createGeminiFetch } from '@auth/gemini'
+import type { CodexAuth, GeminiAuth } from '@auth/types'
 import { loadSettings, saveSettings } from '@shared/settings'
 
 const DEBUG = true
@@ -153,6 +154,64 @@ function createCodexProvider(settings: ProviderSettings): LanguageModel {
   return wrapWithDebugMiddleware(model)
 }
 
+/**
+ * Create a Gemini OAuth-enabled Google provider
+ * Uses OAuth tokens instead of API key
+ */
+function createGeminiOAuthProvider(settings: ProviderSettings): LanguageModel {
+  if (!settings.geminiAuth) {
+    throw new ProviderError('Gemini authentication required')
+  }
+
+  log('Creating Gemini OAuth provider with model:', settings.model)
+
+  // Create custom fetch that handles OAuth
+  const geminiFetch = createGeminiFetch(
+    // Get current auth
+    async () => {
+      const currentSettings = await loadSettings()
+      return currentSettings.geminiAuth
+    },
+    // Update auth after refresh
+    async (newAuth: GeminiAuth) => {
+      const currentSettings = await loadSettings()
+      currentSettings.geminiAuth = newAuth
+      await saveSettings(currentSettings)
+      log('Gemini auth updated after token refresh')
+    }
+  )
+
+  // Create Google provider with Gemini OAuth fetch
+  const google = createGoogleGenerativeAI({
+    apiKey: 'gemini-oauth', // Placeholder, actual auth is in fetch
+    fetch: async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const urlStr = url.toString()
+      log('[Gemini] Fetching:', urlStr)
+      log('[Gemini] Request body preview:', init?.body ? String(init.body).slice(0, 500) : 'none')
+      try {
+        const response = await geminiFetch(url, init)
+        log('[Gemini] Response status:', response.status, response.statusText)
+
+        // Clone response to read body for logging without consuming it
+        if (!response.ok) {
+          const cloned = response.clone()
+          const errorText = await cloned.text()
+          logError('[Gemini] Error response:', errorText)
+        }
+
+        return response
+      } catch (error) {
+        logError('[Gemini] Fetch error:', error)
+        throw error
+      }
+    },
+  })
+
+  const model = google(settings.model)
+  log('Gemini OAuth model created:', model)
+  return wrapWithDebugMiddleware(model)
+}
+
 export function createProvider(settings: ProviderSettings): LanguageModel {
   log('createProvider called with:', {
     provider: settings.provider,
@@ -164,10 +223,14 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
   const apiKey = settings.apiKeys[settings.provider]
 
   // Allow OpenAI without API key if using Codex OAuth
+  // Allow Google without API key if using Gemini OAuth
   if (!apiKey && settings.provider !== 'openai-compatible') {
     if (settings.provider === 'openai' && settings.codexAuth) {
       // Codex OAuth is available, will be used instead
       log('Using Codex OAuth instead of API key')
+    } else if (settings.provider === 'google' && settings.geminiAuth) {
+      // Gemini OAuth is available, will be used instead
+      log('Using Gemini OAuth instead of API key')
     } else {
       logError('No API key for provider:', settings.provider)
       throw new ProviderError(`No API key configured for ${settings.provider}`)
@@ -207,6 +270,12 @@ export function createProvider(settings: ProviderSettings): LanguageModel {
       }
 
       case 'google': {
+        // Check if using Gemini OAuth
+        if (settings.geminiAuth) {
+          log('Creating Google provider with Gemini OAuth...')
+          return createGeminiOAuthProvider(settings)
+        }
+
         log('Creating Google provider...')
         const google = createGoogleGenerativeAI({
           apiKey,
@@ -289,6 +358,11 @@ export function validateSettings(settings: ProviderSettings): string | null {
     // OpenAI can use either API key or Codex OAuth
     if (!settings.apiKeys[settings.provider] && !settings.codexAuth) {
       return 'Please enter your OpenAI API key or login with ChatGPT'
+    }
+  } else if (settings.provider === 'google') {
+    // Google can use either API key or Gemini OAuth
+    if (!settings.apiKeys[settings.provider] && !settings.geminiAuth) {
+      return 'Please enter your Google API key or login with Google'
     }
   } else {
     if (!settings.apiKeys[settings.provider]) {

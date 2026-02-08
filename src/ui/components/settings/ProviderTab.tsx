@@ -1,8 +1,12 @@
-import { type FC, type ChangeEvent } from 'react'
-import { Zap, Image, Eye, EyeOff } from 'lucide-react'
+import React, { type FC, type ChangeEvent, useState, useEffect } from 'react'
+import { Zap, Image, Eye, EyeOff, LogIn, LogOut, Loader2, Key, User } from 'lucide-react'
 import type { ProviderSettings, ProviderType } from '@shared/settings'
 import { PROVIDER_CONFIGS, getModelsForProvider } from '@agent/index'
 import { CustomSelect } from '../CustomSelect'
+import { MessageTypes } from '@shared/messages'
+
+type OpenAIAuthMode = 'api-key' | 'chatgpt-login'
+type GoogleAuthMode = 'api-key' | 'google-login'
 
 interface ProviderTabProps {
   settings: ProviderSettings
@@ -17,8 +21,9 @@ interface ProviderTabProps {
   onCustomNameChange: (e: ChangeEvent<HTMLInputElement>) => void
   onCustomVisionChange: (e: ChangeEvent<HTMLInputElement>) => void
   onCustomReasoningChange: (e: ChangeEvent<HTMLInputElement>) => void
-  onPostToolDelayChange: (e: ChangeEvent<HTMLInputElement>) => void
   onToggleShowApiKey: () => void
+  onCodexAuthChange?: () => void  // Callback to refresh settings after auth change
+  onGeminiAuthChange?: () => void  // Callback to refresh settings after Gemini auth change
 }
 
 export const ProviderTab: FC<ProviderTabProps> = ({
@@ -34,13 +39,142 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   onCustomNameChange,
   onCustomVisionChange,
   onCustomReasoningChange,
-  onPostToolDelayChange,
   onToggleShowApiKey,
+  onCodexAuthChange,
+  onGeminiAuthChange,
 }) => {
-  const models = getModelsForProvider(settings.provider)
+  const [codexLoading, setCodexLoading] = useState(false)
+  const [codexError, setCodexError] = useState<string | null>(null)
+  const [codexUserCode, setCodexUserCode] = useState<string | null>(null)
+
+  // Gemini OAuth state
+  const [geminiLoading, setGeminiLoading] = useState(false)
+  const [geminiError, setGeminiError] = useState<string | null>(null)
+
+  const hasCodexAuth = !!settings.codexAuth
+  const hasGeminiAuth = !!settings.geminiAuth
+  const hasApiKey = !!settings.apiKeys['openai']
+
+  // Determine auth mode based on current state
+  const [openaiAuthMode, setOpenaiAuthMode] = useState<OpenAIAuthMode>(
+    hasCodexAuth ? 'chatgpt-login' : 'api-key'
+  )
+  const [googleAuthMode, setGoogleAuthMode] = useState<GoogleAuthMode>(
+    hasGeminiAuth ? 'google-login' : 'api-key'
+  )
+
+  // Update mode when auth state changes
+  useEffect(() => {
+    if (hasCodexAuth) {
+      setOpenaiAuthMode('chatgpt-login')
+    }
+  }, [hasCodexAuth])
+
+  useEffect(() => {
+    if (hasGeminiAuth) {
+      setGoogleAuthMode('google-login')
+    }
+  }, [hasGeminiAuth])
+
+  // For OpenAI, show Codex models only when in chatgpt-login mode with auth
+  const showCodexModels = openaiAuthMode === 'chatgpt-login' && hasCodexAuth
+  const models = getModelsForProvider(settings.provider, showCodexModels)
   const currentProviderConfig = PROVIDER_CONFIGS[settings.provider]
   const currentApiKey = settings.apiKeys[settings.provider] || ''
   const isOpenAICompatible = settings.provider === 'openai-compatible'
+  const isOpenAI = settings.provider === 'openai'
+  const isGoogle = settings.provider === 'google'
+
+  // Listen for auth completion from background
+  React.useEffect(() => {
+    const handleMessage = (message: { type: string; success?: boolean; error?: string }) => {
+      if (message.type === 'CODEX_AUTH_COMPLETE') {
+        setCodexLoading(false)
+        setCodexUserCode(null)
+        if (message.success) {
+          setCodexError(null)
+          onCodexAuthChange?.()
+        } else {
+          setCodexError(message.error || 'Authentication failed')
+        }
+      }
+      if (message.type === 'GEMINI_AUTH_COMPLETE') {
+        setGeminiLoading(false)
+        if (message.success) {
+          setGeminiError(null)
+          onGeminiAuthChange?.()
+        } else {
+          setGeminiError(message.error || 'Authentication failed')
+        }
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
+  }, [onCodexAuthChange, onGeminiAuthChange])
+
+  const handleCodexLogin = async () => {
+    setCodexLoading(true)
+    setCodexError(null)
+    setCodexUserCode(null)
+    try {
+      const response = await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_START })
+      if (!response.success) {
+        setCodexError(response.error || 'Login failed')
+        setCodexLoading(false)
+      } else if (response.userCode) {
+        // Device flow: show the user code
+        setCodexUserCode(response.userCode)
+        // Keep loading state until auth completes via message
+      }
+    } catch (err) {
+      setCodexError((err as Error).message)
+      setCodexLoading(false)
+    }
+  }
+
+  const handleCodexLogout = async () => {
+    setCodexLoading(true)
+    setCodexError(null)
+    setCodexUserCode(null)
+    try {
+      await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_LOGOUT })
+      onCodexAuthChange?.()
+    } catch (err) {
+      setCodexError((err as Error).message)
+    } finally {
+      setCodexLoading(false)
+    }
+  }
+
+  const handleGeminiLogin = async () => {
+    setGeminiLoading(true)
+    setGeminiError(null)
+    try {
+      const response = await chrome.runtime.sendMessage({ type: MessageTypes.GEMINI_OAUTH_START })
+      if (!response.success) {
+        setGeminiError(response.error || 'Login failed')
+        setGeminiLoading(false)
+      }
+      // For Gemini, auth completes via GEMINI_AUTH_COMPLETE message
+    } catch (err) {
+      setGeminiError((err as Error).message)
+      setGeminiLoading(false)
+    }
+  }
+
+  const handleGeminiLogout = async () => {
+    setGeminiLoading(true)
+    setGeminiError(null)
+    try {
+      await chrome.runtime.sendMessage({ type: MessageTypes.GEMINI_OAUTH_LOGOUT })
+      onGeminiAuthChange?.()
+    } catch (err) {
+      setGeminiError((err as Error).message)
+    } finally {
+      setGeminiLoading(false)
+    }
+  }
 
   return (
     <>
@@ -59,6 +193,164 @@ export const ProviderTab: FC<ProviderTabProps> = ({
         </select>
         <span className="help-text">{currentProviderConfig.description}</span>
       </div>
+
+      {/* OpenAI Auth Mode Toggle */}
+      {isOpenAI && (
+        <div className="form-group">
+          <label>Authentication Method</label>
+          <div className="auth-mode-toggle">
+            <button
+              type="button"
+              className={`auth-mode-btn ${openaiAuthMode === 'api-key' ? 'active' : ''}`}
+              onClick={() => setOpenaiAuthMode('api-key')}
+            >
+              <Key size={14} />
+              API Key
+            </button>
+            <button
+              type="button"
+              className={`auth-mode-btn ${openaiAuthMode === 'chatgpt-login' ? 'active' : ''}`}
+              onClick={() => setOpenaiAuthMode('chatgpt-login')}
+            >
+              <User size={14} />
+              ChatGPT Login
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ChatGPT Login section */}
+      {isOpenAI && openaiAuthMode === 'chatgpt-login' && (
+        <div className="form-group codex-auth-section">
+          {hasCodexAuth ? (
+            <div className="codex-logged-in">
+              <span className="codex-status">Logged in with ChatGPT</span>
+              <button
+                type="button"
+                className="button-secondary codex-logout-btn"
+                onClick={handleCodexLogout}
+                disabled={codexLoading}
+              >
+                {codexLoading ? (
+                  <Loader2 size={14} className="spinning" />
+                ) : (
+                  <LogOut size={14} />
+                )}
+                Logout
+              </button>
+            </div>
+          ) : codexUserCode ? (
+            <div className="codex-device-flow">
+              <div className="codex-user-code">
+                <span className="codex-code-label">Enter this code on OpenAI:</span>
+                <span className="codex-code">{codexUserCode}</span>
+              </div>
+              <div className="codex-waiting">
+                <Loader2 size={14} className="spinning" />
+                <span>Waiting for authorization...</span>
+              </div>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={async () => {
+                  await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_CANCEL })
+                  setCodexLoading(false)
+                  setCodexUserCode(null)
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="button-primary codex-login-btn"
+              onClick={handleCodexLogin}
+              disabled={codexLoading}
+            >
+              {codexLoading ? (
+                <Loader2 size={14} className="spinning" />
+              ) : (
+                <LogIn size={14} />
+              )}
+              Login with ChatGPT Pro/Plus
+            </button>
+          )}
+          {codexError && <span className="error-text">{codexError}</span>}
+          <span className="help-text">
+            Use your ChatGPT subscription. Unlocks Codex models.
+          </span>
+        </div>
+      )}
+
+      {/* Google Auth Mode Toggle */}
+      {isGoogle && (
+        <div className="form-group">
+          <label>Authentication Method</label>
+          <div className="auth-mode-toggle">
+            <button
+              type="button"
+              className={`auth-mode-btn ${googleAuthMode === 'api-key' ? 'active' : ''}`}
+              onClick={() => setGoogleAuthMode('api-key')}
+            >
+              <Key size={14} />
+              API Key
+            </button>
+            <button
+              type="button"
+              className={`auth-mode-btn ${googleAuthMode === 'google-login' ? 'active' : ''}`}
+              onClick={() => setGoogleAuthMode('google-login')}
+            >
+              <User size={14} />
+              Google Login
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Google Login section */}
+      {isGoogle && googleAuthMode === 'google-login' && (
+        <div className="form-group gemini-auth-section">
+          {hasGeminiAuth ? (
+            <div className="gemini-logged-in">
+              <span className="gemini-status">
+                Logged in{settings.geminiAuth?.email ? ` as ${settings.geminiAuth.email}` : ' with Google'}
+              </span>
+              <button
+                type="button"
+                className="button-secondary gemini-logout-btn"
+                onClick={handleGeminiLogout}
+                disabled={geminiLoading}
+              >
+                {geminiLoading ? (
+                  <Loader2 size={14} className="spinning" />
+                ) : (
+                  <LogOut size={14} />
+                )}
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="button-primary gemini-login-btn"
+              onClick={handleGeminiLogin}
+              disabled={geminiLoading}
+            >
+              {geminiLoading ? (
+                <Loader2 size={14} className="spinning" />
+              ) : (
+                <LogIn size={14} />
+              )}
+              Login with Google
+            </button>
+          )}
+          {geminiError && <span className="error-text">{geminiError}</span>}
+          <span className="help-text">
+            Use your Google account to access Gemini models.
+          </span>
+        </div>
+      )}
 
       <div className="form-group">
         <div className="label-row">
@@ -158,55 +450,42 @@ export const ProviderTab: FC<ProviderTabProps> = ({
         </>
       )}
 
-      <div className="form-group">
-        <label htmlFor="api-key">
-          API Key
-          {isOpenAICompatible && ' (optional)'}
-        </label>
-        <div className="input-with-button">
-          <input
-            id="api-key"
-            type={showApiKey ? 'text' : 'password'}
-            value={currentApiKey}
-            onChange={onApiKeyChange}
-            placeholder={currentProviderConfig.apiKeyPlaceholder}
-          />
-          <button
-            type="button"
-            className="input-icon-button"
-            onClick={onToggleShowApiKey}
-            aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
-          >
-            {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
+      {/* API Key - show for providers in api-key mode */}
+      {(!isOpenAI || openaiAuthMode === 'api-key') && (!isGoogle || googleAuthMode === 'api-key') && (
+        <div className="form-group">
+          <label htmlFor="api-key">
+            API Key
+            {isOpenAICompatible && ' (optional)'}
+          </label>
+          <div className="input-with-button">
+            <input
+              id="api-key"
+              type={showApiKey ? 'text' : 'password'}
+              value={currentApiKey}
+              onChange={onApiKeyChange}
+              placeholder={currentProviderConfig.apiKeyPlaceholder}
+            />
+            <button
+              type="button"
+              className="input-icon-button"
+              onClick={onToggleShowApiKey}
+              aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+            >
+              {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {currentProviderConfig.apiKeyUrl && (
+            <a
+              href={currentProviderConfig.apiKeyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="help-link"
+            >
+              Get API key →
+            </a>
+          )}
         </div>
-        {currentProviderConfig.apiKeyUrl && (
-          <a
-            href={currentProviderConfig.apiKeyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="help-link"
-          >
-            Get API key →
-          </a>
-        )}
-      </div>
-
-      <div className="form-group">
-        <label htmlFor="post-tool-delay">Post-tool delay (seconds)</label>
-        <input
-          id="post-tool-delay"
-          type="number"
-          min="0"
-          max="5"
-          step="0.1"
-          value={settings.postToolDelay ?? 0.5}
-          onChange={onPostToolDelayChange}
-        />
-        <span className="help-text">
-          Delay after actions that change the page (clicks, navigation, form input). Set to 0 to disable.
-        </span>
-      </div>
+      )}
     </>
   )
 }

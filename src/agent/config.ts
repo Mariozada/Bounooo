@@ -50,7 +50,7 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
   },
   google: {
     name: 'Google Gemini',
-    description: 'Gemini models - free tier available',
+    description: 'Gemini models - Login with Google or use API key',
     apiKeyPlaceholder: 'AIza...',
     apiKeyUrl: 'https://aistudio.google.com/app/apikey',
     models: [
