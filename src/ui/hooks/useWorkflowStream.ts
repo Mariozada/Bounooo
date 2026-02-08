@@ -82,6 +82,7 @@ export interface QueuedMessagePreview {
 interface UseWorkflowStreamReturn {
   isStreaming: boolean
   error: string | null
+  lastAssistantError: { messageId: string; error: string } | null
   pendingAfterToolResult: number
   pendingAfterCompletion: number
   queuedAfterToolResult: QueuedMessagePreview[]
@@ -151,6 +152,7 @@ export function useWorkflowStream({
 }: UseWorkflowStreamOptions): UseWorkflowStreamReturn {
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [lastAssistantError, setLastAssistantError] = useState<{ messageId: string; error: string } | null>(null)
   const [skillsReady, setSkillsReady] = useState(false)
   const [pendingAfterToolResult, setPendingAfterToolResult] = useState(0)
   const [pendingAfterCompletion, setPendingAfterCompletion] = useState(0)
@@ -513,6 +515,7 @@ export function useWorkflowStream({
       // Set streaming state immediately to prevent concurrent runs
       setStreamingState(true)
       setError(null)
+      setLastAssistantError(null)
       hasCompletedToolCallInRunRef.current = false
 
       // Skills are initialized async on mount; ensure commands don't race startup.
@@ -614,6 +617,10 @@ export function useWorkflowStream({
         const isAbortError = errorMessage === 'AbortError' || errorMessage.includes('aborted')
         if (!isAbortError) {
           setError(errorMessage)
+          // Set error on the assistant message so it displays inline
+          // instead of showing "(Empty response)". This is UI-only,
+          // not persisted to DB or sent to the LLM.
+          setLastAssistantError({ messageId: assistantMessageId, error: errorMessage })
         }
       } finally {
         sendScreenGlowOff()
@@ -679,6 +686,7 @@ export function useWorkflowStream({
       hasCompletedToolCallInRunRef.current = false
       abortControllerRef.current = new AbortController()
 
+      let assistantMsgId: string | undefined
       try {
         const result = await onEditUserMessage(originalMessageId, newContent)
 
@@ -687,6 +695,7 @@ export function useWorkflowStream({
             model: settings.model,
             provider: settings.provider,
           })
+          assistantMsgId = assistantMsg.id
 
           const agentMessages: AgentMessage[] = [
             ...conversationHistory,
@@ -696,7 +705,16 @@ export function useWorkflowStream({
           await runAgentWorkflow(agentMessages, assistantMsg.id, abortControllerRef.current!.signal)
         }
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error'
         logError('Edit message failed:', err)
+
+        const isAbortError = errorMessage === 'AbortError' || errorMessage.includes('aborted')
+        if (!isAbortError) {
+          setError(errorMessage)
+          if (assistantMsgId) {
+            setLastAssistantError({ messageId: assistantMsgId, error: errorMessage })
+          }
+        }
       } finally {
         sendScreenGlowOff()
         setStreamingState(false)
@@ -733,6 +751,7 @@ export function useWorkflowStream({
   return {
     isStreaming,
     error,
+    lastAssistantError,
     pendingAfterToolResult,
     pendingAfterCompletion,
     queuedAfterToolResult,

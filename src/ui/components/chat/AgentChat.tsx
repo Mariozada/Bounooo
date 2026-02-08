@@ -93,6 +93,7 @@ export const AgentChat: FC<AgentChatProps> = ({
   const {
     isStreaming,
     error,
+    lastAssistantError,
     pendingAfterToolResult,
     pendingAfterCompletion,
     queuedAfterToolResult,
@@ -115,6 +116,20 @@ export const AgentChat: FC<AgentChatProps> = ({
       onUpdateAssistantMessage,
     },
   })
+
+  // Enrich messages with generation-level errors for display only.
+  // The error is ephemeral (not persisted) so it won't be sent to the LLM.
+  const displayMessages: Message[] = useMemo(
+    () => {
+      if (!lastAssistantError) return messages
+      return messages.map((m) =>
+        m.id === lastAssistantError.messageId
+          ? { ...m, error: lastAssistantError.error }
+          : m
+      )
+    },
+    [messages, lastAssistantError]
+  )
 
   useEffect(() => {
     setEditingMessageId(null)
@@ -297,7 +312,7 @@ export const AgentChat: FC<AgentChatProps> = ({
           />
 
           <MessageList
-            messages={messages}
+            messages={displayMessages}
             isStreaming={isStreaming}
             canEditMessages={!!onEditUserMessage}
             editingMessageId={editingMessageId}

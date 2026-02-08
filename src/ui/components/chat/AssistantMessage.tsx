@@ -205,6 +205,7 @@ interface AssistantMessageProps {
   id: string
   content: string
   reasoning?: string
+  error?: string
   toolCalls?: ToolCallInfo[]
   assistantSegments?: AssistantMessageSegment[]
   isStreaming: boolean
@@ -221,6 +222,7 @@ interface AssistantMessageProps {
 export const AssistantMessage: FC<AssistantMessageProps> = ({
   content,
   reasoning,
+  error,
   toolCalls,
   assistantSegments,
   isStreaming,
@@ -370,8 +372,11 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
         {isEmptyAssistant && !showThinkingBlock && isStreaming && (
           <div className="message-text message-loading">Thinking...</div>
         )}
-        {isEmptyAssistant && !hasReasoning && !isStreaming && (
+        {isEmptyAssistant && !hasReasoning && !isStreaming && !error && (
           <div className="message-text message-error">(Empty response)</div>
+        )}
+        {error && !isStreaming && (
+          <div className="message-text message-error">{error}</div>
         )}
       </div>
       <div

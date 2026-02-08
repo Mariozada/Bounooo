@@ -14,6 +14,7 @@ export interface Message {
   assistantSegments?: AssistantMessageSegment[]
   attachments?: AttachmentFile[]
   reasoning?: string
+  error?: string
   siblingCount?: number
   siblingIndex?: number
 }
@@ -129,6 +130,7 @@ export const MessageList: FC<MessageListProps> = ({
             id={message.id}
             content={message.content}
             reasoning={message.reasoning}
+            error={message.error}
             toolCalls={message.toolCalls}
             assistantSegments={message.assistantSegments}
             isStreaming={isStreamingMessage}
