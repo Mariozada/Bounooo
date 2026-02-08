@@ -6,7 +6,7 @@ Browser automation Chrome extension. Control web pages using natural language th
 
 ## Demo
 
-https://github.com/Mariozada/Bouno/raw/main/docs/demo.mp4
+<video src="https://github.com/Mariozada/Bouno/raw/main/docs/demo.mp4" controls width="100%"></video>
 
 ## Features
 
