@@ -516,6 +516,144 @@
   color: var(--destructive);
 }
 
+/* ─── MCP Tool List ──────────────────────────────────────────────────────── */
+
+.mcp-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--background);
+  border-radius: 8px;
+}
+
+.mcp-tool-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: background 0.1s ease;
+}
+
+.mcp-tool-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.mcp-tool-item.disabled {
+  opacity: 0.5;
+}
+
+.mcp-tool-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.mcp-tool-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  font-family: var(--font-mono, monospace);
+}
+
+.mcp-tool-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.mcp-tool-desc {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mcp-json-info {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--muted-foreground);
+  cursor: help;
+  z-index: 2;
+}
+
+.mcp-json-info:hover {
+  color: var(--foreground);
+}
+
+.mcp-json-info-tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  width: min(280px, calc(100vw - 80px));
+  padding: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  font-size: 12px;
+  color: var(--foreground);
+  line-height: 1.4;
+  z-index: 10;
+}
+
+.mcp-json-info:hover .mcp-json-info-tooltip {
+  display: block;
+}
+
+.mcp-json-info-tooltip strong {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.mcp-json-info-tooltip pre {
+  background: var(--background);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 10px;
+  line-height: 1.35;
+  overflow-x: auto;
+  white-space: pre;
+  margin: 0 0 6px;
+  color: var(--muted-foreground);
+}
+
+.mcp-json-info-tooltip p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.mcp-json-info-tooltip code {
+  background: var(--background);
+  padding: 1px 3px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
 /* ─── Responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 720px) {

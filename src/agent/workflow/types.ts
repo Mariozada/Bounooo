@@ -160,4 +160,7 @@ export interface AgentOptions {
     args?: Record<string, string>
   }
   availableSkills?: Skill[]  // Auto-discoverable skills to include in prompt
+
+  // MCP
+  mcpTools?: ToolDefinition[]  // Tool definitions from MCP servers
 }

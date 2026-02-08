@@ -20,6 +20,8 @@ import {
   getAutoDiscoverableSkills,
   type Skill,
 } from '@skills/index'
+import { McpManager, loadMcpServers, parsePrefixedName } from '@mcp/index'
+import type { ToolDefinition } from '@tools/definitions'
 
 const DEBUG = true
 const MAX_STEPS = 15
@@ -132,6 +134,10 @@ export function useWorkflowStream({
       skillOptions?: {
         activeSkill?: { skill: Skill; args?: Record<string, string> }
         availableSkills?: Skill[]
+      },
+      mcpOptions?: {
+        mcpTools?: ToolDefinition[]
+        mcpManager?: McpManager
       }
     ) => {
       const model = createProvider(settings)
@@ -230,6 +236,26 @@ export function useWorkflowStream({
         // Pass skill options to workflow
         activeSkill: skillOptions?.activeSkill,
         availableSkills: skillOptions?.availableSkills,
+        // Pass MCP tools to workflow
+        mcpTools: mcpOptions?.mcpTools,
+        // Route MCP tool calls to the MCP manager
+        ...(mcpOptions?.mcpManager && {
+          toolExecutor: async (name: string, params: Record<string, unknown>) => {
+            if (parsePrefixedName(name)) {
+              return mcpOptions.mcpManager!.executeTool(name, params)
+            }
+            // Fall through to normal chrome.runtime.sendMessage for built-in tools
+            const response = await chrome.runtime.sendMessage({
+              type: 'EXECUTE_TOOL',
+              tool: name,
+              params,
+            })
+            if (response?.success) {
+              return response.result ?? { success: true }
+            }
+            return { error: response?.error ?? 'Tool execution failed' }
+          },
+        }),
       })
 
       log('Agent loop complete:', {
@@ -314,6 +340,22 @@ export function useWorkflowStream({
       // Only pass auto-discoverable skills (not commands like /summary)
       const availableSkills = await getAutoDiscoverableSkills()
 
+      // Load MCP server configs and build tool definitions
+      let mcpManager: McpManager | undefined
+      let mcpTools: ToolDefinition[] | undefined
+      try {
+        const mcpServers = await loadMcpServers()
+        const enabledServers = mcpServers.filter((s) => s.enabled && s.cachedTools?.length)
+        if (enabledServers.length > 0) {
+          mcpManager = new McpManager()
+          mcpManager.loadFromConfigs(enabledServers)
+          mcpTools = mcpManager.getToolDefinitions()
+          log('MCP tools loaded:', mcpTools.length)
+        }
+      } catch (err) {
+        logError('Failed to load MCP servers:', err)
+      }
+
       const conversationHistory = buildConversationHistory(messages)
 
       let userMessageId: string
@@ -351,7 +393,8 @@ export function useWorkflowStream({
           agentMessages,
           assistantMessageId,
           abortControllerRef.current.signal,
-          { activeSkill, availableSkills }
+          { activeSkill, availableSkills },
+          mcpTools?.length ? { mcpTools, mcpManager } : undefined,
         )
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Unknown error'

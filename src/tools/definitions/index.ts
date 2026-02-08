@@ -74,6 +74,7 @@ export function getToolNamesByCategory(): Record<ToolCategory, string[]> {
     media: [],
     ui: [],
     skills: [],
+    mcp: [],
   }
 
   for (const tool of allToolDefinitions) {

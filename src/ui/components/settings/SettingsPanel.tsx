@@ -6,8 +6,9 @@ import { ProviderTab } from './ProviderTab'
 import { TracingTab } from './TracingTab'
 import { DataTab } from './DataTab'
 import { SkillsTab } from './SkillsTab'
+import { McpTab } from './McpTab'
 
-type SettingsTab = 'provider' | 'tracing' | 'skills' | 'data'
+type SettingsTab = 'provider' | 'tracing' | 'skills' | 'mcp' | 'data'
 
 interface SettingsPanelProps {
   settings: ProviderSettings
@@ -139,6 +140,13 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
             </button>
             <button
               type="button"
+              className={`settings-tab ${activeTab === 'mcp' ? 'active' : ''}`}
+              onClick={() => setActiveTab('mcp')}
+            >
+              MCP
+            </button>
+            <button
+              type="button"
               className={`settings-tab ${activeTab === 'data' ? 'active' : ''}`}
               onClick={() => setActiveTab('data')}
             >
@@ -177,6 +185,8 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
             )}
 
             {activeTab === 'skills' && <SkillsTab />}
+
+            {activeTab === 'mcp' && <McpTab />}
 
             {activeTab === 'data' && <DataTab onRefreshThreads={onRefreshThreads} />}
           </div>

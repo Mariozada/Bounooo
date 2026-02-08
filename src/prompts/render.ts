@@ -9,6 +9,7 @@ export interface RenderOptions {
     args?: Record<string, string>
   }
   availableSkills?: Skill[]
+  mcpTools?: ToolDefinition[]
 }
 
 function renderRole(): string {
@@ -153,6 +154,44 @@ function renderToolSection(tools: ToolDefinition[]): string {
   return parts.join('\n').trimEnd()
 }
 
+function renderMcpToolSection(tools: ToolDefinition[]): string {
+  const enabled = tools.filter(t => t.enabled)
+  const disabled = tools.filter(t => !t.enabled)
+
+  const parts: string[] = [
+    '## MCP Tools',
+    '',
+    'The following tools are provided by external MCP servers. Use them the same way as built-in tools.',
+  ]
+
+  for (const tool of enabled) {
+    parts.push('')
+    parts.push(`### ${tool.name}`)
+    parts.push(tool.description)
+    parts.push('')
+
+    if (tool.parameters.length > 0) {
+      parts.push('Parameters:')
+      for (const param of tool.parameters) {
+        let line = `- \`${param.name}\` (${param.type}`
+        if (!param.required) line += ', optional'
+        line += `): ${param.description}`
+        if (param.enum) line += ` Options: ${param.enum.join(', ')}`
+        if (param.default !== undefined) line += ` Default: ${param.default}`
+        parts.push(line)
+      }
+      parts.push('')
+    }
+  }
+
+  if (disabled.length > 0) {
+    parts.push('')
+    parts.push(`Disabled MCP tools (do not use): ${disabled.map(t => `\`${t.name}\``).join(', ')}`)
+  }
+
+  return parts.join('\n').trimEnd()
+}
+
 function renderBestPractices(): string {
   return `## Best Practices
 
@@ -230,6 +269,11 @@ export function renderSystemPrompt(toolsOrOptions: ToolDefinition[] | RenderOpti
     renderWorkflow(),
     renderToolSection(options.tools),
   ]
+
+  // Add MCP tools section if any MCP tools are configured
+  if (options.mcpTools && options.mcpTools.length > 0) {
+    sections.push(renderMcpToolSection(options.mcpTools))
+  }
 
   // Add available skills section if there are auto-discoverable skills
   if (options.availableSkills && options.availableSkills.length > 0) {

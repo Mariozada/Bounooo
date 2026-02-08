@@ -20,6 +20,7 @@ export function createSession(options: AgentOptions): AgentSession {
     toolExecutor,
     activeSkill,
     availableSkills,
+    mcpTools,
   } = options
 
   setCurrentTabId(tabId)
@@ -30,12 +31,13 @@ export function createSession(options: AgentOptions): AgentSession {
     t => hasSkills || t.category !== 'skills'
   )
 
-  // Render system prompt with optional skills
+  // Render system prompt with optional skills and MCP tools
   const systemPrompt = renderSystemPrompt({
     tools: toolDefinitions,
     tabId,
     activeSkill,
     availableSkills: hasSkills ? availableSkills : undefined,
+    mcpTools,
   })
 
   return {
