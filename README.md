@@ -4,6 +4,10 @@ Browser automation Chrome extension. Control web pages using natural language th
 
 [**Download Latest Release**](https://github.com/Mariozada/Bouno/releases/latest/download/bouno.zip)
 
+## Demo
+
+https://github.com/Mariozada/Bouno/raw/main/docs/demo.mp4
+
 ## Features
 
 - **Natural Language Control** — tell it what to do in plain English, it clicks, types, scrolls, and navigates for you
