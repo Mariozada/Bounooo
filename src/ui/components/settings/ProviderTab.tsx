@@ -1,9 +1,11 @@
-import React, { type FC, type ChangeEvent, useState } from 'react'
-import { Zap, Image, Eye, EyeOff, LogIn, LogOut, Loader2 } from 'lucide-react'
+import React, { type FC, type ChangeEvent, useState, useEffect } from 'react'
+import { Zap, Image, Eye, EyeOff, LogIn, LogOut, Loader2, Key, User } from 'lucide-react'
 import type { ProviderSettings, ProviderType } from '@shared/settings'
 import { PROVIDER_CONFIGS, getModelsForProvider } from '@agent/index'
 import { CustomSelect } from '../CustomSelect'
 import { MessageTypes } from '@shared/messages'
+
+type OpenAIAuthMode = 'api-key' | 'chatgpt-login'
 
 interface ProviderTabProps {
   settings: ProviderSettings
@@ -43,7 +45,23 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   const [codexUserCode, setCodexUserCode] = useState<string | null>(null)
 
   const hasCodexAuth = !!settings.codexAuth
-  const models = getModelsForProvider(settings.provider, hasCodexAuth)
+  const hasApiKey = !!settings.apiKeys['openai']
+
+  // Determine auth mode based on current state
+  const [openaiAuthMode, setOpenaiAuthMode] = useState<OpenAIAuthMode>(
+    hasCodexAuth ? 'chatgpt-login' : 'api-key'
+  )
+
+  // Update mode when auth state changes
+  useEffect(() => {
+    if (hasCodexAuth) {
+      setOpenaiAuthMode('chatgpt-login')
+    }
+  }, [hasCodexAuth])
+
+  // For OpenAI, show Codex models only when in chatgpt-login mode with auth
+  const showCodexModels = openaiAuthMode === 'chatgpt-login' && hasCodexAuth
+  const models = getModelsForProvider(settings.provider, showCodexModels)
   const currentProviderConfig = PROVIDER_CONFIGS[settings.provider]
   const currentApiKey = settings.apiKeys[settings.provider] || ''
   const isOpenAICompatible = settings.provider === 'openai-compatible'
@@ -120,10 +138,34 @@ export const ProviderTab: FC<ProviderTabProps> = ({
         <span className="help-text">{currentProviderConfig.description}</span>
       </div>
 
-      {/* Codex OAuth section for OpenAI */}
+      {/* OpenAI Auth Mode Toggle */}
       {isOpenAI && (
+        <div className="form-group">
+          <label>Authentication Method</label>
+          <div className="auth-mode-toggle">
+            <button
+              type="button"
+              className={`auth-mode-btn ${openaiAuthMode === 'api-key' ? 'active' : ''}`}
+              onClick={() => setOpenaiAuthMode('api-key')}
+            >
+              <Key size={14} />
+              API Key
+            </button>
+            <button
+              type="button"
+              className={`auth-mode-btn ${openaiAuthMode === 'chatgpt-login' ? 'active' : ''}`}
+              onClick={() => setOpenaiAuthMode('chatgpt-login')}
+            >
+              <User size={14} />
+              ChatGPT Login
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ChatGPT Login section */}
+      {isOpenAI && openaiAuthMode === 'chatgpt-login' && (
         <div className="form-group codex-auth-section">
-          <label>ChatGPT Login</label>
           {hasCodexAuth ? (
             <div className="codex-logged-in">
               <span className="codex-status">Logged in with ChatGPT</span>
@@ -180,7 +222,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
           )}
           {codexError && <span className="error-text">{codexError}</span>}
           <span className="help-text">
-            Use your ChatGPT subscription instead of an API key. Unlocks Codex models.
+            Use your ChatGPT subscription. Unlocks Codex models.
           </span>
         </div>
       )}
@@ -283,39 +325,42 @@ export const ProviderTab: FC<ProviderTabProps> = ({
         </>
       )}
 
-      <div className="form-group">
-        <label htmlFor="api-key">
-          API Key
-          {(isOpenAICompatible || (isOpenAI && hasCodexAuth)) && ' (optional)'}
-        </label>
-        <div className="input-with-button">
-          <input
-            id="api-key"
-            type={showApiKey ? 'text' : 'password'}
-            value={currentApiKey}
-            onChange={onApiKeyChange}
-            placeholder={currentProviderConfig.apiKeyPlaceholder}
-          />
-          <button
-            type="button"
-            className="input-icon-button"
-            onClick={onToggleShowApiKey}
-            aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
-          >
-            {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-          </button>
+      {/* API Key - show for non-OpenAI providers, or OpenAI in api-key mode */}
+      {(!isOpenAI || openaiAuthMode === 'api-key') && (
+        <div className="form-group">
+          <label htmlFor="api-key">
+            API Key
+            {isOpenAICompatible && ' (optional)'}
+          </label>
+          <div className="input-with-button">
+            <input
+              id="api-key"
+              type={showApiKey ? 'text' : 'password'}
+              value={currentApiKey}
+              onChange={onApiKeyChange}
+              placeholder={currentProviderConfig.apiKeyPlaceholder}
+            />
+            <button
+              type="button"
+              className="input-icon-button"
+              onClick={onToggleShowApiKey}
+              aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+            >
+              {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
+          </div>
+          {currentProviderConfig.apiKeyUrl && (
+            <a
+              href={currentProviderConfig.apiKeyUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="help-link"
+            >
+              Get API key →
+            </a>
+          )}
         </div>
-        {currentProviderConfig.apiKeyUrl && (
-          <a
-            href={currentProviderConfig.apiKeyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="help-link"
-          >
-            Get API key →
-          </a>
-        )}
-      </div>
+      )}
     </>
   )
 }
