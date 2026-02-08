@@ -106,12 +106,14 @@ export const MessageList: FC<MessageListProps> = ({
               siblingCount={message.siblingCount}
               siblingIndex={message.siblingIndex}
               isHovered={hoveredMessageId === message.id}
+              isCopied={copiedMessageId === message.id}
               isEditing={editingMessageId === message.id}
               editContent={editContent}
               isStreaming={isStreaming}
               canEdit={canEditMessages}
               onMouseEnter={() => handleMouseEnter(message.id)}
               onMouseLeave={handleMouseLeave}
+              onCopy={() => handleCopyMessage(message.id, message.content)}
               onStartEdit={() => onStartEdit(message.id, message.content)}
               onCancelEdit={onCancelEdit}
               onSubmitEdit={onSubmitEdit}

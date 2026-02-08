@@ -42,6 +42,8 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
 }) => {
   const hasContent = content && content.trim().length > 0
   const hasToolCalls = toolCalls && toolCalls.length > 0
+  const hasReasoning = Boolean(reasoning && reasoning.trim())
+  const showThinkingBlock = hasReasoning || (isStreaming && !hasContent && !hasToolCalls)
   const toolCallsById = useMemo(
     () => new Map((toolCalls || []).map((tc) => [tc.id, tc])),
     [toolCalls]
@@ -235,7 +237,7 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
       onMouseLeave={onMouseLeave}
     >
       <div className="aui-assistant-message-content">
-        {(reasoning || (isStreaming && !hasContent && !hasToolCalls)) && (
+        {showThinkingBlock && (
           <ThinkingBlock
             reasoning={reasoning || ''}
             isStreaming={isStreaming && !hasContent}
@@ -370,10 +372,10 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
             </div>
           )
         })}
-        {isEmptyAssistant && !reasoning && isStreaming && (
+        {isEmptyAssistant && !showThinkingBlock && isStreaming && (
           <div className="message-text message-loading">Thinking...</div>
         )}
-        {isEmptyAssistant && !reasoning && !isStreaming && (
+        {isEmptyAssistant && !hasReasoning && !isStreaming && (
           <div className="message-text message-error">(Empty response)</div>
         )}
       </div>

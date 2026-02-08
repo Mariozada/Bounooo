@@ -9,8 +9,9 @@ interface ThinkingBlockProps {
 
 export const ThinkingBlock: FC<ThinkingBlockProps> = ({ reasoning, isStreaming }) => {
   const [isExpanded, setIsExpanded] = useState(false)
+  const hasReasoning = reasoning.trim().length > 0
 
-  if (!reasoning && !isStreaming) return null
+  if (!hasReasoning && !isStreaming) return null
 
   const lineCount = reasoning.split('\n').length
   const charCount = reasoning.length
@@ -24,11 +25,11 @@ export const ThinkingBlock: FC<ThinkingBlockProps> = ({ reasoning, isStreaming }
         aria-expanded={isExpanded}
       >
         <div className="thinking-block-title">
-          <Brain size={14} className={isStreaming ? 'thinking-icon-pulse' : ''} />
-          <span>{isStreaming ? 'Thinking...' : 'Thought process'}</span>
+          <Brain size={14} className={isStreaming && !hasReasoning ? 'thinking-icon-pulse' : ''} />
+          <span>{hasReasoning ? 'Thought process' : 'Thinking...'}</span>
         </div>
         <div className="thinking-block-meta">
-          {!isStreaming && (
+          {hasReasoning && !isStreaming && (
             <span className="thinking-block-stats">
               {lineCount} lines, {charCount} chars
             </span>
@@ -42,7 +43,7 @@ export const ThinkingBlock: FC<ThinkingBlockProps> = ({ reasoning, isStreaming }
 
       {isExpanded && (
         <div className="thinking-block-content">
-          {reasoning ? (
+          {hasReasoning ? (
             <MarkdownMessage content={reasoning} isStreaming={isStreaming} />
           ) : (
             <p className="thinking-placeholder">Thinking...</p>

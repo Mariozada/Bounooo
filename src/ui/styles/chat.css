@@ -234,11 +234,27 @@
   max-width: 80%;
 }
 
-.aui-user-message-edit-btn {
+.aui-user-message-actions {
   position: absolute;
-  left: -32px;
+  left: -64px;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.15s ease;
+}
+
+.aui-user-message-actions.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  animation: fadeIn 0.1s ease forwards;
+}
+
+.aui-user-message-copy-btn,
+.aui-user-message-edit-btn {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -250,8 +266,10 @@
   color: var(--muted-foreground);
   cursor: pointer;
   transition: all 0.15s ease;
-  opacity: 0;
-  animation: fadeIn 0.1s ease forwards;
+}
+
+.aui-user-message-copy-btn {
+  border-radius: 8px;
 }
 
 .aui-user-message-edit-btn:hover {
@@ -447,5 +465,34 @@
 
   .aui-user-message-content {
     max-width: 100%;
+    padding-right: 80px;
+  }
+
+  .aui-user-message-actions {
+    left: auto;
+    right: 8px;
+    top: 8px;
+    transform: none;
+    flex-direction: row;
+    opacity: 1;
+    pointer-events: auto;
+    animation: none;
+  }
+}
+
+@media (hover: none) {
+  .aui-user-message-content {
+    padding-right: 80px;
+  }
+
+  .aui-user-message-actions {
+    left: auto;
+    right: 8px;
+    top: 8px;
+    transform: none;
+    flex-direction: row;
+    opacity: 1;
+    pointer-events: auto;
+    animation: none;
   }
 }

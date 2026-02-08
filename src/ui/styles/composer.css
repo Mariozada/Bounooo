@@ -38,13 +38,17 @@
 .aui-composer-action-wrapper {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
 }
 
 .aui-composer-actions-left {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex: 1;
+  min-width: 0;
+  margin-right: auto;
 }
 
 .aui-composer-status {
@@ -170,6 +174,7 @@
   display: grid;
   place-items: center;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .aui-composer-send {
