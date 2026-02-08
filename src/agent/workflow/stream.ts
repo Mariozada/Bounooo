@@ -175,6 +175,22 @@ function getProviderOptions(provider?: string, reasoningEnabled?: boolean, model
   return undefined
 }
 
+const MAX_RETRIES = 3
+const INITIAL_RETRY_DELAY_MS = 2000
+
+function isRateLimitError(err: unknown): boolean {
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase()
+    if (msg.includes('429') || msg.includes('rate limit') || msg.includes('too many requests')) return true
+  }
+  if (typeof err === 'object' && err !== null && 'status' in err && (err as { status: number }).status === 429) return true
+  return false
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 export async function streamLLMResponse(
   session: AgentSession,
   callbacks?: StreamCallbacks
@@ -242,23 +258,38 @@ export async function streamLLMResponse(
       debugMiddleware: { requestId },
     }
 
-    const result = await streamText({
-      model: session.model,
-      system: session.systemPrompt,
-      messages: sdkMessages,
-      abortSignal: session.abortSignal,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      providerOptions: providerOptions as any,
-    })
+    // Retry loop for rate limit (429) errors
+    for (let attempt = 0; ; attempt++) {
+      try {
+        const result = await streamText({
+          model: session.model,
+          system: session.systemPrompt,
+          messages: sdkMessages,
+          abortSignal: session.abortSignal,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          providerOptions: providerOptions as any,
+        })
 
-    // Use fullStream to capture reasoning events
-    for await (const part of result.fullStream) {
-      if (part.type === 'text-delta') {
-        rawOutput += part.text
-        parser.processChunk(part.text)
-      } else if (part.type === 'reasoning-delta') {
-        reasoning += part.text
-        callbacks?.onReasoningDelta?.(part.text)
+        // Use fullStream to capture reasoning events
+        for await (const part of result.fullStream) {
+          if (part.type === 'text-delta') {
+            rawOutput += part.text
+            parser.processChunk(part.text)
+          } else if (part.type === 'reasoning-delta') {
+            reasoning += part.text
+            callbacks?.onReasoningDelta?.(part.text)
+          }
+        }
+
+        break // Success, exit retry loop
+      } catch (err) {
+        if (attempt < MAX_RETRIES && isRateLimitError(err) && !session.abortSignal?.aborted) {
+          const delay = INITIAL_RETRY_DELAY_MS * Math.pow(2, attempt)
+          console.log(`[Stream] Rate limited (429), retrying in ${delay}ms (attempt ${attempt + 1}/${MAX_RETRIES})`)
+          await sleep(delay)
+          continue
+        }
+        throw err
       }
     }
 
