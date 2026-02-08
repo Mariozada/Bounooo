@@ -90,7 +90,22 @@ export const AgentChat: FC<AgentChatProps> = ({
     }
   }, [])
 
-  const { isStreaming, error, sendMessage, sendEditedMessage, stop, clearError } = useWorkflowStream({
+  const {
+    isStreaming,
+    error,
+    pendingAfterToolResult,
+    pendingAfterCompletion,
+    queuedAfterToolResult,
+    queuedAfterCompletion,
+    sendMessage,
+    sendEditedMessage,
+    removeQueuedAfterToolResult,
+    removeQueuedAfterCompletion,
+    clearQueuedAfterToolResult,
+    clearQueuedAfterCompletion,
+    stop,
+    clearError,
+  } = useWorkflowStream({
     settings,
     tabId,
     groupId,
@@ -112,6 +127,22 @@ export const AgentChat: FC<AgentChatProps> = ({
     const text = inputValue.trim()
     if (!text && attachments.length === 0) return
     sendMessage(text, attachments)
+    setInputValue('')
+    setAttachments([])
+  }, [inputValue, attachments, sendMessage])
+
+  const handleQueueAfterToolResult = useCallback(() => {
+    const text = inputValue.trim()
+    if (!text && attachments.length === 0) return
+    sendMessage(text, attachments, { mode: 'after_tool_result' })
+    setInputValue('')
+    setAttachments([])
+  }, [inputValue, attachments, sendMessage])
+
+  const handleQueueAfterCompletion = useCallback(() => {
+    const text = inputValue.trim()
+    if (!text && attachments.length === 0) return
+    sendMessage(text, attachments, { mode: 'after_completion' })
     setInputValue('')
     setAttachments([])
   }, [inputValue, attachments, sendMessage])
@@ -279,12 +310,22 @@ export const AgentChat: FC<AgentChatProps> = ({
             attachments={attachments}
             isStreaming={isStreaming}
             isDisabled={!!validationError}
+            pendingAfterToolResult={pendingAfterToolResult}
+            pendingAfterCompletion={pendingAfterCompletion}
+            queuedAfterToolResult={queuedAfterToolResult}
+            queuedAfterCompletion={queuedAfterCompletion}
             showReasoningToggle={showReasoningToggle}
             reasoningEnabled={settings.reasoningEnabled ?? false}
             tabId={tabId}
             onInputChange={setInputValue}
             onAttachmentsChange={setAttachments}
             onSubmit={handleSendMessage}
+            onQueueAfterToolResult={handleQueueAfterToolResult}
+            onQueueAfterCompletion={handleQueueAfterCompletion}
+            onRemoveQueuedAfterToolResult={removeQueuedAfterToolResult}
+            onRemoveQueuedAfterCompletion={removeQueuedAfterCompletion}
+            onClearQueuedAfterToolResult={clearQueuedAfterToolResult}
+            onClearQueuedAfterCompletion={clearQueuedAfterCompletion}
             onStop={stop}
             onToggleReasoning={handleToggleReasoning}
             onCreateShortcut={onCreateShortcut}

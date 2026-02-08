@@ -30,15 +30,13 @@ function renderTabContext(tabId: number): string {
 function renderToolCallFormat(): string {
   return `## Tool Call Format
 
-To use tools, wrap one or more \`<invoke>\` blocks inside a \`<tool_calls>\` block. You can include multiple \`<tool_calls>\` blocks in a single response with text in between to narrate your progress.
+To use tools, emit one or more \`<invoke>...</invoke>\` blocks directly in your response. You can include normal narration text before, between, and after tool calls.
 
 \`\`\`xml
-<tool_calls>
 <invoke name="tool_name">
 <parameter name="param1">value1</parameter>
 <parameter name="param2">value2</parameter>
 </invoke>
-</tool_calls>
 \`\`\`
 
 **Parameter types:**
@@ -50,28 +48,23 @@ To use tools, wrap one or more \`<invoke>\` blocks inside a \`<tool_calls>\` blo
 
 Read the page:
 \`\`\`xml
-<tool_calls>
 <invoke name="read_page">
 <parameter name="tabId">123</parameter>
 <parameter name="filter">interactive</parameter>
 </invoke>
-</tool_calls>
 \`\`\`
 
 Click an element:
 \`\`\`xml
-<tool_calls>
 <invoke name="computer">
 <parameter name="tabId">123</parameter>
 <parameter name="action">left_click</parameter>
 <parameter name="ref">ref_5</parameter>
 </invoke>
-</tool_calls>
 \`\`\`
 
 Multiple tool calls at once:
 \`\`\`xml
-<tool_calls>
 <invoke name="form_input">
 <parameter name="tabId">123</parameter>
 <parameter name="ref">ref_10</parameter>
@@ -82,12 +75,10 @@ Multiple tool calls at once:
 <parameter name="action">key</parameter>
 <parameter name="text">Enter</parameter>
 </invoke>
-</tool_calls>
 \`\`\`
 
 Execute JavaScript:
 \`\`\`xml
-<tool_calls>
 <invoke name="javascript_tool">
 <parameter name="tabId">123</parameter>
 <parameter name="code"><![CDATA[
@@ -96,7 +87,6 @@ document.querySelectorAll('a').forEach(link => {
 });
 ]]></parameter>
 </invoke>
-</tool_calls>
 \`\`\``
 }
 
@@ -242,11 +232,9 @@ function renderAvailableSkills(skills: Skill[]): string {
   lines.push('')
   lines.push('2. **You invoke with tool**: You can also invoke a skill yourself using the `invoke_skill` tool:')
   lines.push('```xml')
-  lines.push('<tool_calls>')
   lines.push('<invoke name="invoke_skill">')
   lines.push('<parameter name="skill_name">summary</parameter>')
   lines.push('</invoke>')
-  lines.push('</tool_calls>')
   lines.push('```')
   lines.push('')
   lines.push('**If the user asks "what skills do you have", list the skills above.**')

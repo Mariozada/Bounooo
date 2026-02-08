@@ -103,34 +103,43 @@ const GenericRenderer: FC<ToolRendererProps> = ({ input, result, status, error }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
-const ToolCallContent: FC<ToolCallDisplayProps> = ({ toolCall }) => {
-  const [expanded, setExpanded] = useState(false)
+const ToolCallContent: FC<ToolCallDisplayProps> = ({
+  toolCall,
+  defaultExpanded = false,
+  showHeader = true,
+  allowCollapse = true,
+}) => {
+  const [expanded, setExpanded] = useState(defaultExpanded)
 
   const statusIcon = STATUS_ICONS[toolCall.status] || '?'
   const isFinished = toolCall.status === 'completed' || toolCall.status === 'error'
+  const canToggle = isFinished && allowCollapse
+  const isExpanded = allowCollapse ? expanded : true
 
   const Renderer = TOOL_RENDERERS[toolCall.name]
   const hasCustomRenderer = !!Renderer
 
   return (
-    <div className={`tool-call tool-call--${toolCall.status}`}>
-      <div className="tool-call-header">
-        <span className="tool-call-icon" aria-hidden="true">{statusIcon}</span>
-        <span className="tool-call-name">{formatToolName(toolCall.name)}</span>
-        {isFinished ? (
-          <button
-            type="button"
-            className="tool-call-show-btn"
-            onClick={() => setExpanded(!expanded)}
-          >
-            {expanded ? 'Hide' : 'Show'}
-          </button>
-        ) : (
-          <span className="tool-call-status">
-            {toolCall.status === 'running' ? 'Running' : 'Pending'}
-          </span>
-        )}
-      </div>
+    <div className={`tool-call tool-call--${toolCall.status}${showHeader ? '' : ' tool-call--detail'}`}>
+      {showHeader && (
+        <div className="tool-call-header">
+          <span className="tool-call-icon" aria-hidden="true">{statusIcon}</span>
+          <span className="tool-call-name">{formatToolName(toolCall.name)}</span>
+          {canToggle ? (
+            <button
+              type="button"
+              className="tool-call-show-btn"
+              onClick={() => setExpanded(!expanded)}
+            >
+              {expanded ? 'Hide' : 'Show'}
+            </button>
+          ) : (
+            <span className="tool-call-status">
+              {toolCall.status === 'running' ? 'Running' : toolCall.status === 'pending' ? 'Pending' : 'Completed'}
+            </span>
+          )}
+        </div>
+      )}
 
       {toolCall.status === 'running' && (
         <div className="tool-call-input-summary">
@@ -138,7 +147,7 @@ const ToolCallContent: FC<ToolCallDisplayProps> = ({ toolCall }) => {
         </div>
       )}
 
-      {isFinished && expanded && (
+      {isFinished && isExpanded && (
         hasCustomRenderer ? (
           toolCall.error ? (
             <div className="tool-call-output">
@@ -167,7 +176,12 @@ const ToolCallContent: FC<ToolCallDisplayProps> = ({ toolCall }) => {
   )
 }
 
-export const ToolCallDisplay: FC<ToolCallDisplayProps> = ({ toolCall }) => {
+export const ToolCallDisplay: FC<ToolCallDisplayProps> = ({
+  toolCall,
+  defaultExpanded,
+  showHeader,
+  allowCollapse,
+}) => {
   const fallback = (
     <div className="tool-call tool-call--error">
       <div className="tool-call-header">
@@ -183,7 +197,12 @@ export const ToolCallDisplay: FC<ToolCallDisplayProps> = ({ toolCall }) => {
 
   return (
     <ErrorBoundary fallback={fallback}>
-      <ToolCallContent toolCall={toolCall} />
+      <ToolCallContent
+        toolCall={toolCall}
+        defaultExpanded={defaultExpanded}
+        showHeader={showHeader}
+        allowCollapse={allowCollapse}
+      />
     </ErrorBoundary>
   )
 }

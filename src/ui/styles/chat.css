@@ -147,6 +147,47 @@
   gap: 12px;
 }
 
+.aui-thread-welcome-tips {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aui-thread-welcome-tips-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted-foreground);
+}
+
+.aui-thread-welcome-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.aui-thread-welcome-tip-key {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--foreground);
+  background: rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
+.aui-thread-welcome-tip-text {
+  line-height: 1.35;
+}
+
 .aui-thread-welcome-suggestion {
   display: flex;
   flex-direction: column;

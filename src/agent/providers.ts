@@ -13,6 +13,21 @@ const DEBUG = true
 const log = (...args: unknown[]) => DEBUG && console.log('[Agent:Provider]', ...args)
 const logError = (...args: unknown[]) => console.error('[Agent:Provider]', ...args)
 
+function extractErrorDetails(error: unknown): { name: string; message: string; stack?: string } {
+  if (error instanceof Error) {
+    return {
+      name: error.name || 'Error',
+      message: error.message || String(error),
+      stack: error.stack,
+    }
+  }
+
+  return {
+    name: 'UnknownError',
+    message: String(error),
+  }
+}
+
 const createFetchWithLogging = (providerName: string, extraHeaders?: Record<string, string>) => {
   return async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     const urlStr = url.toString()
@@ -47,12 +62,19 @@ const createFetchWithLogging = (providerName: string, extraHeaders?: Record<stri
 
       return response
     } catch (error) {
-      logError(`[${providerName}] Fetch error:`, error)
-      logError(`[${providerName}] Error details:`, {
-        name: (error as Error).name,
-        message: (error as Error).message,
-        stack: (error as Error).stack,
-      })
+      const details = extractErrorDetails(error)
+      const isAbortError =
+        details.name === 'AbortError' ||
+        details.message.toLowerCase().includes('aborted')
+
+      if (isAbortError) {
+        log(`[${providerName}] Fetch aborted:`, details.message)
+      } else {
+        logError(`[${providerName}] Fetch error: ${details.name}: ${details.message}`)
+        if (details.stack) {
+          logError(`[${providerName}] Error stack:`, details.stack)
+        }
+      }
       throw error
     }
   }

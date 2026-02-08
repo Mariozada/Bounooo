@@ -5,6 +5,9 @@ import type { ToolCallInfo } from '@agent/index'
 
 export interface ToolCallDisplayProps {
   toolCall: ToolCallInfo
+  defaultExpanded?: boolean
+  showHeader?: boolean
+  allowCollapse?: boolean
 }
 
 export interface ToolRendererProps {

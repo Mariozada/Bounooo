@@ -7,6 +7,6 @@ export const MAX_NETWORK_REQUESTS = 500
 export const MAX_SCREENSHOTS = 50
 export const MAX_GIF_FRAMES = 200
 
-export const MAX_TOOL_OUTPUT_CHARS = 25000
-export const OUTPUT_PREVIEW_CHARS = 10000
+export const MAX_TOOL_OUTPUT_CHARS = 20000
+export const OUTPUT_PREVIEW_CHARS = 7000
 export const MAX_STORED_OUTPUT_CHARS = 5_000_000

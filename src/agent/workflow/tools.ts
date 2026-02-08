@@ -128,6 +128,15 @@ export class ToolQueue {
   }
 
   private async _processNext(): Promise<void> {
+    if (this.session.abortSignal?.aborted) {
+      this.queue = []
+      this.processing = false
+      if (this.done && this.resolve) {
+        this.resolve()
+      }
+      return
+    }
+
     if (this.queue.length === 0) {
       this.processing = false
       if (this.done && this.resolve) {
@@ -157,6 +166,15 @@ export class ToolQueue {
     })
 
     this.callbacks?.onToolDone?.(result.toolCall)
+
+    if (this.session.abortSignal?.aborted) {
+      this.queue = []
+      this.processing = false
+      if (this.done && this.resolve) {
+        this.resolve()
+      }
+      return
+    }
 
     // Process next (without awaiting to avoid deep stack, use microtask)
     void this._processNext()

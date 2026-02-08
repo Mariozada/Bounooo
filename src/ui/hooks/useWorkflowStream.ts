@@ -60,16 +60,42 @@ interface UseWorkflowStreamOptions {
   callbacks: StreamCallbacks
 }
 
+export type QueueMode = 'immediate' | 'after_tool_result' | 'after_completion'
+
+interface SendMessageOptions {
+  mode?: QueueMode
+}
+
+interface QueuedMessage {
+  id: string
+  text: string
+  attachments: AttachmentFile[]
+}
+
+export interface QueuedMessagePreview {
+  id: string
+  preview: string
+  attachmentCount: number
+}
+
 interface UseWorkflowStreamReturn {
   isStreaming: boolean
   error: string | null
-  sendMessage: (text: string, attachments?: AttachmentFile[]) => Promise<void>
+  pendingAfterToolResult: number
+  pendingAfterCompletion: number
+  queuedAfterToolResult: QueuedMessagePreview[]
+  queuedAfterCompletion: QueuedMessagePreview[]
+  sendMessage: (text: string, attachments?: AttachmentFile[], options?: SendMessageOptions) => Promise<void>
   sendEditedMessage: (
     originalMessageId: string,
     newContent: string,
     messagesBeforeEdit: Message[],
     onEditUserMessage: (messageId: string, newContent: string) => Promise<{ id: string; threadId: string }>
   ) => Promise<void>
+  removeQueuedAfterToolResult: (id: string) => void
+  removeQueuedAfterCompletion: (id: string) => void
+  clearQueuedAfterToolResult: () => void
+  clearQueuedAfterCompletion: () => void
   stop: () => void
   clearError: () => void
 }
@@ -101,6 +127,19 @@ function buildConversationHistory(messages: Message[]): AgentMessage[] {
     }))
 }
 
+function buildQueuePreview(message: QueuedMessage): QueuedMessagePreview {
+  const compact = message.text.replace(/\s+/g, ' ').trim()
+  const basePreview = compact.length > 0
+    ? compact
+    : '[Attachment only]'
+
+  return {
+    id: message.id,
+    preview: basePreview.length > 72 ? `${basePreview.slice(0, 72)}...` : basePreview,
+    attachmentCount: message.attachments.length,
+  }
+}
+
 export function useWorkflowStream({
   settings,
   tabId,
@@ -111,7 +150,17 @@ export function useWorkflowStream({
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [skillsReady, setSkillsReady] = useState(false)
+  const [pendingAfterToolResult, setPendingAfterToolResult] = useState(0)
+  const [pendingAfterCompletion, setPendingAfterCompletion] = useState(0)
+  const [queuedAfterToolResult, setQueuedAfterToolResult] = useState<QueuedMessagePreview[]>([])
+  const [queuedAfterCompletion, setQueuedAfterCompletion] = useState<QueuedMessagePreview[]>([])
   const abortControllerRef = useRef<AbortController | null>(null)
+  const isStreamingRef = useRef(false)
+  const afterToolResultQueueRef = useRef<QueuedMessage[]>([])
+  const afterCompletionQueueRef = useRef<QueuedMessage[]>([])
+  const hasCompletedToolCallInRunRef = useRef(false)
+  const runMessageRef = useRef<((text: string, attachments: AttachmentFile[]) => Promise<void>) | null>(null)
+  const queueCounterRef = useRef(0)
 
   const { onAddUserMessage, onAddAssistantMessage, onUpdateAssistantMessage } = callbacks
 
@@ -125,6 +174,110 @@ export function useWorkflowStream({
         setSkillsReady(true) // Continue without skills
       })
   }, [])
+
+  const setStreamingState = useCallback((next: boolean) => {
+    isStreamingRef.current = next
+    setIsStreaming(next)
+  }, [])
+
+  const syncQueueCounts = useCallback(() => {
+    setPendingAfterToolResult(afterToolResultQueueRef.current.length)
+    setPendingAfterCompletion(afterCompletionQueueRef.current.length)
+    setQueuedAfterToolResult(afterToolResultQueueRef.current.map(buildQueuePreview))
+    setQueuedAfterCompletion(afterCompletionQueueRef.current.map(buildQueuePreview))
+  }, [])
+
+  const dequeueNextQueuedMessage = useCallback((): QueuedMessage | null => {
+    if (afterToolResultQueueRef.current.length > 0) {
+      const queuedItems = afterToolResultQueueRef.current.splice(0)
+      const next: QueuedMessage = {
+        text: queuedItems.map((item) => item.text).join('\n'),
+        attachments: queuedItems.flatMap((item) => item.attachments),
+      }
+      syncQueueCounts()
+      return next
+    }
+
+    const next = afterCompletionQueueRef.current.shift() ?? null
+    if (next) {
+      syncQueueCounts()
+    }
+
+    return next
+  }, [syncQueueCounts])
+
+  const maybeStartNextQueuedMessage = useCallback(() => {
+    if (isStreamingRef.current) {
+      return
+    }
+
+    const next = dequeueNextQueuedMessage()
+    if (!next) {
+      return
+    }
+
+    const runMessage = runMessageRef.current
+    if (!runMessage) {
+      return
+    }
+
+    void runMessage(next.text, next.attachments)
+  }, [dequeueNextQueuedMessage])
+
+  const enqueueMessage = useCallback(
+    (text: string, attachments: AttachmentFile[], mode: Exclude<QueueMode, 'immediate'>) => {
+      const queuedMessage: QueuedMessage = {
+        id: `q_${Date.now()}_${++queueCounterRef.current}`,
+        text,
+        attachments: [...attachments],
+      }
+
+      if (mode === 'after_completion') {
+        afterCompletionQueueRef.current.push(queuedMessage)
+      } else {
+        afterToolResultQueueRef.current.push(queuedMessage)
+
+        // If a tool has already completed in this run, trigger the interruption now.
+        if (hasCompletedToolCallInRunRef.current && abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+          abortControllerRef.current.abort()
+        }
+      }
+
+      syncQueueCounts()
+      log('Message queued:', {
+        mode,
+        afterToolResult: afterToolResultQueueRef.current.length,
+        afterCompletion: afterCompletionQueueRef.current.length,
+      })
+    },
+    [syncQueueCounts]
+  )
+
+  const removeQueuedAfterToolResult = useCallback((id: string) => {
+    const index = afterToolResultQueueRef.current.findIndex((message) => message.id === id)
+    if (index === -1) return
+    afterToolResultQueueRef.current.splice(index, 1)
+    syncQueueCounts()
+  }, [syncQueueCounts])
+
+  const removeQueuedAfterCompletion = useCallback((id: string) => {
+    const index = afterCompletionQueueRef.current.findIndex((message) => message.id === id)
+    if (index === -1) return
+    afterCompletionQueueRef.current.splice(index, 1)
+    syncQueueCounts()
+  }, [syncQueueCounts])
+
+  const clearQueuedAfterToolResult = useCallback(() => {
+    if (afterToolResultQueueRef.current.length === 0) return
+    afterToolResultQueueRef.current = []
+    syncQueueCounts()
+  }, [syncQueueCounts])
+
+  const clearQueuedAfterCompletion = useCallback(() => {
+    if (afterCompletionQueueRef.current.length === 0) return
+    afterCompletionQueueRef.current = []
+    syncQueueCounts()
+  }, [syncQueueCounts])
 
   const runAgentWorkflow = useCallback(
     async (
@@ -222,11 +375,17 @@ export function useWorkflowStream({
             updateAssistant()
           },
           onToolDone: (toolCall) => {
+            hasCompletedToolCallInRunRef.current = true
             const index = accumulatedToolCalls.findIndex((tc) => tc.id === toolCall.id)
             if (index !== -1) {
               accumulatedToolCalls[index] = toolCall
             }
             updateAssistant()
+
+            if (afterToolResultQueueRef.current.length > 0 && abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+              log('Interrupting after completed tool call to run queued clarification')
+              abortControllerRef.current.abort()
+            }
           },
         },
         tracing: settings.tracing as TracingSettings,
@@ -292,16 +451,17 @@ export function useWorkflowStream({
     [settings, tabId, groupId, onUpdateAssistantMessage]
   )
 
-  const sendMessage = useCallback(
+  const runMessage = useCallback(
     async (text: string, messageAttachments: AttachmentFile[] = []) => {
       log('=== Send Message ===')
       const hasContent = text.trim() || messageAttachments.length > 0
-      if (!hasContent || isStreaming) {
-        logWarn('Cannot send:', { text: !!text, attachments: messageAttachments.length, isStreaming })
+      if (!hasContent || isStreamingRef.current) {
+        logWarn('Cannot send:', { text: !!text, attachments: messageAttachments.length, isStreaming: isStreamingRef.current })
         return
       }
 
       setError(null)
+      hasCompletedToolCallInRunRef.current = false
 
       // Skills are initialized async on mount; ensure commands don't race startup.
       if (!skillsReady) {
@@ -385,7 +545,7 @@ export function useWorkflowStream({
         { role: 'user' as const, content: buildMessageContent(messageToSend, messageAttachments) },
       ]
 
-      setIsStreaming(true)
+      setStreamingState(true)
       abortControllerRef.current = new AbortController()
 
       try {
@@ -406,12 +566,53 @@ export function useWorkflowStream({
         }
       } finally {
         sendScreenGlowOff()
-        setIsStreaming(false)
+        setStreamingState(false)
         abortControllerRef.current = null
+        hasCompletedToolCallInRunRef.current = false
         log('=== Agent loop finished ===')
+        maybeStartNextQueuedMessage()
       }
     },
-    [isStreaming, messages, settings, tabId, groupId, onAddUserMessage, onAddAssistantMessage, runAgentWorkflow, skillsReady]
+    [
+      groupId,
+      messages,
+      maybeStartNextQueuedMessage,
+      onAddAssistantMessage,
+      onAddUserMessage,
+      runAgentWorkflow,
+      settings.model,
+      settings.provider,
+      setStreamingState,
+      skillsReady,
+      tabId,
+    ]
+  )
+
+  useEffect(() => {
+    runMessageRef.current = runMessage
+  }, [runMessage])
+
+  const sendMessage = useCallback(
+    async (
+      text: string,
+      messageAttachments: AttachmentFile[] = [],
+      options?: SendMessageOptions
+    ) => {
+      const hasContent = text.trim() || messageAttachments.length > 0
+      if (!hasContent) {
+        return
+      }
+
+      const requestedMode = options?.mode ?? 'immediate'
+      if (isStreamingRef.current) {
+        const queueMode = requestedMode === 'after_completion' ? 'after_completion' : 'after_tool_result'
+        enqueueMessage(text, messageAttachments, queueMode)
+        return
+      }
+
+      await runMessage(text, messageAttachments)
+    },
+    [enqueueMessage, runMessage]
   )
 
   const sendEditedMessage = useCallback(
@@ -423,7 +624,8 @@ export function useWorkflowStream({
     ) => {
       const conversationHistory = buildConversationHistory(messagesBeforeEdit)
 
-      setIsStreaming(true)
+      setStreamingState(true)
+      hasCompletedToolCallInRunRef.current = false
       abortControllerRef.current = new AbortController()
 
       try {
@@ -446,11 +648,13 @@ export function useWorkflowStream({
         logError('Edit message failed:', err)
       } finally {
         sendScreenGlowOff()
-        setIsStreaming(false)
+        setStreamingState(false)
         abortControllerRef.current = null
+        hasCompletedToolCallInRunRef.current = false
+        maybeStartNextQueuedMessage()
       }
     },
-    [settings, onAddAssistantMessage, runAgentWorkflow]
+    [settings, onAddAssistantMessage, runAgentWorkflow, setStreamingState, maybeStartNextQueuedMessage]
   )
 
   const stop = useCallback(() => {
@@ -478,8 +682,16 @@ export function useWorkflowStream({
   return {
     isStreaming,
     error,
+    pendingAfterToolResult,
+    pendingAfterCompletion,
+    queuedAfterToolResult,
+    queuedAfterCompletion,
     sendMessage,
     sendEditedMessage,
+    removeQueuedAfterToolResult,
+    removeQueuedAfterCompletion,
+    clearQueuedAfterToolResult,
+    clearQueuedAfterCompletion,
     stop,
     clearError,
   }

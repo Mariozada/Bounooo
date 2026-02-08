@@ -7,6 +7,12 @@
   color: var(--muted-foreground);
 }
 
+.tool-call--detail {
+  border: none;
+  background: transparent;
+  padding: 0;
+}
+
 .tool-call-header {
   display: flex;
   align-items: center;
@@ -55,6 +61,10 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.tool-call--detail .tool-call-output {
+  margin-top: 0;
 }
 
 .tool-call-output-preview {
@@ -302,4 +312,240 @@
 .tool-result-text {
   color: var(--foreground);
   font-size: 11px;
+}
+
+/* ─── Tool Strip (assistant message compact view) ─────────────────────────── */
+
+.tool-strip-collapsed {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--muted-foreground);
+  padding: 7px 9px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tool-strip-collapsed:hover {
+  border-color: var(--muted-foreground);
+  color: var(--foreground);
+}
+
+.tool-strip-collapsed-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tool-strip-collapsed-icon {
+  color: #facc15;
+  flex-shrink: 0;
+}
+
+.tool-strip-collapsed-icon.is-active {
+  animation: tool-sparkle 1.3s ease-in-out infinite;
+}
+
+@keyframes tool-sparkle {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.16) rotate(-8deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 0.9;
+  }
+}
+
+.tool-strip-collapsed-text {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-strip-collapsed-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.tool-strip-collapsed-badge {
+  min-width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--muted-foreground);
+}
+
+.tool-strip-collapsed-badge--active {
+  border-color: rgba(250, 204, 21, 0.5);
+  color: #fde68a;
+}
+
+.tool-strip-collapsed-badge--error {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #fca5a5;
+}
+
+.tool-strip {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  outline: none;
+}
+
+.tool-strip:focus-visible {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.tool-strip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tool-strip-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.tool-strip-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.tool-strip-help {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tool-strip-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tool-strip-nav-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+
+.tool-strip-nav-btn:hover {
+  border-color: var(--muted-foreground);
+  color: var(--foreground);
+}
+
+.tool-strip-index {
+  min-width: 34px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tool-strip-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.tool-strip-chip {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  padding: 4px 9px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1;
+  min-height: 28px;
+  max-width: 220px;
+}
+
+.tool-strip-chip:hover {
+  color: var(--foreground);
+  border-color: var(--muted-foreground);
+}
+
+.tool-strip-chip.is-selected {
+  border-color: rgba(59, 130, 246, 0.6);
+  background: rgba(59, 130, 246, 0.13);
+  color: var(--foreground);
+}
+
+.tool-strip-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-strip-chip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: #9ca3af;
+}
+
+.tool-strip-chip-dot--pending {
+  background: #9ca3af;
+}
+
+.tool-strip-chip-dot--running {
+  background: #fbbf24;
+}
+
+.tool-strip-chip-dot--completed {
+  background: #34d399;
+}
+
+.tool-strip-chip-dot--error {
+  background: #f87171;
+}
+
+.tool-strip-detail {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
 }

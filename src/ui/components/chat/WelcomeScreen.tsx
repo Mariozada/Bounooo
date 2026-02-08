@@ -7,6 +7,11 @@ interface Suggestion {
   action: string
 }
 
+interface QuickTip {
+  key: string
+  text: string
+}
+
 interface WelcomeScreenProps {
   onSuggestionClick: (action: string) => void
 }
@@ -34,6 +39,21 @@ const DEFAULT_SUGGESTIONS: Suggestion[] = [
   },
 ]
 
+const QUICK_TIPS: QuickTip[] = [
+  {
+    key: 'Enter',
+    text: 'Queue draft after next tool result while agent is running.',
+  },
+  {
+    key: 'Ctrl/Cmd+Enter',
+    text: 'Queue draft after the agent fully finishes.',
+  },
+  {
+    key: 'Ctrl/Cmd+Click',
+    text: 'Open links in a browser tab.',
+  },
+]
+
 export const WelcomeScreen: FC<WelcomeScreenProps> = ({ onSuggestionClick }) => {
   return (
     <div className="aui-thread-welcome-root">
@@ -55,6 +75,15 @@ export const WelcomeScreen: FC<WelcomeScreenProps> = ({ onSuggestionClick }) => 
         </m.div>
       </div>
       <div className="aui-thread-welcome-suggestions">
+        <div className="aui-thread-welcome-tips" role="note" aria-label="Quick tips">
+          <div className="aui-thread-welcome-tips-title">Quick tips</div>
+          {QUICK_TIPS.map((tip) => (
+            <div key={tip.key} className="aui-thread-welcome-tip">
+              <span className="aui-thread-welcome-tip-key">{tip.key}</span>
+              <span className="aui-thread-welcome-tip-text">{tip.text}</span>
+            </div>
+          ))}
+        </div>
         {DEFAULT_SUGGESTIONS.map((suggestion, index) => (
           <m.button
             key={suggestion.action}

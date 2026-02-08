@@ -6,7 +6,9 @@ export function buildAssistantResponse(stepResult: StepResult): string {
   let response = stepResult.text
 
   if (stepResult.toolCalls.length > 0) {
-    response += '\n<tool_calls>\n'
+    if (!response.endsWith('\n') && response.length > 0) {
+      response += '\n'
+    }
     for (const tc of stepResult.toolCalls) {
       response += `<invoke name="${tc.name}">\n`
       for (const [key, value] of Object.entries(tc.input)) {
@@ -15,7 +17,7 @@ export function buildAssistantResponse(stepResult: StepResult): string {
       }
       response += `</invoke>\n`
     }
-    response += '</tool_calls>'
+    response = response.trimEnd()
   }
 
   return response
