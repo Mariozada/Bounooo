@@ -58,8 +58,8 @@ Open the extension side panel and go to Settings.
 ### API Keys
 
 - **Anthropic** — [console.anthropic.com](https://console.anthropic.com)
-- **OpenAI** — [platform.openai.com](https://platform.openai.com)
-- **Google** — [aistudio.google.com](https://aistudio.google.com)
+- **OpenAI** — [platform.openai.com](https://platform.openai.com) (or sign in with OAuth)
+- **Google** — [aistudio.google.com](https://aistudio.google.com) (or sign in with OAuth)
 - **Groq** — [console.groq.com](https://console.groq.com)
 - **OpenRouter** — [openrouter.ai](https://openrouter.ai)
 
