@@ -96,6 +96,65 @@ export const Divider: FC = () => <div className="tool-divider" />
 
 // ─── Running State Labels ────────────────────────────────────────────────────
 
+/** Consumer-friendly one-liner for the collapsed tool strip. No ref IDs or internal jargon. */
+export function getSummaryLabel(name: string, input: Record<string, unknown>): string {
+  switch (name) {
+    case 'computer': {
+      const action = input.action as string
+      const text = input.text as string
+      switch (action) {
+        case 'screenshot': return 'Taking a screenshot'
+        case 'zoom': return 'Zooming in'
+        case 'wait': return 'Waiting'
+        case 'left_click': return 'Clicking on the page'
+        case 'right_click': return 'Right-clicking on the page'
+        case 'double_click': return 'Double-clicking on the page'
+        case 'triple_click': return 'Selecting text'
+        case 'type': return text ? `Typing "${str(text, 24)}"` : 'Typing text'
+        case 'key': return text ? `Pressing ${text}` : 'Pressing a key'
+        case 'scroll': {
+          const dir = input.scroll_direction as string
+          return dir === 'up' ? 'Scrolling up' : dir === 'left' || dir === 'right' ? `Scrolling ${dir}` : 'Scrolling down'
+        }
+        case 'scroll_to': return 'Scrolling to element'
+        case 'hover': return 'Hovering over element'
+        case 'left_click_drag': return 'Dragging element'
+        default: return 'Interacting with page'
+      }
+    }
+    case 'navigate': {
+      const url = input.url as string
+      if (url === 'back') return 'Going back'
+      if (url === 'forward') return 'Going forward'
+      return 'Navigating to page'
+    }
+    case 'find': return `Searching for "${str(input.query, 24)}"`
+    case 'read_page': return 'Reading the page'
+    case 'get_page_text': return 'Extracting page text'
+    case 'form_input': return 'Filling in a form field'
+    case 'tabs_context': return 'Checking open tabs'
+    case 'tabs_create': return 'Opening a new tab'
+    case 'web_fetch': return 'Fetching a page'
+    case 'read_console_messages': return 'Reading console output'
+    case 'read_network_requests': return 'Checking network activity'
+    case 'javascript_tool': return 'Running a script'
+    case 'resize_window': return 'Resizing the window'
+    case 'gif_creator': {
+      const a = input.action as string
+      if (a === 'start_recording') return 'Recording screen'
+      if (a === 'stop_recording') return 'Stopping recording'
+      if (a === 'export') return 'Exporting GIF'
+      return 'Recording'
+    }
+    case 'update_plan': return 'Updating the plan'
+    case 'invoke_skill': return `Using "${str(input.skill_name, 20)}" skill`
+    case 'upload_image': return 'Uploading an image'
+    case 'read_result': return 'Reading a result'
+    case 'process_result': return 'Processing a result'
+    default: return formatToolName(name)
+  }
+}
+
 export function getRunningLabel(name: string, input: Record<string, unknown>): string {
   switch (name) {
     case 'computer': {

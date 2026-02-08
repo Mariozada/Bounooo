@@ -1,9 +1,9 @@
 import { type FC, useMemo, useState } from 'react'
 import * as m from 'motion/react-m'
-import { Check, ChevronDown, ChevronUp, Copy, RefreshCw, Square } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Copy, RefreshCw, Square } from 'lucide-react'
 import { MarkdownMessage } from '../MarkdownMessage'
 import { ToolCallDisplay } from '../ToolCallDisplay'
-import { formatToolName } from '../ToolCallDisplay/helpers'
+import { getSummaryLabel } from '../ToolCallDisplay/helpers'
 import { TooltipIconButton } from '../TooltipIconButton'
 import { ThinkingBlock } from '../ThinkingBlock'
 import type { ToolCallInfo, AssistantMessageSegment } from '@agent/index'
@@ -23,6 +23,31 @@ interface AssistantMessageProps {
   onCopy: () => void
   onRetry: () => void
   onStop: () => void
+}
+
+// A rendered block is either a text segment or a group of consecutive tool calls
+type RenderedBlock =
+  | { type: 'text'; segment: AssistantMessageSegment & { type: 'text' } }
+  | { type: 'tool_group'; toolCallIds: string[]; anchorId: string }
+
+function getGroupSummary(tools: ToolCallInfo[]) {
+  const running = tools.filter((tc) => tc.status === 'running').length
+  const pending = tools.filter((tc) => tc.status === 'pending').length
+  const errors = tools.filter((tc) => tc.status === 'error').length
+  const hasActive = running > 0 || pending > 0
+
+  const dotStatus = hasActive
+    ? (running > 0 ? 'running' : 'pending')
+    : (errors > 0 ? 'error' : 'completed')
+
+  // Pick the most relevant tool to describe: running > pending > last
+  const displayTool = tools.find((tc) => tc.status === 'running')
+    || tools.find((tc) => tc.status === 'pending')
+    || tools[tools.length - 1]
+  const desc = getSummaryLabel(displayTool.name, displayTool.input)
+  const label = tools.length === 1 ? desc : `${tools.length} tools · ${desc}`
+
+  return { dotStatus, label, errors }
 }
 
 export const AssistantMessage: FC<AssistantMessageProps> = ({
@@ -70,6 +95,7 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
 
     return fallback
   }, [assistantSegments, hasContent, content, toolCalls])
+
   const lastTextSegmentId = useMemo(() => {
     for (let i = orderedSegments.length - 1; i >= 0; i--) {
       if (orderedSegments[i].type === 'text') {
@@ -78,11 +104,8 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
     }
     return null
   }, [orderedSegments])
-  // Group consecutive tool_call segments into blocks
-  type RenderedBlock =
-    | { type: 'text'; segment: AssistantMessageSegment & { type: 'text' } }
-    | { type: 'tool_group'; toolCallIds: string[]; anchorId: string }
 
+  // Group consecutive tool_call segments into blocks
   const renderedBlocks = useMemo<RenderedBlock[]>(() => {
     const blocks: RenderedBlock[] = []
     let currentGroup: { toolCallIds: string[]; anchorId: string } | null = null
@@ -110,6 +133,8 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
   }, [orderedSegments, toolCallsById])
 
   const [expandedGroupIds, setExpandedGroupIds] = useState<Set<string>>(new Set())
+  // Track which tool index is selected per group
+  const [selectedIndexByGroup, setSelectedIndexByGroup] = useState<Map<string, number>>(new Map())
 
   const isEmptyAssistant = orderedSegments.length === 0
   const showActionBar = isLastMessage || isHovered || isStreaming
@@ -142,27 +167,24 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
             )
           }
 
+          // Resolve tool calls for this group
           const groupTools = block.toolCallIds
             .map((id) => toolCallsById.get(id))
             .filter((tc): tc is ToolCallInfo => tc !== undefined)
           if (groupTools.length === 0) return null
 
           const isExpanded = expandedGroupIds.has(block.anchorId)
+          const { dotStatus, label, errors } = getGroupSummary(groupTools)
 
-          // Determine the group's summary status dot
-          const hasRunning = groupTools.some((tc) => tc.status === 'running')
-          const hasPending = groupTools.some((tc) => tc.status === 'pending')
-          const hasError = groupTools.some((tc) => tc.status === 'error')
-          const dotStatus = hasRunning ? 'running' : hasPending ? 'pending' : hasError ? 'error' : 'completed'
-
-          // Label for the collapsed row
-          let collapsedLabel: string
-          if (groupTools.length === 1) {
-            collapsedLabel = formatToolName(groupTools[0].name)
-          } else {
-            const activeTool = groupTools.find((tc) => tc.status === 'running') || groupTools[groupTools.length - 1]
-            collapsedLabel = `${groupTools.length} tools · ${formatToolName(activeTool.name)}`
+          // Selected tool index for this group (default to latest active or last)
+          let selectedIdx = selectedIndexByGroup.get(block.anchorId) ?? -1
+          if (selectedIdx === -1 || selectedIdx >= groupTools.length) {
+            // Auto-select: prefer running, then pending, then last
+            selectedIdx = groupTools.findIndex((tc) => tc.status === 'running')
+            if (selectedIdx === -1) selectedIdx = groupTools.findIndex((tc) => tc.status === 'pending')
+            if (selectedIdx === -1) selectedIdx = groupTools.length - 1
           }
+          const selectedTool = groupTools[selectedIdx]
 
           return (
             <div key={block.anchorId} className="message-tool-calls">
@@ -182,11 +204,13 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
               >
                 <span className="tool-strip-collapsed-main">
                   <span className={`tool-strip-chip-dot tool-strip-chip-dot--${dotStatus}`} />
-                  <span className="tool-strip-collapsed-text">{collapsedLabel}</span>
+                  <span className="tool-strip-collapsed-text">{label}</span>
                 </span>
                 <span className="tool-strip-collapsed-right">
-                  {hasError && (
-                    <span className="tool-strip-collapsed-badge tool-strip-collapsed-badge--error">!</span>
+                  {errors > 0 && (
+                    <span className="tool-strip-collapsed-badge tool-strip-collapsed-badge--error">
+                      {errors}
+                    </span>
                   )}
                   {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </span>
@@ -194,9 +218,40 @@ export const AssistantMessage: FC<AssistantMessageProps> = ({
 
               {isExpanded && (
                 <div className="tool-strip-expanded">
-                  {groupTools.map((tc) => (
-                    <ToolCallDisplay key={tc.id} toolCall={tc} />
-                  ))}
+                  {groupTools.length > 1 && (
+                    <div className="tool-strip-nav">
+                      <button
+                        type="button"
+                        className="tool-strip-nav-btn"
+                        disabled={selectedIdx === 0}
+                        onClick={() => setSelectedIndexByGroup((prev) => {
+                          const next = new Map(prev)
+                          next.set(block.anchorId, Math.max(0, selectedIdx - 1))
+                          return next
+                        })}
+                        aria-label="Previous tool"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span className="tool-strip-nav-label">
+                        {selectedIdx + 1} / {groupTools.length}
+                      </span>
+                      <button
+                        type="button"
+                        className="tool-strip-nav-btn"
+                        disabled={selectedIdx === groupTools.length - 1}
+                        onClick={() => setSelectedIndexByGroup((prev) => {
+                          const next = new Map(prev)
+                          next.set(block.anchorId, Math.min(groupTools.length - 1, selectedIdx + 1))
+                          return next
+                        })}
+                        aria-label="Next tool"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                  )}
+                  <ToolCallDisplay toolCall={selectedTool} defaultExpanded />
                 </div>
               )}
             </div>
