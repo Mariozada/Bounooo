@@ -190,13 +190,15 @@ async function loadCodeAssist(accessToken: string, existingProjectId?: string): 
 /**
  * Normalize project ID from response
  */
-function normalizeProjectId(projectId: string | undefined): string | undefined {
+function normalizeProjectId(projectId: unknown): string | undefined {
   if (!projectId) return undefined
+  // Convert to string if needed (might be number or object)
+  const idStr = String(projectId)
   // Handle formats like "projects/123456" -> "123456"
-  if (projectId.startsWith('projects/')) {
-    return projectId.replace('projects/', '')
+  if (idStr.startsWith('projects/')) {
+    return idStr.replace('projects/', '')
   }
-  return projectId
+  return idStr
 }
 
 /**
