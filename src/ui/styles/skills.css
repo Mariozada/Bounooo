@@ -1,0 +1,156 @@
+/* ─── Status Messages ─────────────────────────────────────────────────────── */
+
+.status-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.status-message.success {
+  background: rgba(34, 197, 94, 0.1);
+  color: hsl(142 71% 45%);
+}
+
+.status-message.error {
+  background: rgba(255, 107, 107, 0.1);
+  color: var(--destructive);
+}
+
+.status-message button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.status-message button:hover {
+  opacity: 1;
+}
+
+/* ─── Button Row ──────────────────────────────────────────────────────────── */
+
+.button-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ─── Install Form ────────────────────────────────────────────────────────── */
+
+.install-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.install-form textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--foreground);
+  font-family: "JetBrains Mono", "SF Mono", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.install-form textarea:focus {
+  outline: none;
+  border-color: var(--ring);
+}
+
+/* ─── Skills List ─────────────────────────────────────────────────────────── */
+
+.skills-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skill-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  transition: opacity 0.15s ease;
+}
+
+.skill-item.disabled {
+  opacity: 0.5;
+}
+
+.skill-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.skill-name {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--foreground);
+}
+
+.skill-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.skill-badge.builtin {
+  background: rgba(59, 130, 246, 0.15);
+  color: hsl(217 91% 60%);
+}
+
+.skill-badge.user {
+  background: rgba(34, 197, 94, 0.15);
+  color: hsl(142 71% 45%);
+}
+
+.skill-badge.registry {
+  background: rgba(168, 85, 247, 0.15);
+  color: hsl(270 91% 65%);
+}
+
+.skill-description {
+  font-size: 13px;
+  color: var(--muted-foreground);
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.skill-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.skill-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}

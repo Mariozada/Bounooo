@@ -1,4 +1,4 @@
-export { AgentChat } from './AgentChat'
+export { AgentChat } from './chat'
 export { BranchPicker } from './BranchPicker'
 export { ChatApp } from './ChatApp'
 export { SettingsPanel } from './settings'

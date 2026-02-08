@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useMemo, type FC } from 'react'
 import { LazyMotion, domAnimation, MotionConfig } from 'motion/react'
 import { useSettings } from '../../hooks/useSettings'
 import { useWorkflowStream } from '../../hooks/useWorkflowStream'
-import type { ThreadMessage } from '../../hooks/useThreads'
+import type { ThreadMessage } from '../../hooks/threads'
 import {
   validateSettings,
   PROVIDER_CONFIGS,
