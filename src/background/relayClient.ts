@@ -83,12 +83,14 @@ async function connect(): Promise<void> {
     return
   }
 
-  ws.onopen = () => {
+  const socket = ws
+
+  socket.onopen = () => {
     console.log('[relay] Connected, sending auth...')
-    ws!.send(JSON.stringify({ type: 'auth', token: config.token }))
+    socket.send(JSON.stringify({ type: 'auth', token: config.token }))
   }
 
-  ws.onmessage = (event) => {
+  socket.onmessage = (event) => {
     const raw = typeof event.data === 'string' ? event.data : ''
     let msg: Record<string, unknown>
     try {
@@ -102,16 +104,15 @@ async function connect(): Promise<void> {
     if (msg.type === 'auth_ok') {
       console.log('[relay] Authenticated')
       reconnectAttempt = 0
-      // Send available tools
-      ws!.send(JSON.stringify({
+      socket.send(JSON.stringify({
         type: 'status',
         tools: getRegisteredTools(),
       }))
       return
     }
 
-    // Request from server
-    if (msg.id && msg.type) {
+    // Request from server (must have both id and a request type)
+    if (msg.id && msg.type && msg.type !== 'status') {
       handleRequest(msg as unknown as RelayRequest)
     }
   }

@@ -35,8 +35,9 @@ export interface ProviderSettings {
   customModelSettings?: CustomModelSettings
   customModelSettingsPerProvider?: Partial<Record<ProviderType, CustomModelSettings>>  // Per provider
   reasoningEnabled?: boolean
-  codexAuth?: CodexAuth  // Codex OAuth authentication (ChatGPT Pro/Plus)
-  geminiAuth?: GeminiAuth  // Gemini OAuth authentication (Google account)
+  postToolDelay?: number
+  codexAuth?: CodexAuth
+  geminiAuth?: GeminiAuth
 }
 
 export const DEFAULT_TRACING_SETTINGS: TracingSettings = {
