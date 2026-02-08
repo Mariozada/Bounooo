@@ -32,33 +32,13 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
   },
   openai: {
     name: 'OpenAI',
-    description: 'GPT models - most popular',
+    description: 'GPT models - Login with ChatGPT or use API key',
     apiKeyPlaceholder: 'sk-...',
     apiKeyUrl: 'https://platform.openai.com/api-keys',
     models: [
-      // GPT-4 series
-      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', vision: true },
-      { id: 'gpt-4o', name: 'GPT-4o', vision: true },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', vision: true },
-      { id: 'gpt-4.1', name: 'GPT-4.1', vision: true },
-      { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', vision: true },
-      { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', vision: true },
-      // GPT-5 series
-      { id: 'gpt-5', name: 'GPT-5', vision: true, recommended: true },
-      { id: 'gpt-5-mini', name: 'GPT-5 Mini', vision: true },
+      // API key models
+      { id: 'gpt-5-mini', name: 'GPT-5 Mini', vision: true, recommended: true },
       { id: 'gpt-5-nano', name: 'GPT-5 Nano', vision: true },
-      { id: 'gpt-5-pro', name: 'GPT-5 Pro', vision: true },
-      { id: 'gpt-5.1', name: 'GPT-5.1', vision: true },
-      { id: 'gpt-5.2', name: 'GPT-5.2', vision: true },
-      { id: 'gpt-5.2-pro', name: 'GPT-5.2 Pro', vision: true },
-      // Reasoning models
-      { id: 'o1', name: 'o1', vision: true, reasoning: 'hybrid' },
-      { id: 'o1-mini', name: 'o1 Mini', vision: false, reasoning: 'hybrid' },
-      { id: 'o1-pro', name: 'o1 Pro', vision: true, reasoning: 'hybrid' },
-      { id: 'o3', name: 'o3', vision: true, reasoning: 'hybrid' },
-      { id: 'o3-mini', name: 'o3 Mini', vision: false, reasoning: 'hybrid' },
-      { id: 'o3-pro', name: 'o3 Pro', vision: true, reasoning: 'hybrid' },
-      { id: 'o4-mini', name: 'o4 Mini', vision: true, reasoning: 'hybrid' },
       // Codex models (ChatGPT Pro/Plus subscription required)
       { id: 'gpt-5-codex', name: 'GPT-5 Codex', vision: true, codexOnly: true },
       { id: 'gpt-5.1-codex', name: 'GPT-5.1 Codex', vision: true, codexOnly: true },
