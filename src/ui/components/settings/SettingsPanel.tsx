@@ -43,8 +43,8 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
     handleCustomNameChange,
     handleCustomVisionChange,
     handleCustomReasoningChange,
+    handlePostToolDelayChange,
     handleTracingUpdate,
-    handleCodexAuthChange,
     getSettingsToSave,
   } = useSettingsForm(settings)
 
@@ -171,8 +171,8 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
                   onCustomNameChange={handleCustomNameChange}
                   onCustomVisionChange={handleCustomVisionChange}
                   onCustomReasoningChange={handleCustomReasoningChange}
+                  onPostToolDelayChange={handlePostToolDelayChange}
                   onToggleShowApiKey={() => setShowApiKey(!showApiKey)}
-                  onCodexAuthChange={handleCodexAuthChange}
                 />
                 {error && <div className="error-message">{error}</div>}
                 {renderActions()}

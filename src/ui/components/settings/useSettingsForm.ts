@@ -1,6 +1,5 @@
 import { useState, useCallback, type ChangeEvent } from 'react'
 import type { ProviderSettings, ProviderType } from '@shared/settings'
-import { loadSettings } from '@shared/settings'
 import { getModelsForProvider, getDefaultModelForProvider } from '@agent/index'
 
 export function useSettingsForm(initialSettings: ProviderSettings) {
@@ -122,17 +121,16 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     }))
   }, [])
 
-  const handleTracingUpdate = useCallback((updates: Partial<ProviderSettings>) => {
-    setLocalSettings((prev) => ({ ...prev, ...updates }))
-  }, [])
-
-  const handleCodexAuthChange = useCallback(async () => {
-    // Reload settings to get updated Codex auth status
-    const newSettings = await loadSettings()
+  const handlePostToolDelayChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value)
     setLocalSettings((prev) => ({
       ...prev,
-      codexAuth: newSettings.codexAuth,
+      postToolDelay: isNaN(value) ? undefined : Math.max(0, value),
     }))
+  }, [])
+
+  const handleTracingUpdate = useCallback((updates: Partial<ProviderSettings>) => {
+    setLocalSettings((prev) => ({ ...prev, ...updates }))
   }, [])
 
   const getSettingsToSave = useCallback((): ProviderSettings => {
@@ -165,8 +163,8 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     handleCustomNameChange,
     handleCustomVisionChange,
     handleCustomReasoningChange,
+    handlePostToolDelayChange,
     handleTracingUpdate,
-    handleCodexAuthChange,
     getSettingsToSave,
   }
 }

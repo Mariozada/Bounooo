@@ -3,12 +3,12 @@ import type { ToolDefinition } from './types'
 export const interactionTools: ToolDefinition[] = [
   {
     name: 'computer',
-    description: 'Perform mouse and keyboard actions on the page. Use refs from read_page to target elements.',
+    description: 'Perform mouse and keyboard actions on the page.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
@@ -25,13 +25,13 @@ export const interactionTools: ToolDefinition[] = [
       {
         name: 'ref',
         type: 'string',
-        description: 'Element ref to interact with (e.g., "ref_1"). Required for click, type, hover actions',
+        description: 'Element ref (e.g., "ref_1"). Required for click, type, hover',
         required: false
       },
       {
         name: 'coordinate',
         type: 'array',
-        description: 'x,y coordinates for click/drag actions',
+        description: '[x, y] coordinates for click/drag when no ref available',
         required: false,
         items: { type: 'number' }
       },
@@ -63,7 +63,7 @@ export const interactionTools: ToolDefinition[] = [
       {
         name: 'start_coordinate',
         type: 'array',
-        description: 'Start x,y for drag operations',
+        description: 'Start [x, y] for drag operations',
         required: false,
         items: { type: 'number' }
       },
@@ -82,7 +82,7 @@ export const interactionTools: ToolDefinition[] = [
       {
         name: 'region',
         type: 'array',
-        description: 'x0,y0,x1,y1 region for zoom',
+        description: '[x0, y0, x1, y1] region for zoom',
         required: false,
         items: { type: 'number' }
       }
@@ -92,24 +92,24 @@ export const interactionTools: ToolDefinition[] = [
   },
   {
     name: 'form_input',
-    description: 'Set form input values directly. Use for text inputs, textareas, selects, checkboxes, and radio buttons.',
+    description: 'Set form input values directly. More reliable than computer type action for filling forms.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
         name: 'ref',
         type: 'string',
-        description: 'Element ref of the form input (e.g., "ref_1")',
+        description: 'Element ref of the form input',
         required: true
       },
       {
         name: 'value',
         type: 'string',
-        description: 'Value to set in the input',
+        description: 'Value to set',
         required: true
       }
     ],
@@ -118,12 +118,12 @@ export const interactionTools: ToolDefinition[] = [
   },
   {
     name: 'upload_image',
-    description: 'Upload an image to a file input or drag target.',
+    description: 'Upload a screenshot to a file input or drag target on the page.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
@@ -141,7 +141,7 @@ export const interactionTools: ToolDefinition[] = [
       {
         name: 'coordinate',
         type: 'array',
-        description: 'x,y coordinates for drag & drop upload',
+        description: '[x, y] for drag & drop upload',
         required: false,
         items: { type: 'number' }
       },

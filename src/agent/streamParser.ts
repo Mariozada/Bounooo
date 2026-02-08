@@ -143,7 +143,7 @@ export class XMLStreamParser {
   }
 
   private _emitTextDelta(text: string): void {
-    if (!text || !text.trim()) return
+    if (!text) return
     this.textBuffer += text
     this._emit({ type: STREAM_EVENT_TYPES.TEXT_DELTA, data: text })
   }
@@ -152,7 +152,8 @@ export class XMLStreamParser {
     const raw = rawInvoke.trim()
     if (!raw) return
 
-    const doc = getDOMParser().parseFromString(`<r>${raw}</r>`, 'text/xml')
+    const sanitized = sanitizeParamContent(raw)
+    const doc = getDOMParser().parseFromString(`<r>${sanitized}</r>`, 'text/xml')
     if (doc.querySelector('parsererror')) {
       console.warn('[XMLStreamParser] Parse error, raw:', raw)
       return
@@ -254,6 +255,26 @@ function findNextInvokeStart(buffer: string): number {
   }
 
   return -1
+}
+
+/**
+ * Escape &, <, > inside <parameter>...</parameter> values so that
+ * DOMParser can handle LLM output containing unescaped XML-special chars
+ * (e.g. bash commands like `echo "a < b && c > d"`).
+ *
+ * Order matters: & first to avoid double-escaping.
+ * The regex is non-greedy so each parameter is matched individually.
+ */
+const PARAM_RE = /(<parameter\s+name="[^"]*">)([\s\S]*?)(<\/parameter>)/g
+
+function sanitizeParamContent(xml: string): string {
+  return xml.replace(PARAM_RE, (_match, open: string, content: string, close: string) => {
+    const escaped = content
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    return open + escaped + close
+  })
 }
 
 function getEarliestPartialIndex(buffer: string, tags: readonly string[]): number {

@@ -94,7 +94,8 @@ interface UseWorkflowStreamReturn {
   ) => Promise<void>
   removeQueuedAfterToolResult: (id: string) => void
   removeQueuedAfterCompletion: (id: string) => void
-  dumpQueues: () => string[]
+  clearQueuedAfterToolResult: () => void
+  clearQueuedAfterCompletion: () => void
   stop: () => void
   clearError: () => void
 }
@@ -190,7 +191,6 @@ export function useWorkflowStream({
     if (afterToolResultQueueRef.current.length > 0) {
       const queuedItems = afterToolResultQueueRef.current.splice(0)
       const next: QueuedMessage = {
-        id: queuedItems[0].id,
         text: queuedItems.map((item) => item.text).join('\n'),
         attachments: queuedItems.flatMap((item) => item.attachments),
       }
@@ -236,6 +236,11 @@ export function useWorkflowStream({
         afterCompletionQueueRef.current.push(queuedMessage)
       } else {
         afterToolResultQueueRef.current.push(queuedMessage)
+
+        // If a tool has already completed in this run, trigger the interruption now.
+        if (hasCompletedToolCallInRunRef.current && abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+          abortControllerRef.current.abort()
+        }
       }
 
       syncQueueCounts()
@@ -259,6 +264,18 @@ export function useWorkflowStream({
     const index = afterCompletionQueueRef.current.findIndex((message) => message.id === id)
     if (index === -1) return
     afterCompletionQueueRef.current.splice(index, 1)
+    syncQueueCounts()
+  }, [syncQueueCounts])
+
+  const clearQueuedAfterToolResult = useCallback(() => {
+    if (afterToolResultQueueRef.current.length === 0) return
+    afterToolResultQueueRef.current = []
+    syncQueueCounts()
+  }, [syncQueueCounts])
+
+  const clearQueuedAfterCompletion = useCallback(() => {
+    if (afterCompletionQueueRef.current.length === 0) return
+    afterCompletionQueueRef.current = []
     syncQueueCounts()
   }, [syncQueueCounts])
 
@@ -378,6 +395,8 @@ export function useWorkflowStream({
         // Pass skill options to workflow
         activeSkill: skillOptions?.activeSkill,
         availableSkills: skillOptions?.availableSkills,
+        // Post-tool delay
+        postToolDelay: settings.postToolDelay,
         // Pass MCP tools to workflow
         mcpTools: mcpOptions?.mcpTools,
         // Route MCP tool calls to the MCP manager
@@ -640,20 +659,6 @@ export function useWorkflowStream({
     [settings, onAddAssistantMessage, runAgentWorkflow, setStreamingState, maybeStartNextQueuedMessage]
   )
 
-  const dumpQueues = useCallback((): string[] => {
-    const texts: string[] = []
-    for (const item of afterToolResultQueueRef.current) {
-      texts.push(item.text)
-    }
-    for (const item of afterCompletionQueueRef.current) {
-      texts.push(item.text)
-    }
-    afterToolResultQueueRef.current = []
-    afterCompletionQueueRef.current = []
-    syncQueueCounts()
-    return texts
-  }, [syncQueueCounts])
-
   const stop = useCallback(() => {
     log('Stop clicked')
     if (abortControllerRef.current) {
@@ -687,7 +692,8 @@ export function useWorkflowStream({
     sendEditedMessage,
     removeQueuedAfterToolResult,
     removeQueuedAfterCompletion,
-    dumpQueues,
+    clearQueuedAfterToolResult,
+    clearQueuedAfterCompletion,
     stop,
     clearError,
   }

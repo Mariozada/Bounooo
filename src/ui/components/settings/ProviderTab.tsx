@@ -1,11 +1,8 @@
-import React, { type FC, type ChangeEvent, useState, useEffect } from 'react'
-import { Zap, Image, Eye, EyeOff, LogIn, LogOut, Loader2, Key, User } from 'lucide-react'
+import { type FC, type ChangeEvent } from 'react'
+import { Zap, Image, Eye, EyeOff } from 'lucide-react'
 import type { ProviderSettings, ProviderType } from '@shared/settings'
 import { PROVIDER_CONFIGS, getModelsForProvider } from '@agent/index'
 import { CustomSelect } from '../CustomSelect'
-import { MessageTypes } from '@shared/messages'
-
-type OpenAIAuthMode = 'api-key' | 'chatgpt-login'
 
 interface ProviderTabProps {
   settings: ProviderSettings
@@ -20,8 +17,8 @@ interface ProviderTabProps {
   onCustomNameChange: (e: ChangeEvent<HTMLInputElement>) => void
   onCustomVisionChange: (e: ChangeEvent<HTMLInputElement>) => void
   onCustomReasoningChange: (e: ChangeEvent<HTMLInputElement>) => void
+  onPostToolDelayChange: (e: ChangeEvent<HTMLInputElement>) => void
   onToggleShowApiKey: () => void
-  onCodexAuthChange?: () => void  // Callback to refresh settings after auth change
 }
 
 export const ProviderTab: FC<ProviderTabProps> = ({
@@ -37,88 +34,13 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   onCustomNameChange,
   onCustomVisionChange,
   onCustomReasoningChange,
+  onPostToolDelayChange,
   onToggleShowApiKey,
-  onCodexAuthChange,
 }) => {
-  const [codexLoading, setCodexLoading] = useState(false)
-  const [codexError, setCodexError] = useState<string | null>(null)
-  const [codexUserCode, setCodexUserCode] = useState<string | null>(null)
-
-  const hasCodexAuth = !!settings.codexAuth
-  const hasApiKey = !!settings.apiKeys['openai']
-
-  // Determine auth mode based on current state
-  const [openaiAuthMode, setOpenaiAuthMode] = useState<OpenAIAuthMode>(
-    hasCodexAuth ? 'chatgpt-login' : 'api-key'
-  )
-
-  // Update mode when auth state changes
-  useEffect(() => {
-    if (hasCodexAuth) {
-      setOpenaiAuthMode('chatgpt-login')
-    }
-  }, [hasCodexAuth])
-
-  // For OpenAI, show Codex models only when in chatgpt-login mode with auth
-  const showCodexModels = openaiAuthMode === 'chatgpt-login' && hasCodexAuth
-  const models = getModelsForProvider(settings.provider, showCodexModels)
+  const models = getModelsForProvider(settings.provider)
   const currentProviderConfig = PROVIDER_CONFIGS[settings.provider]
   const currentApiKey = settings.apiKeys[settings.provider] || ''
   const isOpenAICompatible = settings.provider === 'openai-compatible'
-  const isOpenAI = settings.provider === 'openai'
-
-  // Listen for auth completion from background
-  React.useEffect(() => {
-    const handleMessage = (message: { type: string; success?: boolean; error?: string }) => {
-      if (message.type === 'CODEX_AUTH_COMPLETE') {
-        setCodexLoading(false)
-        setCodexUserCode(null)
-        if (message.success) {
-          setCodexError(null)
-          onCodexAuthChange?.()
-        } else {
-          setCodexError(message.error || 'Authentication failed')
-        }
-      }
-    }
-
-    chrome.runtime.onMessage.addListener(handleMessage)
-    return () => chrome.runtime.onMessage.removeListener(handleMessage)
-  }, [onCodexAuthChange])
-
-  const handleCodexLogin = async () => {
-    setCodexLoading(true)
-    setCodexError(null)
-    setCodexUserCode(null)
-    try {
-      const response = await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_START })
-      if (!response.success) {
-        setCodexError(response.error || 'Login failed')
-        setCodexLoading(false)
-      } else if (response.userCode) {
-        // Device flow: show the user code
-        setCodexUserCode(response.userCode)
-        // Keep loading state until auth completes via message
-      }
-    } catch (err) {
-      setCodexError((err as Error).message)
-      setCodexLoading(false)
-    }
-  }
-
-  const handleCodexLogout = async () => {
-    setCodexLoading(true)
-    setCodexError(null)
-    setCodexUserCode(null)
-    try {
-      await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_LOGOUT })
-      onCodexAuthChange?.()
-    } catch (err) {
-      setCodexError((err as Error).message)
-    } finally {
-      setCodexLoading(false)
-    }
-  }
 
   return (
     <>
@@ -137,95 +59,6 @@ export const ProviderTab: FC<ProviderTabProps> = ({
         </select>
         <span className="help-text">{currentProviderConfig.description}</span>
       </div>
-
-      {/* OpenAI Auth Mode Toggle */}
-      {isOpenAI && (
-        <div className="form-group">
-          <label>Authentication Method</label>
-          <div className="auth-mode-toggle">
-            <button
-              type="button"
-              className={`auth-mode-btn ${openaiAuthMode === 'api-key' ? 'active' : ''}`}
-              onClick={() => setOpenaiAuthMode('api-key')}
-            >
-              <Key size={14} />
-              API Key
-            </button>
-            <button
-              type="button"
-              className={`auth-mode-btn ${openaiAuthMode === 'chatgpt-login' ? 'active' : ''}`}
-              onClick={() => setOpenaiAuthMode('chatgpt-login')}
-            >
-              <User size={14} />
-              ChatGPT Login
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ChatGPT Login section */}
-      {isOpenAI && openaiAuthMode === 'chatgpt-login' && (
-        <div className="form-group codex-auth-section">
-          {hasCodexAuth ? (
-            <div className="codex-logged-in">
-              <span className="codex-status">Logged in with ChatGPT</span>
-              <button
-                type="button"
-                className="button-secondary codex-logout-btn"
-                onClick={handleCodexLogout}
-                disabled={codexLoading}
-              >
-                {codexLoading ? (
-                  <Loader2 size={14} className="spinning" />
-                ) : (
-                  <LogOut size={14} />
-                )}
-                Logout
-              </button>
-            </div>
-          ) : codexUserCode ? (
-            <div className="codex-device-flow">
-              <div className="codex-user-code">
-                <span className="codex-code-label">Enter this code on OpenAI:</span>
-                <span className="codex-code">{codexUserCode}</span>
-              </div>
-              <div className="codex-waiting">
-                <Loader2 size={14} className="spinning" />
-                <span>Waiting for authorization...</span>
-              </div>
-              <button
-                type="button"
-                className="button-secondary"
-                onClick={async () => {
-                  await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_CANCEL })
-                  setCodexLoading(false)
-                  setCodexUserCode(null)
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="button-primary codex-login-btn"
-              onClick={handleCodexLogin}
-              disabled={codexLoading}
-            >
-              {codexLoading ? (
-                <Loader2 size={14} className="spinning" />
-              ) : (
-                <LogIn size={14} />
-              )}
-              Login with ChatGPT Pro/Plus
-            </button>
-          )}
-          {codexError && <span className="error-text">{codexError}</span>}
-          <span className="help-text">
-            Use your ChatGPT subscription. Unlocks Codex models.
-          </span>
-        </div>
-      )}
 
       <div className="form-group">
         <div className="label-row">
@@ -325,42 +158,55 @@ export const ProviderTab: FC<ProviderTabProps> = ({
         </>
       )}
 
-      {/* API Key - show for non-OpenAI providers, or OpenAI in api-key mode */}
-      {(!isOpenAI || openaiAuthMode === 'api-key') && (
-        <div className="form-group">
-          <label htmlFor="api-key">
-            API Key
-            {isOpenAICompatible && ' (optional)'}
-          </label>
-          <div className="input-with-button">
-            <input
-              id="api-key"
-              type={showApiKey ? 'text' : 'password'}
-              value={currentApiKey}
-              onChange={onApiKeyChange}
-              placeholder={currentProviderConfig.apiKeyPlaceholder}
-            />
-            <button
-              type="button"
-              className="input-icon-button"
-              onClick={onToggleShowApiKey}
-              aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
-            >
-              {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-          </div>
-          {currentProviderConfig.apiKeyUrl && (
-            <a
-              href={currentProviderConfig.apiKeyUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="help-link"
-            >
-              Get API key →
-            </a>
-          )}
+      <div className="form-group">
+        <label htmlFor="api-key">
+          API Key
+          {isOpenAICompatible && ' (optional)'}
+        </label>
+        <div className="input-with-button">
+          <input
+            id="api-key"
+            type={showApiKey ? 'text' : 'password'}
+            value={currentApiKey}
+            onChange={onApiKeyChange}
+            placeholder={currentProviderConfig.apiKeyPlaceholder}
+          />
+          <button
+            type="button"
+            className="input-icon-button"
+            onClick={onToggleShowApiKey}
+            aria-label={showApiKey ? 'Hide API key' : 'Show API key'}
+          >
+            {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
         </div>
-      )}
+        {currentProviderConfig.apiKeyUrl && (
+          <a
+            href={currentProviderConfig.apiKeyUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="help-link"
+          >
+            Get API key →
+          </a>
+        )}
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="post-tool-delay">Post-tool delay (seconds)</label>
+        <input
+          id="post-tool-delay"
+          type="number"
+          min="0"
+          max="5"
+          step="0.1"
+          value={settings.postToolDelay ?? 0.5}
+          onChange={onPostToolDelayChange}
+        />
+        <span className="help-text">
+          Delay after actions that change the page (clicks, navigation, form input). Set to 0 to disable.
+        </span>
+      </div>
     </>
   )
 }

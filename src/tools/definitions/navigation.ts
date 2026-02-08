@@ -3,18 +3,18 @@ import type { ToolDefinition } from './types'
 export const navigationTools: ToolDefinition[] = [
   {
     name: 'navigate',
-    description: 'Navigate to a URL or go back/forward in history.',
+    description: 'Navigate to a URL, or pass "back"/"forward" for history navigation. Refs become stale after navigation — re-read the page.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
         name: 'url',
         type: 'string',
-        description: 'URL to navigate to, or "back"/"forward" for history navigation',
+        description: 'URL to navigate to, or "back"/"forward"',
         required: true
       }
     ],
@@ -23,19 +23,19 @@ export const navigationTools: ToolDefinition[] = [
   },
   {
     name: 'tabs_context',
-    description: 'List all open browser tabs with their URLs and titles.',
+    description: 'List all open tabs in your group with their IDs, URLs, and titles.',
     parameters: [],
     enabled: true,
     category: 'navigation'
   },
   {
     name: 'tabs_create',
-    description: 'Create a new browser tab (opens in background).',
+    description: 'Create a new browser tab (opens in background). Returns the new tab ID.',
     parameters: [
       {
         name: 'url',
         type: 'string',
-        description: 'URL to open in the new tab',
+        description: 'URL to open',
         required: false
       }
     ],
@@ -49,19 +49,19 @@ export const navigationTools: ToolDefinition[] = [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
         name: 'width',
         type: 'number',
-        description: 'Window width in pixels',
+        description: 'Width in pixels',
         required: true
       },
       {
         name: 'height',
         type: 'number',
-        description: 'Window height in pixels',
+        description: 'Height in pixels',
         required: true
       }
     ],
@@ -70,7 +70,7 @@ export const navigationTools: ToolDefinition[] = [
   },
   {
     name: 'web_fetch',
-    description: 'Fetch content from a URL (useful for APIs or getting raw HTML).',
+    description: 'Fetch raw content from a URL. Use for APIs or when you need HTML/JSON rather than the rendered page.',
     parameters: [
       {
         name: 'url',

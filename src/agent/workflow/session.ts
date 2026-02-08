@@ -21,6 +21,7 @@ export function createSession(options: AgentOptions): AgentSession {
     activeSkill,
     availableSkills,
     mcpTools,
+    postToolDelay,
   } = options
 
   setCurrentTabId(tabId)
@@ -51,6 +52,7 @@ export function createSession(options: AgentOptions): AgentSession {
       tabId,
       groupId,
       toolExecutor,
+      postToolDelay,
     },
     abortSignal,
   }

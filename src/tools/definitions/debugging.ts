@@ -3,12 +3,12 @@ import type { ToolDefinition } from './types'
 export const debuggingTools: ToolDefinition[] = [
   {
     name: 'read_console_messages',
-    description: 'Read browser console messages (logs, errors, warnings).',
+    description: 'Read browser console output (logs, errors, warnings).',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
@@ -20,7 +20,7 @@ export const debuggingTools: ToolDefinition[] = [
       {
         name: 'limit',
         type: 'number',
-        description: 'Maximum number of messages',
+        description: 'Maximum messages to return',
         default: 100
       },
       {
@@ -41,12 +41,12 @@ export const debuggingTools: ToolDefinition[] = [
   },
   {
     name: 'read_network_requests',
-    description: 'Read HTTP network requests made by the page.',
+    description: 'Read HTTP requests made by the page.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
@@ -58,7 +58,7 @@ export const debuggingTools: ToolDefinition[] = [
       {
         name: 'limit',
         type: 'number',
-        description: 'Maximum number of requests',
+        description: 'Maximum requests to return',
         default: 100
       },
       {
@@ -73,18 +73,18 @@ export const debuggingTools: ToolDefinition[] = [
   },
   {
     name: 'javascript_tool',
-    description: 'Execute JavaScript code in the page context. Use with caution - prefer other tools when possible.',
+    description: 'Execute JavaScript in the page context. Use as a last resort when other tools can\'t achieve the task.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
         name: 'code',
         type: 'string',
-        description: 'JavaScript code to execute',
+        description: 'JavaScript code to execute in the page',
         required: true
       }
     ],

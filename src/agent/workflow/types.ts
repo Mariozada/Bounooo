@@ -93,6 +93,8 @@ export interface AgentConfig {
   tabId: number
   groupId?: number
   toolExecutor?: ToolExecutor
+  /** Delay in seconds after tools that cause page changes (default: 0.5) */
+  postToolDelay?: number
 }
 
 export interface AgentSession {
@@ -163,4 +165,7 @@ export interface AgentOptions {
 
   // MCP
   mcpTools?: ToolDefinition[]  // Tool definitions from MCP servers
+
+  /** Delay in seconds after tools that cause page changes (default: 0.5) */
+  postToolDelay?: number
 }

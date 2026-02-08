@@ -3,31 +3,31 @@ import type { ToolDefinition } from './types'
 export const readingTools: ToolDefinition[] = [
   {
     name: 'read_page',
-    description: 'Get the accessibility tree of the current page. Use this to understand the page structure and find element refs for interaction.',
+    description: 'Get the accessibility tree of the page. Returns element refs needed for interaction.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
         name: 'filter',
         type: 'string',
-        description: 'Filter elements: "all" for complete tree, "interactive" for clickable/input elements only',
+        description: '"all" for complete tree, "interactive" for clickable/input elements only',
         enum: ['all', 'interactive'],
         default: 'all'
       },
       {
         name: 'depth',
         type: 'number',
-        description: 'Maximum depth to traverse the DOM tree',
+        description: 'Maximum tree depth',
         default: 15
       },
       {
         name: 'ref_id',
         type: 'string',
-        description: 'Focus on a specific element by ref (e.g., "ref_1")',
+        description: 'Focus on a specific element subtree (e.g., "ref_1")',
         required: false
       }
     ],
@@ -36,12 +36,12 @@ export const readingTools: ToolDefinition[] = [
   },
   {
     name: 'get_page_text',
-    description: 'Extract raw text content from the page including title, URL, and body text.',
+    description: 'Extract raw text content from the page (title, URL, body text). Use when you need to read content rather than interact with elements.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       }
     ],
@@ -50,18 +50,18 @@ export const readingTools: ToolDefinition[] = [
   },
   {
     name: 'find',
-    description: 'Find elements on the page using natural language query. Returns matching elements with their refs.',
+    description: 'Find elements using natural language. Faster than read_page when you know what you\'re looking for.',
     parameters: [
       {
         name: 'tabId',
         type: 'number',
-        description: 'Target browser tab ID. Use the starting tabId unless you intentionally switch tabs.',
+        description: 'Target tab ID',
         required: true
       },
       {
         name: 'query',
         type: 'string',
-        description: 'Natural language search query (e.g., "login button", "email input field")',
+        description: 'Natural language query (e.g., "login button", "email input")',
         required: true
       }
     ],
@@ -70,7 +70,7 @@ export const readingTools: ToolDefinition[] = [
   },
   {
     name: 'read_result',
-    description: 'Read a stored large tool output with pagination and search. When a tool returns more than 25,000 characters, the output is stored and you receive a preview with a result_id. Use this tool to explore the full output.',
+    description: 'Paginate or search a stored large tool output. When outputs exceed 25k chars, they are stored with a result_id — use this to explore them.',
     parameters: [
       {
         name: 'result_id',
@@ -81,7 +81,7 @@ export const readingTools: ToolDefinition[] = [
       {
         name: 'offset',
         type: 'number',
-        description: 'Line number to start reading from (1-indexed)',
+        description: 'Starting line number (1-indexed)',
         default: 1
       },
       {
@@ -93,7 +93,7 @@ export const readingTools: ToolDefinition[] = [
       {
         name: 'pattern',
         type: 'string',
-        description: 'Regex pattern to filter lines. Returns only matching lines with their line numbers.',
+        description: 'Regex pattern to filter lines',
         required: false
       }
     ],
@@ -102,7 +102,7 @@ export const readingTools: ToolDefinition[] = [
   },
   {
     name: 'process_result',
-    description: 'Run JavaScript code on a stored large tool output. The stored output is available as the DATA variable (string). Use this to parse, filter, or transform large outputs.',
+    description: 'Run JavaScript on a stored large tool output. The output is available as the DATA variable (string).',
     parameters: [
       {
         name: 'result_id',
@@ -113,7 +113,7 @@ export const readingTools: ToolDefinition[] = [
       {
         name: 'code',
         type: 'string',
-        description: 'JavaScript code to execute. The stored output is available as DATA (string). Return a value.',
+        description: 'JavaScript code to execute. DATA contains the stored output. Return a value.',
         required: true
       }
     ],
