@@ -1,4 +1,4 @@
-import type { StepResult, ToolExecutionResult, AgentSession, Message } from './types'
+import type { StepResult, ToolExecutionResult, AgentSession, Message, ContentPart } from './types'
 import type { TabInfo } from '@shared/types'
 import { formatToolResults } from '../xmlParser'
 import { appendAssistantMessage, appendUserMessage } from './session'
@@ -24,10 +24,41 @@ export function buildAssistantResponse(stepResult: StepResult): string {
   return response
 }
 
-export function buildToolResultsMessage(toolResults: ToolExecutionResult[]): string {
-  return formatToolResults(
+/** Extract screenshot dataUrls from tool results and strip them from the result objects. */
+function extractScreenshots(toolResults: ToolExecutionResult[]): string[] {
+  const images: string[] = []
+
+  for (const tr of toolResults) {
+    const result = tr.result as Record<string, unknown> | null
+    if (result && typeof result === 'object' && typeof result.dataUrl === 'string') {
+      const dataUrl = result.dataUrl as string
+      if (dataUrl.startsWith('data:image/')) {
+        images.push(dataUrl)
+        // Remove dataUrl from result so it's not sent as base64 text
+        delete result.dataUrl
+      }
+    }
+  }
+
+  return images
+}
+
+export function buildToolResultsMessage(toolResults: ToolExecutionResult[]): string | ContentPart[] {
+  const images = extractScreenshots(toolResults)
+
+  const text = formatToolResults(
     toolResults.map(tr => ({ name: tr.toolCall.name, result: tr.result }))
   )
+
+  if (images.length === 0) {
+    return text
+  }
+
+  const parts: ContentPart[] = [{ type: 'text', text }]
+  for (const dataUrl of images) {
+    parts.push({ type: 'image', image: dataUrl, mediaType: 'image/png' })
+  }
+  return parts
 }
 
 function renderTabsList(tabs: TabInfo[], currentTabId: number): string {

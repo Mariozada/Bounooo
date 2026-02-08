@@ -7,6 +7,7 @@ import {
   clearTabData,
 } from '@tools/index'
 import { MessageTypes } from '@shared/messages'
+import { captureTabScreenshot } from '@shared/screenshot'
 import { tabGroups } from './tabGroups'
 import { syncAlarms, shortcutIdFromAlarm } from './scheduler'
 import { runShortcut } from './shortcutRunner'
@@ -206,17 +207,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { tabId } = message as { tabId: number }
     console.log('[Bouno:background] TAKE_SCREENSHOT received, tabId:', tabId)
 
-    chrome.tabs.get(tabId).then(async (tab) => {
-      try {
-        const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
-        console.log('[Bouno:background] Screenshot captured, length:', dataUrl.length)
-        sendResponse({ success: true, dataUrl })
-      } catch (err) {
-        console.error('[Bouno:background] Screenshot error:', err)
-        sendResponse({ success: false, error: (err as Error).message })
-      }
+    captureTabScreenshot(tabId).then((dataUrl) => {
+      console.log('[Bouno:background] Screenshot captured, length:', dataUrl.length)
+      sendResponse({ success: true, dataUrl })
     }).catch((err) => {
-      console.error('[Bouno:background] Tab get error:', err)
+      console.error('[Bouno:background] Screenshot error:', err)
       sendResponse({ success: false, error: (err as Error).message })
     })
     return true

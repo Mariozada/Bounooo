@@ -2,6 +2,7 @@ import { registerTool } from '../registry'
 import { MessageTypes } from '@shared/messages'
 import type { Screenshot } from '@shared/types'
 import { MAX_SCREENSHOTS } from '@shared/constants'
+import { captureTabScreenshot } from '@shared/screenshot'
 
 const screenshotStore = new Map<string, Screenshot>()
 let screenshotCounter = 0
@@ -103,7 +104,8 @@ async function takeScreenshot(tabId: number): Promise<{
   if (isRestrictedPageUrl(tab.url)) {
     throw new Error(restrictedPageError(tab.url))
   }
-  const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+
+  const dataUrl = await captureTabScreenshot(tabId)
 
   const imageId = `screenshot_${++screenshotCounter}_${Date.now()}`
 

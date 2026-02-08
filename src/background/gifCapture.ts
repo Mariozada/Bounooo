@@ -1,5 +1,6 @@
 import { addFrame, isGifRecordingActive } from '@tools/index'
 import type { GifFrameMetadata } from '@shared/types'
+import { captureTabScreenshot } from '@shared/screenshot'
 
 function asNumberPair(value: unknown): [number, number] | undefined {
   if (!Array.isArray(value) || value.length !== 2) return undefined
@@ -82,8 +83,7 @@ export async function autoCaptureGifFrame(
   if (!tabId) return
 
   try {
-    const tab = await chrome.tabs.get(tabId)
-    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' })
+    const dataUrl = await captureTabScreenshot(tabId)
     addFrame(tabId, dataUrl, buildGifFrameMetadata(tool, params))
   } catch (err) {
     console.warn('[Bouno:background] Auto GIF frame capture failed:', err)
