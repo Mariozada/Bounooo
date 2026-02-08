@@ -35,6 +35,7 @@ export interface ProviderSettings {
   customModelSettings?: CustomModelSettings
   customModelSettingsPerProvider?: Partial<Record<ProviderType, CustomModelSettings>>  // Per provider
   reasoningEnabled?: boolean
+  geminiThinkingLevel?: 'minimal' | 'low' | 'medium' | 'high'
   postToolDelay?: number
   codexAuth?: CodexAuth
   geminiAuth?: GeminiAuth

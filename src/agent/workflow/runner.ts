@@ -45,10 +45,11 @@ interface ExecuteStepOptions {
   modelName?: string
   provider?: string
   reasoningEnabled?: boolean
+  geminiThinkingLevel?: 'minimal' | 'low' | 'medium' | 'high'
 }
 
 async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinue: boolean; text: string; toolCalls: ToolCallInfo[]; reasoning?: string }> {
-  const { session, stepNumber, callbacks, tracingContext, modelName, provider, reasoningEnabled } = options
+  const { session, stepNumber, callbacks, tracingContext, modelName, provider, reasoningEnabled, geminiThinkingLevel } = options
 
   log(`=== Step ${stepNumber} ===`)
   callbacks?.onStepStart?.(stepNumber)
@@ -83,6 +84,7 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
     reasoningEnabled,
     provider,
     modelId: modelName,
+    geminiThinkingLevel,
   })
 
   log('Step streamed:', {
@@ -129,7 +131,7 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
 }
 
 export async function runWorkflow(options: AgentOptions): Promise<AgentResult> {
-  const { callbacks, tracing, modelName, provider, reasoningEnabled } = options
+  const { callbacks, tracing, modelName, provider, reasoningEnabled, geminiThinkingLevel } = options
   const session = createSession(options)
   clearOutputs()
 
@@ -177,6 +179,7 @@ export async function runWorkflow(options: AgentOptions): Promise<AgentResult> {
         modelName,
         provider,
         reasoningEnabled,
+        geminiThinkingLevel,
       })
 
       finalText += result.text

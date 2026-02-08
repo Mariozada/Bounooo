@@ -442,6 +442,7 @@ export function useWorkflowStream({
         modelName: settings.model,
         provider: settings.provider,
         reasoningEnabled: effectiveReasoningEnabled,
+        geminiThinkingLevel: settings.geminiThinkingLevel,
         // Pass skill options to workflow
         activeSkill: skillOptions?.activeSkill,
         availableSkills: skillOptions?.availableSkills,

@@ -122,6 +122,13 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     }))
   }, [])
 
+  const handleGeminiThinkingLevelChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
+    setLocalSettings((prev) => ({
+      ...prev,
+      geminiThinkingLevel: e.target.value as ProviderSettings['geminiThinkingLevel'],
+    }))
+  }, [])
+
   const handleTracingUpdate = useCallback((updates: Partial<ProviderSettings>) => {
     setLocalSettings((prev) => ({ ...prev, ...updates }))
   }, [])
@@ -174,6 +181,7 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     handleCustomNameChange,
     handleCustomVisionChange,
     handleCustomReasoningChange,
+    handleGeminiThinkingLevelChange,
     handleTracingUpdate,
     handleCodexAuthChange,
     handleGeminiAuthChange,

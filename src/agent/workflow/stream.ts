@@ -76,6 +76,7 @@ export interface StreamCallbacks {
   reasoningEnabled?: boolean
   provider?: string
   modelId?: string
+  geminiThinkingLevel?: 'minimal' | 'low' | 'medium' | 'high'
 }
 
 function isOpenAIReasoningModel(modelId?: string): boolean {
@@ -97,7 +98,12 @@ function isGoogleModel(modelId?: string): boolean {
   return modelId.toLowerCase().includes('gemini')
 }
 
-function getProviderOptions(provider?: string, reasoningEnabled?: boolean, modelId?: string): Record<string, unknown> | undefined {
+function isGemini3Model(modelId?: string): boolean {
+  if (!modelId) return false
+  return modelId.toLowerCase().includes('gemini-3')
+}
+
+function getProviderOptions(provider?: string, reasoningEnabled?: boolean, modelId?: string, geminiThinkingLevel?: 'minimal' | 'low' | 'medium' | 'high'): Record<string, unknown> | undefined {
   if (!reasoningEnabled) return undefined
 
   // Direct Anthropic provider
@@ -112,12 +118,13 @@ function getProviderOptions(provider?: string, reasoningEnabled?: boolean, model
     }
   }
 
-  // Direct Google provider - just enable thought streaming, use model's default thinking level
+  // Direct Google provider
   if (provider === 'google') {
     return {
       google: {
         thinkingConfig: {
           includeThoughts: true,
+          ...(isGemini3Model(modelId) && geminiThinkingLevel && { thinkingLevel: geminiThinkingLevel }),
         },
       },
     }
@@ -158,6 +165,7 @@ function getProviderOptions(provider?: string, reasoningEnabled?: boolean, model
         google: {
           thinkingConfig: {
             includeThoughts: true,
+            ...(isGemini3Model(modelId) && geminiThinkingLevel && { thinkingLevel: geminiThinkingLevel }),
           },
         },
       }
@@ -227,7 +235,7 @@ export async function streamLLMResponse(
 
   try {
     // Build provider options, including debug middleware request ID
-    const baseProviderOptions = getProviderOptions(callbacks?.provider, callbacks?.reasoningEnabled, callbacks?.modelId) || {}
+    const baseProviderOptions = getProviderOptions(callbacks?.provider, callbacks?.reasoningEnabled, callbacks?.modelId, callbacks?.geminiThinkingLevel) || {}
     const providerOptions = {
       ...baseProviderOptions,
       // Pass request ID to debug middleware for correlation

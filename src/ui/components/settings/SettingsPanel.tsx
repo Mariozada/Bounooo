@@ -44,6 +44,7 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
     handleCustomNameChange,
     handleCustomVisionChange,
     handleCustomReasoningChange,
+    handleGeminiThinkingLevelChange,
     handleTracingUpdate,
     handleCodexAuthChange,
     handleGeminiAuthChange,
@@ -180,6 +181,7 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
                   onCustomNameChange={handleCustomNameChange}
                   onCustomVisionChange={handleCustomVisionChange}
                   onCustomReasoningChange={handleCustomReasoningChange}
+                  onGeminiThinkingLevelChange={handleGeminiThinkingLevelChange}
                   onToggleShowApiKey={() => setShowApiKey(!showApiKey)}
                   onCodexAuthChange={handleCodexAuthChange}
                   onGeminiAuthChange={handleGeminiAuthChange}

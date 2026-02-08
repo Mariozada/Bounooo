@@ -21,6 +21,7 @@ interface ProviderTabProps {
   onCustomNameChange: (e: ChangeEvent<HTMLInputElement>) => void
   onCustomVisionChange: (e: ChangeEvent<HTMLInputElement>) => void
   onCustomReasoningChange: (e: ChangeEvent<HTMLInputElement>) => void
+  onGeminiThinkingLevelChange: (e: ChangeEvent<HTMLSelectElement>) => void
   onToggleShowApiKey: () => void
   onCodexAuthChange?: () => void  // Callback to refresh settings after auth change
   onGeminiAuthChange?: () => void  // Callback to refresh settings after Gemini auth change
@@ -39,6 +40,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   onCustomNameChange,
   onCustomVisionChange,
   onCustomReasoningChange,
+  onGeminiThinkingLevelChange,
   onToggleShowApiKey,
   onCodexAuthChange,
   onGeminiAuthChange,
@@ -84,6 +86,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   const isOpenAICompatible = settings.provider === 'openai-compatible'
   const isOpenAI = settings.provider === 'openai'
   const isGoogle = settings.provider === 'google'
+  const isGemini3 = isGoogle && settings.model.includes('gemini-3')
 
   // Listen for auth completion from background
   React.useEffect(() => {
@@ -420,6 +423,23 @@ export const ProviderTab: FC<ProviderTabProps> = ({
           </div>
         )}
       </div>
+
+      {isGemini3 && (
+        <div className="form-group">
+          <label htmlFor="gemini-thinking-level">Thinking Level</label>
+          <select
+            id="gemini-thinking-level"
+            value={settings.geminiThinkingLevel || 'medium'}
+            onChange={onGeminiThinkingLevelChange}
+          >
+            <option value="minimal">Minimal</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+          <span className="help-text">Controls how much the model thinks before responding</span>
+        </div>
+      )}
 
       {isOpenAICompatible && (
         <>

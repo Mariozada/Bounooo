@@ -156,6 +156,7 @@ export interface AgentOptions {
   modelName?: string  // For tracing - extracted from model
   provider?: string   // For tracing
   reasoningEnabled?: boolean  // Enable streaming reasoning/thinking
+  geminiThinkingLevel?: 'minimal' | 'low' | 'medium' | 'high'
   toolExecutor?: ToolExecutor  // Direct executor for background runs
 
   // Skills
