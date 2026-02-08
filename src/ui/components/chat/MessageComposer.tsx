@@ -191,6 +191,16 @@ export const MessageComposer: FC<MessageComposerProps> = ({
             <div className="aui-composer-stream-actions">
               <button
                 type="button"
+                className="aui-composer-send"
+                onClick={onQueueAfterToolResult}
+                disabled={!canQueue}
+                aria-label="Queue after next tool result"
+                title="Queue after next tool result (Enter)"
+              >
+                <ArrowUp size={16} />
+              </button>
+              <button
+                type="button"
                 className="aui-composer-cancel"
                 onClick={(e) => {
                   e.stopPropagation()
