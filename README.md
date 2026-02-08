@@ -1,6 +1,6 @@
 # Bouno
 
-Browser automation Chrome extension. Control web pages using natural language through multiple LLM providers.
+Open-source browser automation Chrome extension. Control web pages using natural language through multiple LLM providers — bring your own API key or sign in with OAuth.
 
 [**Download Latest Release**](https://github.com/Mariozada/Bouno/releases/latest/download/bouno.zip)
 
@@ -15,13 +15,15 @@ https://github.com/user-attachments/assets/1d5c45dd-f63b-49b4-a938-1865869e6d7b
 ## Features
 
 - **Natural Language Control** — tell it what to do in plain English, it clicks, types, scrolls, and navigates for you
-- **Multi-Provider Support** — Anthropic, OpenAI, Google, Groq, OpenRouter, and OpenAI-compatible endpoints (Ollama, LM Studio)
+- **Multi-Provider Support** — Anthropic, OpenAI, Google, Groq, OpenRouter, and OpenAI-compatible endpoints (Ollama, LM Studio). OAuth sign-in available for OpenAI and Google
 - **Side Panel UI** — stays open alongside any webpage
 - **Tab Group Isolation** — each session is scoped to its own tab group
 - **Conversation Branching** — edit messages and explore different response paths
 - **Scheduled Tasks** — set up recurring automations
 - **Screenshots & GIFs** — capture what's happening on screen
 - **Chat Persistence** — conversations saved locally in IndexedDB
+- **MCP Support** — connect external tools via the Model Context Protocol
+- **Custom Skills** — create reusable automations you can invoke by name
 - **Privacy First** — no backend, no data collection, API calls go directly to your provider
 
 ## Install
