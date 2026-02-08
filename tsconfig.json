@@ -32,7 +32,8 @@
       "@prompts/*": ["src/prompts/*"],
       "@storage/*": ["src/storage/*"],
       "@skills/*": ["src/skills/*"],
-      "@mcp/*": ["src/mcp/*"]
+      "@mcp/*": ["src/mcp/*"],
+      "@auth/*": ["src/auth/*"]
     }
   },
   "include": ["src", "vite.config.ts"]

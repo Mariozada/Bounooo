@@ -12,6 +12,7 @@ import { syncAlarms, shortcutIdFromAlarm } from './scheduler'
 import { runShortcut } from './shortcutRunner'
 import { switchGlowToTab, hideAllGlowsWithMinimum, cleanupGlowForTab } from './glow'
 import { autoCaptureGifFrame } from './gifCapture'
+import { startCodexOAuth, logoutCodex, cancelCodexOAuth } from './codexOAuth'
 
 registerAllHandlers()
 
@@ -231,6 +232,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (type === MessageTypes.STOP_AGENT) {
     // Re-broadcast to all extension pages (side panel will pick it up)
     chrome.runtime.sendMessage({ type: MessageTypes.STOP_AGENT }).catch(() => {})
+    sendResponse({ success: true })
+    return true
+  }
+
+  if (type === MessageTypes.CODEX_OAUTH_START) {
+    startCodexOAuth()
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
+    return true
+  }
+
+  if (type === MessageTypes.CODEX_OAUTH_LOGOUT) {
+    logoutCodex()
+      .then((result) => sendResponse(result))
+      .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
+    return true
+  }
+
+  if (type === MessageTypes.CODEX_OAUTH_CANCEL) {
+    cancelCodexOAuth()
     sendResponse({ success: true })
     return true
   }

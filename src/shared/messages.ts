@@ -23,6 +23,11 @@ export const MessageTypes = {
   SYNC_SHORTCUT_ALARMS: 'SYNC_SHORTCUT_ALARMS',
   RUN_SHORTCUT_NOW: 'RUN_SHORTCUT_NOW',
   STOP_AGENT: 'STOP_AGENT',
+
+  // Codex OAuth messages
+  CODEX_OAUTH_START: 'CODEX_OAUTH_START',
+  CODEX_OAUTH_LOGOUT: 'CODEX_OAUTH_LOGOUT',
+  CODEX_OAUTH_CANCEL: 'CODEX_OAUTH_CANCEL',
 } as const
 
 export type MessageType = typeof MessageTypes[keyof typeof MessageTypes]

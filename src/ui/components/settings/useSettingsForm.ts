@@ -1,5 +1,6 @@
 import { useState, useCallback, type ChangeEvent } from 'react'
 import type { ProviderSettings, ProviderType } from '@shared/settings'
+import { loadSettings } from '@shared/settings'
 import { getModelsForProvider, getDefaultModelForProvider } from '@agent/index'
 
 export function useSettingsForm(initialSettings: ProviderSettings) {
@@ -125,6 +126,15 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     setLocalSettings((prev) => ({ ...prev, ...updates }))
   }, [])
 
+  const handleCodexAuthChange = useCallback(async () => {
+    // Reload settings to get updated Codex auth status
+    const newSettings = await loadSettings()
+    setLocalSettings((prev) => ({
+      ...prev,
+      codexAuth: newSettings.codexAuth,
+    }))
+  }, [])
+
   const getSettingsToSave = useCallback((): ProviderSettings => {
     return {
       ...localSettings,
@@ -156,6 +166,7 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     handleCustomVisionChange,
     handleCustomReasoningChange,
     handleTracingUpdate,
+    handleCodexAuthChange,
     getSettingsToSave,
   }
 }

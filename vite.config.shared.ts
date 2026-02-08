@@ -21,6 +21,7 @@ export const aliases = {
   '@storage': resolve(__dirname, 'src/storage'),
   '@skills': resolve(__dirname, 'src/skills'),
   '@mcp': resolve(__dirname, 'src/mcp'),
+  '@auth': resolve(__dirname, 'src/auth'),
 }
 
 /**

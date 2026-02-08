@@ -7,6 +7,7 @@ export interface ModelConfig {
   recommended?: boolean
   contextLength?: number
   reasoning?: 'none' | 'hybrid' | 'always'
+  codexOnly?: boolean  // Only available with Codex OAuth
 }
 
 export interface ProviderConfig {
@@ -44,6 +45,13 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
       { id: 'o3', name: 'o3', vision: true, reasoning: 'hybrid' },
       { id: 'o3-mini', name: 'o3 Mini', vision: false, reasoning: 'hybrid' },
       { id: 'o4-mini', name: 'o4 Mini', vision: true, reasoning: 'hybrid' },
+      // Codex models (ChatGPT Pro/Plus subscription required)
+      { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex', vision: true, reasoning: 'hybrid', codexOnly: true, recommended: true },
+      { id: 'gpt-5.2-codex', name: 'GPT-5.2 Codex', vision: true, reasoning: 'hybrid', codexOnly: true },
+      { id: 'gpt-5.2', name: 'GPT-5.2', vision: true, reasoning: 'hybrid', codexOnly: true },
+      { id: 'gpt-5.1-codex-max', name: 'GPT-5.1 Codex Max', vision: true, reasoning: 'hybrid', codexOnly: true },
+      { id: 'gpt-5.1-codex', name: 'GPT-5.1 Codex', vision: true, codexOnly: true },
+      { id: 'gpt-5.1-codex-mini', name: 'GPT-5.1 Codex Mini', vision: true, codexOnly: true },
     ],
   },
   google: {
@@ -114,8 +122,15 @@ export const PROVIDER_CONFIGS: Record<ProviderType, ProviderConfig> = {
   },
 }
 
-export function getModelsForProvider(provider: ProviderType): ModelConfig[] {
-  return PROVIDER_CONFIGS[provider]?.models || []
+export function getModelsForProvider(provider: ProviderType, hasCodexAuth?: boolean): ModelConfig[] {
+  const models = PROVIDER_CONFIGS[provider]?.models || []
+
+  // Filter Codex-only models if not authenticated with Codex
+  if (provider === 'openai' && !hasCodexAuth) {
+    return models.filter((m) => !m.codexOnly)
+  }
+
+  return models
 }
 
 export function getDefaultModelForProvider(provider: ProviderType): string {
