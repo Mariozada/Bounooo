@@ -192,6 +192,7 @@ function renderBestPractices(vision?: boolean): string {
     '- **Dynamic content**: If an element isn\'t found, the page might still be loading. Use `computer` with `action: "wait"` or re-read the page.',
     '- **Stale refs**: After navigation or major page changes, old refs are invalid. Always re-read the page to get fresh refs.',
     '- **Error recovery**: If an action fails, re-read the page to understand the current state before retrying. Don\'t retry the same action blindly.',
+    '- **Tab management**: Favor using the current tab. For multi-site workflows (comparing, copying between pages), use the current tab for the first site and open new tabs for additional ones. If it\'s ambiguous whether to open a new tab or navigate the current one, ask the user.',
     '- **New tabs**: After `tabs_create`, wait for its result to get the new tab ID before using it. Never assume a tab ID — always use the one returned by the tool.',
   ]
 

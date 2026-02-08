@@ -32,10 +32,6 @@ async function tabsContext(params: { groupId?: number }): Promise<{ tabs: TabInf
       id: tab.id!,
       title: tab.title || '',
       url: tab.url || '',
-      active: tab.active,
-      windowId: tab.windowId,
-      index: tab.index,
-      pinned: tab.pinned,
       audible: tab.audible
     }))
   }
@@ -62,8 +58,6 @@ async function tabsCreate(params: { url?: string; groupId?: number }): Promise<T
     id: loaded.id!,
     title: loaded.title || '',
     url: loaded.url || '',
-    active: loaded.active,
-    windowId: loaded.windowId
   }
 }
 

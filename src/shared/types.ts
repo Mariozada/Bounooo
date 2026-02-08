@@ -59,10 +59,6 @@ export interface TabInfo {
   id: number
   title: string
   url: string
-  active: boolean
-  windowId: number
-  index?: number
-  pinned?: boolean
   audible?: boolean
 }
 
