@@ -41,6 +41,7 @@ export {
   GOOGLE_AUTH_URL,
   GOOGLE_TOKEN_URL,
   GEMINI_SCOPES,
+  GEMINI_OAUTH_API_BASE,
   // PKCE functions
   generateGeminiPKCE,
   generateGeminiState,
@@ -49,6 +50,7 @@ export {
   exchangeGeminiCodeForTokens,
   refreshGeminiAccessToken,
   getGeminiUserInfo,
+  resolveManagedProject,
   // Auth helpers
   isGeminiTokenExpired,
   createGeminiAuth,

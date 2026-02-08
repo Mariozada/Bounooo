@@ -19,7 +19,23 @@ export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 export const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo'
 
-// Scopes required for Gemini API access
+// Gemini API endpoint that accepts OAuth (Cloud Code Assist endpoint)
+export const GEMINI_OAUTH_API_BASE = 'https://cloudcode-pa.googleapis.com'
+
+// Code Assist API for managed project resolution
+const CODE_ASSIST_URL = 'https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist'
+
+// Headers required by Code Assist API (from opencode-gemini-auth)
+const CODE_ASSIST_HEADERS = {
+  'User-Agent': 'google-api-nodejs-client/9.15.1',
+  'X-Goog-Api-Client': 'gl-node/22.17.0',
+  'Client-Metadata': 'ideType=IDE_UNSPECIFIED,platform=PLATFORM_UNSPECIFIED,pluginType=GEMINI',
+}
+
+// Default location for Gemini API
+const DEFAULT_LOCATION = 'us-central1'
+
+// Scopes required for Gemini API access via cloudcode-pa endpoint
 export const GEMINI_SCOPES = [
   'https://www.googleapis.com/auth/cloud-platform',
   'https://www.googleapis.com/auth/userinfo.email',
@@ -136,6 +152,151 @@ export async function refreshGeminiAccessToken(refreshToken: string): Promise<Ge
 }
 
 /**
+ * Load Code Assist to get managed project
+ * This is how opencode-gemini-auth resolves the project
+ */
+async function loadCodeAssist(accessToken: string, existingProjectId?: string): Promise<{ cloudaicompanionProject?: string }> {
+  const body: Record<string, unknown> = {
+    metadata: {
+      ideType: 'IDE_UNSPECIFIED',
+      platform: 'PLATFORM_UNSPECIFIED',
+      pluginType: 'GEMINI',
+    },
+  }
+
+  if (existingProjectId) {
+    body.cloudaicompanionProject = existingProjectId
+  }
+
+  const response = await fetch(CODE_ASSIST_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      ...CODE_ASSIST_HEADERS,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    console.error('[Gemini] loadCodeAssist failed:', response.status, text)
+    throw new Error(`loadCodeAssist failed: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Normalize project ID from response
+ */
+function normalizeProjectId(projectId: string | undefined): string | undefined {
+  if (!projectId) return undefined
+  // Handle formats like "projects/123456" -> "123456"
+  if (projectId.startsWith('projects/')) {
+    return projectId.replace('projects/', '')
+  }
+  return projectId
+}
+
+/**
+ * Onboard user to get a managed project (for free tier)
+ */
+async function onboardUser(accessToken: string, maxAttempts = 10, delayMs = 5000): Promise<string> {
+  console.log('[Gemini] Starting user onboarding...')
+
+  const onboardUrl = `${GEMINI_OAUTH_API_BASE}/v1internal:onboardUser`
+
+  const body = {
+    tierId: 'free-tier',
+    metadata: {
+      ideType: 'IDE_UNSPECIFIED',
+      platform: 'PLATFORM_UNSPECIFIED',
+      pluginType: 'GEMINI',
+    },
+  }
+
+  const response = await fetch(onboardUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      ...CODE_ASSIST_HEADERS,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const text = await response.text()
+    console.error('[Gemini] onboardUser failed:', response.status, text)
+    throw new Error(`Onboarding failed: ${response.status}`)
+  }
+
+  const operation = await response.json()
+  console.log('[Gemini] Onboard operation started:', operation)
+
+  // Poll for operation completion
+  if (operation.name) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, delayMs))
+
+      const pollUrl = `${GEMINI_OAUTH_API_BASE}/v1internal/${operation.name}`
+      const pollResponse = await fetch(pollUrl, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          ...CODE_ASSIST_HEADERS,
+        },
+      })
+
+      if (pollResponse.ok) {
+        const pollResult = await pollResponse.json()
+        console.log('[Gemini] Poll result:', pollResult)
+
+        if (pollResult.done) {
+          const projectId = normalizeProjectId(
+            pollResult.response?.cloudaicompanionProject ||
+            pollResult.cloudaicompanionProject
+          )
+          if (projectId) {
+            console.log('[Gemini] Onboarding complete, project:', projectId)
+            return projectId
+          }
+        }
+      }
+
+      console.log('[Gemini] Onboarding in progress, attempt', attempt + 1)
+    }
+  }
+
+  throw new Error('Onboarding timed out')
+}
+
+/**
+ * Resolve or auto-provision a managed Google Cloud project for Gemini API access
+ * This is the same API that opencode-gemini-auth uses
+ */
+export async function resolveManagedProject(accessToken: string): Promise<string> {
+  console.log('[Gemini] Resolving managed project via Code Assist API...')
+
+  // First call to loadCodeAssist to get current state
+  const result = await loadCodeAssist(accessToken)
+  console.log('[Gemini] loadCodeAssist response:', result)
+
+  let projectId = normalizeProjectId(result.cloudaicompanionProject)
+
+  if (projectId) {
+    console.log('[Gemini] Got project ID from initial load:', projectId)
+    return projectId
+  }
+
+  // No project yet - need to onboard
+  console.log('[Gemini] No project ID, starting onboarding...')
+  projectId = await onboardUser(accessToken)
+
+  return projectId
+}
+
+/**
  * Get user info (email) from Google
  */
 export async function getGeminiUserInfo(accessToken: string): Promise<{ email?: string }> {
@@ -165,19 +326,24 @@ export function isGeminiTokenExpired(auth: GeminiAuth): boolean {
 /**
  * Create GeminiAuth object from token response
  */
-export function createGeminiAuth(tokens: GeminiTokenResponse, email?: string): GeminiAuth {
+export function createGeminiAuth(tokens: GeminiTokenResponse, email?: string, projectId?: string): GeminiAuth {
   return {
     type: 'gemini-oauth',
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     expiresAt: Date.now() + (tokens.expires_in ?? 3600) * 1000,
     email,
+    projectId,
   }
 }
 
 /**
  * Create custom fetch function for Gemini API
- * Handles OAuth headers and token refresh
+ * Handles OAuth headers, URL rewriting, and token refresh
+ *
+ * Transforms requests to use Vertex AI-style paths with cloudcode-pa.googleapis.com
+ * Example: /v1beta/models/gemini-2.5-pro:streamGenerateContent
+ *       -> /v1/projects/{project}/locations/us-central1/publishers/google/models/gemini-2.5-pro:streamGenerateContent
  */
 export function createGeminiFetch(
   getAuth: () => Promise<GeminiAuth | undefined>,
@@ -208,22 +374,67 @@ export function createGeminiFetch(
       }
     }
 
+    // Resolve project if not already done
+    if (!auth.projectId) {
+      console.log('[Gemini:Fetch] No project ID, resolving managed project...')
+      try {
+        const projectId = await resolveManagedProject(auth.accessToken)
+        auth = { ...auth, projectId }
+        await refreshAuth(auth)
+      } catch (error) {
+        console.error('[Gemini:Fetch] Failed to resolve project:', error)
+        throw new Error('Failed to set up Gemini project. Please try logging in again.')
+      }
+    }
+
     // Build headers
     const headers = new Headers(init?.headers)
 
-    // Remove any existing authorization (we'll set our own)
+    // Remove any existing authorization/API keys (we'll set our own)
     headers.delete('authorization')
     headers.delete('Authorization')
     headers.delete('x-goog-api-key')
+    headers.delete('x-api-key')
 
-    // Set Google authorization
+    // Set OAuth authorization
     headers.set('Authorization', `Bearer ${auth.accessToken}`)
 
-    // Set Google API client header
-    headers.set('x-goog-api-client', 'bouno/1.0')
+    // Set headers similar to opencode-gemini-auth
+    headers.set('x-goog-api-client', 'genai-js/0.9.0 gl-node/22.0.0')
+    headers.set('User-Agent', 'Bouno/1.0')
 
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
-    console.log('[Gemini:Fetch] Making request to:', url)
+    // Get and transform URL
+    let url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+
+    // Parse URL to manipulate it
+    const parsedUrl = new URL(url)
+
+    // Remove the API key query parameter that @ai-sdk/google adds
+    parsedUrl.searchParams.delete('key')
+
+    // Transform generativelanguage.googleapis.com to Vertex AI-style path on cloudcode-pa
+    if (parsedUrl.hostname === 'generativelanguage.googleapis.com') {
+      // Extract model and action from path like /v1beta/models/gemini-2.5-pro:streamGenerateContent
+      const pathMatch = parsedUrl.pathname.match(/\/v\d+(?:beta)?\/models\/([^:]+):?(.*)/)
+
+      if (pathMatch) {
+        const [, model, action] = pathMatch
+        // Build Vertex AI-style path
+        const vertexPath = `/v1/projects/${auth.projectId}/locations/${DEFAULT_LOCATION}/publishers/google/models/${model}${action ? ':' + action : ''}`
+
+        parsedUrl.hostname = 'cloudcode-pa.googleapis.com'
+        parsedUrl.pathname = vertexPath
+
+        console.log('[Gemini:Fetch] Transformed to Vertex AI path:', parsedUrl.pathname)
+      } else {
+        // Fallback: just change hostname
+        parsedUrl.hostname = 'cloudcode-pa.googleapis.com'
+        console.log('[Gemini:Fetch] Changed hostname only (no path match)')
+      }
+    }
+
+    url = parsedUrl.toString()
+    console.log('[Gemini:Fetch] Final URL:', url)
 
     const response = await fetch(url, {
       ...init,

@@ -1,6 +1,8 @@
 /**
  * Gemini OAuth background handlers
- * Uses Authorization Code flow with PKCE via chrome.identity API
+ * Uses Authorization Code flow with PKCE
+ *
+ * Opens Google OAuth in a new tab and captures the redirect.
  */
 
 import {
@@ -10,8 +12,9 @@ import {
   exchangeGeminiCodeForTokens,
   getGeminiUserInfo,
   createGeminiAuth,
+  resolveManagedProject,
 } from '@auth/gemini'
-import type { GeminiAuth } from '@auth/types'
+import type { GeminiAuth, PkceCodes } from '@auth/types'
 import { loadSettings, saveSettings } from '@shared/settings'
 
 const DEBUG = true
@@ -23,8 +26,18 @@ export interface GeminiOAuthResult {
   error?: string
 }
 
+// Redirect URI - we'll intercept navigation to this
+const REDIRECT_URI = 'http://127.0.0.1/oauth2callback'
+
+// Store pending OAuth state
+let pendingOAuth: {
+  pkce: PkceCodes
+  state: string
+  tabId: number
+} | null = null
+
 /**
- * Start Gemini OAuth flow using chrome.identity.launchWebAuthFlow
+ * Start Gemini OAuth flow - opens in a new tab
  */
 export async function startGeminiOAuth(): Promise<GeminiOAuthResult> {
   log('Starting Gemini OAuth flow...')
@@ -34,23 +47,68 @@ export async function startGeminiOAuth(): Promise<GeminiOAuthResult> {
     const pkce = await generateGeminiPKCE()
     const state = generateGeminiState()
 
-    // Get redirect URL from Chrome identity API
-    const redirectUri = chrome.identity.getRedirectURL('gemini')
-    log('Redirect URI:', redirectUri)
+    log('Redirect URI:', REDIRECT_URI)
 
     // Build authorization URL
-    const authUrl = buildGeminiAuthUrl(redirectUri, pkce, state)
+    const authUrl = buildGeminiAuthUrl(REDIRECT_URI, pkce, state)
     log('Auth URL:', authUrl)
 
-    // Launch web auth flow
-    const responseUrl = await launchAuthFlow(authUrl)
-    log('Response URL:', responseUrl)
+    // Open in a new tab
+    const tab = await chrome.tabs.create({ url: authUrl })
+    log('Opened auth tab:', tab.id)
+
+    if (!tab.id) {
+      throw new Error('Failed to create auth tab')
+    }
+
+    // Store pending state
+    pendingOAuth = { pkce, state, tabId: tab.id }
+
+    // Set up listener for redirect (will be handled by onBeforeNavigate)
+    return { success: true }
+
+  } catch (error) {
+    logError('OAuth flow failed:', error)
+    pendingOAuth = null
+
+    chrome.runtime.sendMessage({
+      type: 'GEMINI_AUTH_COMPLETE',
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }).catch(() => {})
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Handle the OAuth callback when redirect is intercepted
+ */
+async function handleOAuthCallback(url: string): Promise<void> {
+  if (!pendingOAuth) {
+    logError('No pending OAuth state')
+    return
+  }
+
+  const { pkce, state, tabId } = pendingOAuth
+  pendingOAuth = null
+
+  try {
+    // Close the auth tab
+    try {
+      await chrome.tabs.remove(tabId)
+    } catch {
+      // Tab might already be closed
+    }
 
     // Parse response URL
-    const url = new URL(responseUrl)
-    const code = url.searchParams.get('code')
-    const returnedState = url.searchParams.get('state')
-    const error = url.searchParams.get('error')
+    const parsedUrl = new URL(url)
+    const code = parsedUrl.searchParams.get('code')
+    const returnedState = parsedUrl.searchParams.get('state')
+    const error = parsedUrl.searchParams.get('error')
 
     if (error) {
       throw new Error(`OAuth error: ${error}`)
@@ -67,15 +125,26 @@ export async function startGeminiOAuth(): Promise<GeminiOAuthResult> {
     log('Authorization code received, exchanging for tokens...')
 
     // Exchange code for tokens
-    const tokens = await exchangeGeminiCodeForTokens(code, redirectUri, pkce)
+    const tokens = await exchangeGeminiCodeForTokens(code, REDIRECT_URI, pkce)
     log('Tokens received')
 
     // Get user info (email)
     const userInfo = await getGeminiUserInfo(tokens.access_token)
     log('User email:', userInfo.email)
 
+    // Resolve managed project for API access
+    log('Resolving managed project...')
+    let projectId: string | undefined
+    try {
+      projectId = await resolveManagedProject(tokens.access_token)
+      log('Project ID:', projectId)
+    } catch (error) {
+      logError('Failed to resolve managed project:', error)
+      // Continue anyway - will try again on first API call
+    }
+
     // Create GeminiAuth object
-    const geminiAuth = createGeminiAuth(tokens, userInfo.email)
+    const geminiAuth = createGeminiAuth(tokens, userInfo.email, projectId)
     log('GeminiAuth created')
 
     // Save to settings
@@ -88,46 +157,31 @@ export async function startGeminiOAuth(): Promise<GeminiOAuthResult> {
     // Notify any open side panels that auth is complete
     chrome.runtime.sendMessage({ type: 'GEMINI_AUTH_COMPLETE', success: true }).catch(() => {})
 
-    return { success: true }
-
   } catch (error) {
-    logError('OAuth flow failed:', error)
+    logError('OAuth callback handling failed:', error)
 
     chrome.runtime.sendMessage({
       type: 'GEMINI_AUTH_COMPLETE',
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     }).catch(() => {})
-
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    }
   }
 }
 
 /**
- * Launch Chrome identity web auth flow
+ * Set up navigation listener to intercept OAuth redirect
  */
-function launchAuthFlow(authUrl: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    chrome.identity.launchWebAuthFlow(
-      {
-        url: authUrl,
-        interactive: true,
-      },
-      (responseUrl) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message))
-          return
-        }
-        if (!responseUrl) {
-          reject(new Error('No response URL received'))
-          return
-        }
-        resolve(responseUrl)
-      }
-    )
+export function setupGeminiOAuthListener(): void {
+  chrome.webNavigation.onBeforeNavigate.addListener((details) => {
+    // Only intercept if we have pending OAuth and it's the redirect URL
+    if (!pendingOAuth) return
+    if (!details.url.startsWith(REDIRECT_URI)) return
+    if (details.tabId !== pendingOAuth.tabId) return
+
+    log('Intercepted OAuth redirect:', details.url)
+
+    // Handle the callback
+    handleOAuthCallback(details.url)
   })
 }
 

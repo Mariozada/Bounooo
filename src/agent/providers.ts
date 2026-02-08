@@ -165,7 +165,7 @@ function createGeminiOAuthProvider(settings: ProviderSettings): LanguageModel {
 
   log('Creating Gemini OAuth provider with model:', settings.model)
 
-  // Create custom fetch that handles OAuth
+  // Create custom fetch that handles OAuth and URL rewriting
   const geminiFetch = createGeminiFetch(
     // Get current auth
     async () => {
@@ -182,6 +182,7 @@ function createGeminiOAuthProvider(settings: ProviderSettings): LanguageModel {
   )
 
   // Create Google provider with Gemini OAuth fetch
+  // URL rewriting happens in geminiFetch
   const google = createGoogleGenerativeAI({
     apiKey: 'gemini-oauth', // Placeholder, actual auth is in fetch
     fetch: async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {

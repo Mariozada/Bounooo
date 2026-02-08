@@ -17,6 +17,7 @@ export interface GeminiAuth {
   refreshToken: string
   expiresAt: number  // Unix timestamp in milliseconds
   email?: string     // User's Google email
+  projectId?: string // Google Cloud project ID for API access
 }
 
 export interface TokenResponse {

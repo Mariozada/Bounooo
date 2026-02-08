@@ -13,9 +13,10 @@ import { runShortcut } from './shortcutRunner'
 import { switchGlowToTab, hideAllGlowsWithMinimum, cleanupGlowForTab } from './glow'
 import { autoCaptureGifFrame } from './gifCapture'
 import { startCodexOAuth, logoutCodex, cancelCodexOAuth } from './codexOAuth'
-import { startGeminiOAuth, logoutGemini } from './geminiOAuth'
+import { startGeminiOAuth, logoutGemini, setupGeminiOAuthListener } from './geminiOAuth'
 
 registerAllHandlers()
+setupGeminiOAuthListener()
 
 console.log('Bouno: Registered tools:', getRegisteredTools())
 
