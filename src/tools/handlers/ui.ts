@@ -16,13 +16,16 @@ async function updatePlan(params: {
     throw new Error('approach (string description) is required')
   }
 
-  if (!domains || !Array.isArray(domains)) {
-    throw new Error('domains (array of domains) is required')
-  }
+  // Normalize domains: accept array, string, or missing
+  const normalizedDomains = Array.isArray(domains)
+    ? domains
+    : typeof domains === 'string'
+      ? [domains]
+      : []
 
   currentPlan = {
     approach,
-    domains,
+    domains: normalizedDomains,
     createdAt: Date.now()
   }
 
