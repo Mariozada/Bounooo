@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Bouno",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Browser automation extension with external API support",
   "icons": {
     "16": "icon16.png",
