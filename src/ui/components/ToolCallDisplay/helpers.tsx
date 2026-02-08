@@ -140,6 +140,7 @@ export function getSummaryLabel(name: string, input: Record<string, unknown>, st
     case 'get_page_text': return done ? 'Extracted page text' : 'Extracting page text'
     case 'form_input': return done ? 'Filled in a form field' : 'Filling in a form field'
     case 'list_tabs': return done ? 'Checked open tabs' : 'Checking open tabs'
+    case 'close_tab': return done ? 'Closed a tab' : 'Closing a tab'
     case 'create_tab': return done ? 'Opened a new tab' : 'Opening a new tab'
     case 'fetch_url': return done ? 'Fetched a page' : 'Fetching a page'
     case 'read_console_messages': return done ? 'Read console output' : 'Reading console output'
@@ -196,6 +197,7 @@ export function getRunningLabel(name: string, input: Record<string, unknown>): s
     case 'get_page_text': return 'Extracting page text'
     case 'form_input': return `Setting ${input.ref} to "${str(input.value, 20)}"`
     case 'list_tabs': return 'Listing tabs'
+    case 'close_tab': return `Closing tab ${input.tabId}`
     case 'create_tab': return input.url ? `Opening ${truncUrl(input.url as string, 30)}` : 'Opening new tab'
     case 'fetch_url': return `Fetching ${truncUrl(input.url as string || '', 40)}`
     case 'read_console_messages': return 'Reading console'

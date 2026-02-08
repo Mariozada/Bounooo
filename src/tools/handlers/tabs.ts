@@ -37,6 +37,22 @@ async function tabsContext(params: { groupId?: number }): Promise<{ tabs: TabInf
   }
 }
 
+async function tabsClose(params: { tabId: number; startingTabId?: number }): Promise<{ closed: number }> {
+  const { tabId } = params
+
+  if (!tabId) {
+    throw new Error('tabId is required')
+  }
+
+  // Prevent closing the starting tab — the agent needs at least one tab to work with
+  if (params.startingTabId !== undefined && tabId === params.startingTabId) {
+    throw new Error('Cannot close the starting tab')
+  }
+
+  await chrome.tabs.remove(tabId)
+  return { closed: tabId }
+}
+
 async function tabsCreate(params: { url?: string; groupId?: number }): Promise<TabInfo> {
   const { url, groupId } = params
 
@@ -190,6 +206,7 @@ async function webFetch(params: { url: string }): Promise<{
 export function registerTabTools(): void {
   // list_tabs removed — tab context is now injected into user messages automatically
   // registerTool('list_tabs', tabsContext as (params: Record<string, unknown>) => Promise<unknown>)
+  registerTool('close_tab', tabsClose as (params: Record<string, unknown>) => Promise<unknown>)
   registerTool('create_tab', tabsCreate as (params: Record<string, unknown>) => Promise<unknown>)
   registerTool('navigate', navigate as (params: Record<string, unknown>) => Promise<unknown>)
   registerTool('resize_window', resizeWindow as (params: Record<string, unknown>) => Promise<unknown>)

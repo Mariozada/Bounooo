@@ -30,6 +30,20 @@ export const navigationTools: ToolDefinition[] = [
   //   category: 'navigation'
   // },
   {
+    name: 'close_tab',
+    description: 'Close a browser tab. Only use when explicitly asked, as part of the task, or to clean up a tab you opened by accident. Cannot close the starting tab.',
+    parameters: [
+      {
+        name: 'tabId',
+        type: 'number',
+        description: 'Tab ID to close',
+        required: true
+      }
+    ],
+    enabled: true,
+    category: 'navigation'
+  },
+  {
     name: 'create_tab',
     description: 'Create a new browser tab (opens in background). Returns the new tab ID.',
     parameters: [
