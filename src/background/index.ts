@@ -12,7 +12,7 @@ import { syncAlarms, shortcutIdFromAlarm } from './scheduler'
 import { runShortcut } from './shortcutRunner'
 import { switchGlowToTab, hideAllGlowsWithMinimum, cleanupGlowForTab } from './glow'
 import { autoCaptureGifFrame } from './gifCapture'
-import { startCodexOAuth, logoutCodex, isOAuthCallback, handleOAuthCallback } from './codexOAuth'
+import { startCodexOAuth, logoutCodex, cancelCodexOAuth } from './codexOAuth'
 
 registerAllHandlers()
 
@@ -250,6 +250,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  if (type === MessageTypes.CODEX_OAUTH_CANCEL) {
+    cancelCodexOAuth()
+    sendResponse({ success: true })
+    return true
+  }
+
   if (type === MessageTypes.SYNC_SHORTCUT_ALARMS) {
     syncAlarms()
       .then(() => sendResponse({ success: true }))
@@ -348,16 +354,6 @@ chrome.webRequest.onCompleted.addListener(
 )
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  // Check for OAuth callback
-  if (changeInfo.url && isOAuthCallback(changeInfo.url)) {
-    console.log('Bouno: OAuth callback detected, processing...')
-    handleOAuthCallback(changeInfo.url).then(() => {
-      // Close the OAuth tab after handling
-      chrome.tabs.remove(tabId).catch(() => {})
-    })
-    return
-  }
-
   if (changeInfo.status === 'loading' && changeInfo.url) {
     try {
       const currentDomain = tab.url ? new URL(tab.url).hostname : ''

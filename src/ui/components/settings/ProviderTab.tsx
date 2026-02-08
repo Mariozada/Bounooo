@@ -1,4 +1,4 @@
-import { type FC, type ChangeEvent, useState } from 'react'
+import React, { type FC, type ChangeEvent, useState } from 'react'
 import { Zap, Image, Eye, EyeOff, LogIn, LogOut, Loader2 } from 'lucide-react'
 import type { ProviderSettings, ProviderType } from '@shared/settings'
 import { PROVIDER_CONFIGS, getModelsForProvider } from '@agent/index'
@@ -40,6 +40,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
 }) => {
   const [codexLoading, setCodexLoading] = useState(false)
   const [codexError, setCodexError] = useState<string | null>(null)
+  const [codexUserCode, setCodexUserCode] = useState<string | null>(null)
 
   const hasCodexAuth = !!settings.codexAuth
   const models = getModelsForProvider(settings.provider, hasCodexAuth)
@@ -48,19 +49,41 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   const isOpenAICompatible = settings.provider === 'openai-compatible'
   const isOpenAI = settings.provider === 'openai'
 
+  // Listen for auth completion from background
+  React.useEffect(() => {
+    const handleMessage = (message: { type: string; success?: boolean; error?: string }) => {
+      if (message.type === 'CODEX_AUTH_COMPLETE') {
+        setCodexLoading(false)
+        setCodexUserCode(null)
+        if (message.success) {
+          setCodexError(null)
+          onCodexAuthChange?.()
+        } else {
+          setCodexError(message.error || 'Authentication failed')
+        }
+      }
+    }
+
+    chrome.runtime.onMessage.addListener(handleMessage)
+    return () => chrome.runtime.onMessage.removeListener(handleMessage)
+  }, [onCodexAuthChange])
+
   const handleCodexLogin = async () => {
     setCodexLoading(true)
     setCodexError(null)
+    setCodexUserCode(null)
     try {
       const response = await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_START })
       if (!response.success) {
         setCodexError(response.error || 'Login failed')
-      } else {
-        onCodexAuthChange?.()
+        setCodexLoading(false)
+      } else if (response.userCode) {
+        // Device flow: show the user code
+        setCodexUserCode(response.userCode)
+        // Keep loading state until auth completes via message
       }
     } catch (err) {
       setCodexError((err as Error).message)
-    } finally {
       setCodexLoading(false)
     }
   }
@@ -68,6 +91,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   const handleCodexLogout = async () => {
     setCodexLoading(true)
     setCodexError(null)
+    setCodexUserCode(null)
     try {
       await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_LOGOUT })
       onCodexAuthChange?.()
@@ -115,6 +139,28 @@ export const ProviderTab: FC<ProviderTabProps> = ({
                   <LogOut size={14} />
                 )}
                 Logout
+              </button>
+            </div>
+          ) : codexUserCode ? (
+            <div className="codex-device-flow">
+              <div className="codex-user-code">
+                <span className="codex-code-label">Enter this code on OpenAI:</span>
+                <span className="codex-code">{codexUserCode}</span>
+              </div>
+              <div className="codex-waiting">
+                <Loader2 size={14} className="spinning" />
+                <span>Waiting for authorization...</span>
+              </div>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={async () => {
+                  await chrome.runtime.sendMessage({ type: MessageTypes.CODEX_OAUTH_CANCEL })
+                  setCodexLoading(false)
+                  setCodexUserCode(null)
+                }}
+              >
+                Cancel
               </button>
             </div>
           ) : (

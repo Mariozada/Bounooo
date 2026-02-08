@@ -31,3 +31,23 @@ export interface PkceCodes {
   verifier: string
   challenge: string
 }
+
+/**
+ * Device authorization response from OpenAI
+ * Note: interval is a string, not number!
+ */
+export interface DeviceAuthResponse {
+  device_auth_id: string
+  user_code: string
+  interval: string
+  expires_in?: number
+}
+
+/**
+ * Response from device token polling endpoint
+ * This is NOT the final tokens - need to exchange for actual tokens
+ */
+export interface DeviceTokenPollResponse {
+  authorization_code: string
+  code_verifier: string
+}

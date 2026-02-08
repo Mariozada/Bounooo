@@ -575,6 +575,46 @@
   color: var(--destructive);
 }
 
+.codex-device-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.codex-user-code {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.codex-code-label {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+
+.codex-code {
+  font-size: 24px;
+  font-weight: 700;
+  font-family: monospace;
+  letter-spacing: 0.15em;
+  color: var(--foreground);
+  background: var(--background);
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  user-select: all;
+}
+
+.codex-waiting {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

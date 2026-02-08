@@ -71,6 +71,8 @@ export class ProviderError extends Error {
 /**
  * Create a Codex-enabled OpenAI provider
  * Uses OAuth tokens instead of API key
+ *
+ * Codex uses OpenAI's Responses API, not Chat Completions
  */
 function createCodexProvider(settings: ProviderSettings): LanguageModel {
   if (!settings.codexAuth) {
@@ -96,14 +98,25 @@ function createCodexProvider(settings: ProviderSettings): LanguageModel {
   )
 
   // Create OpenAI provider with Codex fetch
+  // Use standard OpenAI base URL - the fetch wrapper will rewrite to Codex endpoint
   const openai = createOpenAI({
     apiKey: 'codex-oauth', // Placeholder, actual auth is in fetch
-    baseURL: CODEX_API_ENDPOINT.replace('/responses', ''), // Base URL without endpoint
+    baseURL: 'https://api.openai.com/v1', // Standard URL, will be rewritten by codexFetch
     fetch: async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      log('[Codex] Fetching:', url.toString())
+      const urlStr = url.toString()
+      log('[Codex] Fetching:', urlStr)
+      log('[Codex] Request body preview:', init?.body ? String(init.body).slice(0, 500) : 'none')
       try {
         const response = await codexFetch(url, init)
-        log('[Codex] Response status:', response.status)
+        log('[Codex] Response status:', response.status, response.statusText)
+
+        // Clone response to read body for logging without consuming it
+        if (!response.ok) {
+          const cloned = response.clone()
+          const errorText = await cloned.text()
+          logError('[Codex] Error response:', errorText)
+        }
+
         return response
       } catch (error) {
         logError('[Codex] Fetch error:', error)
@@ -112,7 +125,8 @@ function createCodexProvider(settings: ProviderSettings): LanguageModel {
     },
   })
 
-  const model = openai(settings.model)
+  // Use the Responses API for Codex models (not Chat Completions)
+  const model = openai.responses(settings.model)
   log('Codex model created:', model)
   return wrapWithDebugMiddleware(model)
 }

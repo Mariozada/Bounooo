@@ -27,6 +27,7 @@ export const MessageTypes = {
   // Codex OAuth messages
   CODEX_OAUTH_START: 'CODEX_OAUTH_START',
   CODEX_OAUTH_LOGOUT: 'CODEX_OAUTH_LOGOUT',
+  CODEX_OAUTH_CANCEL: 'CODEX_OAUTH_CANCEL',
 } as const
 
 export type MessageType = typeof MessageTypes[keyof typeof MessageTypes]
