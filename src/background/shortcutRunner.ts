@@ -122,6 +122,7 @@ export async function runShortcut(shortcutId: string): Promise<ShortcutRunResult
       toolExecutor: directToolExecutor,
       modelName: effectiveSettings.model,
       provider: effectiveSettings.provider,
+      userPreference: settings.userPreference,
       getTabContext: async () => {
         const tab = await chrome.tabs.get(tabId)
         return [{ id: tab.id!, title: tab.title || '', url: tab.url || '' }]

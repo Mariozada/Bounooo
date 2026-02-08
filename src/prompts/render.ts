@@ -4,6 +4,7 @@ import type { Skill } from '@skills/types'
 export interface RenderOptions {
   tools: ToolDefinition[]
   vision?: boolean
+  userPreference?: string
   activeSkill?: {
     skill: Skill
     args?: Record<string, string>
@@ -195,6 +196,14 @@ function renderAvailableSkills(skills: Skill[]): string {
   return lines.join('\n')
 }
 
+function renderUserPreference(preference: string): string {
+  return `<user_preference>
+The following are instructions set by the user. They take priority over all other instructions above.
+
+${preference.trim()}
+</user_preference>`
+}
+
 export function renderSystemPrompt(tools: ToolDefinition[]): string
 export function renderSystemPrompt(options: RenderOptions): string
 export function renderSystemPrompt(toolsOrOptions: ToolDefinition[] | RenderOptions): string {
@@ -224,6 +233,11 @@ export function renderSystemPrompt(toolsOrOptions: ToolDefinition[] | RenderOpti
   // Add active skill section if a skill is being invoked
   if (options.activeSkill) {
     sections.push(renderActiveSkill(options.activeSkill.skill, options.activeSkill.args))
+  }
+
+  // Add user preference as the last section (highest priority)
+  if (options.userPreference?.trim()) {
+    sections.push(renderUserPreference(options.userPreference))
   }
 
   return sections.filter(s => s.length > 0).join('\n\n')

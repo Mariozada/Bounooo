@@ -164,6 +164,8 @@ export interface AgentOptions {
   toolExecutor?: ToolExecutor  // Direct executor for background runs
   /** Returns the current list of tabs in the agent's group */
   getTabContext?: () => Promise<TabInfo[]>
+  /** User-defined preference/instructions injected into system prompt */
+  userPreference?: string
 
   // Skills
   activeSkill?: {

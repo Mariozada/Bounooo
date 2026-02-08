@@ -137,6 +137,13 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     }))
   }, [])
 
+  const handleUserPreferenceChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
+    setLocalSettings((prev) => ({
+      ...prev,
+      userPreference: e.target.value,
+    }))
+  }, [])
+
   const handleTracingUpdate = useCallback((updates: Partial<ProviderSettings>) => {
     setLocalSettings((prev) => ({ ...prev, ...updates }))
   }, [])
@@ -191,6 +198,7 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     handleCustomReasoningChange,
     handleMaxStepsChange,
     handleGeminiThinkingLevelChange,
+    handleUserPreferenceChange,
     handleTracingUpdate,
     handleCodexAuthChange,
     handleGeminiAuthChange,

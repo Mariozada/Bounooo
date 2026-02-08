@@ -40,6 +40,7 @@ export interface ProviderSettings {
   postToolDelay?: number
   codexAuth?: CodexAuth
   geminiAuth?: GeminiAuth
+  userPreference?: string
 }
 
 export const DEFAULT_TRACING_SETTINGS: TracingSettings = {

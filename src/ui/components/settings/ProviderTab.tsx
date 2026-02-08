@@ -23,6 +23,7 @@ interface ProviderTabProps {
   onCustomReasoningChange: (e: ChangeEvent<HTMLInputElement>) => void
   onMaxStepsChange: (e: ChangeEvent<HTMLInputElement>) => void
   onGeminiThinkingLevelChange: (e: ChangeEvent<HTMLSelectElement>) => void
+  onUserPreferenceChange: (e: ChangeEvent<HTMLTextAreaElement>) => void
   onToggleShowApiKey: () => void
   onCodexAuthChange?: () => void  // Callback to refresh settings after auth change
   onGeminiAuthChange?: () => void  // Callback to refresh settings after Gemini auth change
@@ -43,6 +44,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   onCustomReasoningChange,
   onMaxStepsChange,
   onGeminiThinkingLevelChange,
+  onUserPreferenceChange,
   onToggleShowApiKey,
   onCodexAuthChange,
   onGeminiAuthChange,
@@ -521,6 +523,18 @@ export const ProviderTab: FC<ProviderTabProps> = ({
           )}
         </div>
       )}
+
+      <div className="form-group">
+        <label htmlFor="user-preference">User Preference</label>
+        <textarea
+          id="user-preference"
+          value={settings.userPreference || ''}
+          onChange={onUserPreferenceChange}
+          placeholder="e.g., Always respond in Spanish, prefer keyboard shortcuts over clicking..."
+          rows={3}
+        />
+        <span className="help-text">Custom instructions for the agent. Takes priority over default behavior.</span>
+      </div>
     </>
   )
 }

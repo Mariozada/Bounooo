@@ -23,6 +23,7 @@ export function createSession(options: AgentOptions): AgentSession {
     postToolDelay,
     vision,
     getTabContext,
+    userPreference,
   } = options
 
   const hasSkills = (availableSkills && availableSkills.length > 0) || activeSkill
@@ -34,6 +35,7 @@ export function createSession(options: AgentOptions): AgentSession {
   const systemPrompt = renderSystemPrompt({
     tools: toolDefinitions,
     vision,
+    userPreference,
     activeSkill,
     availableSkills: hasSkills ? availableSkills : undefined,
     mcpTools,
