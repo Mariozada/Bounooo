@@ -43,3 +43,4 @@ Thumbs.db
 # Lock files (optional - remove if you want to commit them)
 # bun.lock
 # package-lock.json
+.env.colosseum

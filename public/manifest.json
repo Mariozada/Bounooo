@@ -30,6 +30,11 @@
       "matches": ["<all_urls>"],
       "js": ["content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["wallet-bridge.js"],
+      "run_at": "document_idle"
     }
   ],
   "permissions": [

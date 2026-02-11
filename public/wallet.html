@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bouno Wallet</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: #16213e;
+      border-radius: 16px;
+      padding: 32px;
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .logo {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 14px;
+      margin-bottom: 24px;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #333;
+      border-top-color: #9945FF;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 24px auto;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .status-text {
+      color: #888;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    .error-text {
+      color: #ff6b6b;
+      font-size: 14px;
+      margin-top: 16px;
+      padding: 12px;
+      background: rgba(255, 107, 107, 0.1);
+      border-radius: 8px;
+    }
+
+    .success-text {
+      color: #51cf66;
+      font-size: 14px;
+      margin-top: 16px;
+    }
+
+    .wallet-icon {
+      width: 64px;
+      height: 64px;
+      margin: 16px auto;
+      background: linear-gradient(135deg, #9945FF, #14F195);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+      margin-top: 16px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #9945FF, #14F195);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px rgba(153, 69, 255, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn-secondary {
+      background: #2a2a4a;
+      color: #fff;
+    }
+
+    .btn-secondary:hover {
+      background: #3a3a5a;
+    }
+
+    .wallet-info {
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+
+    .wallet-address {
+      font-family: monospace;
+      font-size: 14px;
+      color: #14F195;
+      word-break: break-all;
+    }
+
+    .wallet-balance {
+      font-size: 24px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+
+    .network-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background: #9945FF;
+      border-radius: 20px;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .tx-details {
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 16px 0;
+      text-align: left;
+    }
+
+    .tx-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #2a2a4a;
+    }
+
+    .tx-row:last-child {
+      border-bottom: none;
+    }
+
+    .tx-label {
+      color: #888;
+      font-size: 13px;
+    }
+
+    .tx-value {
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .install-links {
+      display: flex;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .install-link {
+      flex: 1;
+      padding: 12px;
+      background: #2a2a4a;
+      border-radius: 8px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      transition: background 0.2s;
+    }
+
+    .install-link:hover {
+      background: #3a3a5a;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">Bouno</div>
+    <div class="subtitle">Skill Marketplace</div>
+
+    <!-- Loading State -->
+    <div id="loading" class="section active">
+      <div class="spinner"></div>
+      <p class="status-text">Detecting wallet...</p>
+    </div>
+
+    <!-- No Wallet Installed -->
+    <div id="no-wallet" class="section">
+      <div class="wallet-icon">🔌</div>
+      <h2>Wallet Required</h2>
+      <p class="status-text">Please install a Solana wallet to continue</p>
+      <div class="install-links">
+        <a href="https://phantom.app/" target="_blank" class="install-link">
+          Get Phantom
+        </a>
+        <a href="https://solflare.com/" target="_blank" class="install-link">
+          Get Solflare
+        </a>
+      </div>
+      <button class="btn btn-secondary" onclick="window.close()" style="margin-top: 24px">
+        Close
+      </button>
+    </div>
+
+    <!-- Connect Wallet -->
+    <div id="connect" class="section">
+      <div class="wallet-icon">👛</div>
+      <h2>Connect Wallet</h2>
+      <p class="status-text">Connect your Solana wallet to continue</p>
+      <button id="connect-btn" class="btn btn-primary">
+        Connect with Phantom
+      </button>
+      <p id="connect-error" class="error-text" style="display: none;"></p>
+    </div>
+
+    <!-- Connected State -->
+    <div id="connected" class="section">
+      <div class="wallet-icon">✓</div>
+      <h2>Connected!</h2>
+      <div class="wallet-info">
+        <div class="wallet-address" id="wallet-address"></div>
+        <div class="wallet-balance" id="wallet-balance">-- SOL</div>
+        <div class="network-badge" id="network-badge">devnet</div>
+      </div>
+      <p class="success-text">Wallet connected successfully</p>
+      <p class="status-text">This window will close automatically...</p>
+    </div>
+
+    <!-- Sign Transaction -->
+    <div id="sign" class="section">
+      <div class="wallet-icon">✍️</div>
+      <h2>Approve Transaction</h2>
+      <div class="tx-details">
+        <div class="tx-row">
+          <span class="tx-label">Action</span>
+          <span class="tx-value" id="tx-action">--</span>
+        </div>
+        <div class="tx-row">
+          <span class="tx-label">Amount</span>
+          <span class="tx-value" id="tx-amount">-- SOL</span>
+        </div>
+        <div class="tx-row">
+          <span class="tx-label">To</span>
+          <span class="tx-value" id="tx-to">--</span>
+        </div>
+      </div>
+      <button id="sign-btn" class="btn btn-primary">
+        Approve in Wallet
+      </button>
+      <button class="btn btn-secondary" onclick="cancelTransaction()">
+        Cancel
+      </button>
+      <p id="sign-error" class="error-text" style="display: none;"></p>
+    </div>
+
+    <!-- Transaction Success -->
+    <div id="tx-success" class="section">
+      <div class="wallet-icon">🎉</div>
+      <h2>Transaction Sent!</h2>
+      <p class="success-text">Your transaction has been submitted</p>
+      <p class="status-text" id="tx-signature" style="font-family: monospace; font-size: 11px; word-break: break-all;"></p>
+      <p class="status-text">This window will close automatically...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error" class="section">
+      <div class="wallet-icon">❌</div>
+      <h2>Error</h2>
+      <p id="error-message" class="error-text"></p>
+      <button class="btn btn-secondary" onclick="window.close()">
+        Close
+      </button>
+    </div>
+  </div>
+
+  <script src="wallet-popup.js"></script>
+</body>
+</html>

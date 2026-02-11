@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, type FC } from 'react'
-import { Wallet, RefreshCw, Upload, Store, Package, AlertCircle, ExternalLink } from 'lucide-react'
-import { useWallet } from '@ui/hooks/useWallet'
-import { shortenAddress } from '@wallet/solana'
+import { Wallet, RefreshCw, Upload, Store, Package, AlertCircle } from 'lucide-react'
+import { useWallet, shortenAddress } from '@ui/hooks/useWallet'
 import {
   browseSkills,
   purchaseSkill,
@@ -26,7 +25,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
   pinataSettings,
   onPinataSettingsChange,
 }) => {
-  const { wallet, isLoading: walletLoading, error: walletError, isInstalled, connect, disconnect, refresh } = useWallet('devnet')
+  const { wallet, isLoading: walletLoading, error: walletError, connect, disconnect, refresh, requestSignature } = useWallet('devnet')
 
   const [view, setView] = useState<MarketplaceView>('browse')
   const [skills, setSkills] = useState<MarketplaceSkill[]>([])
@@ -93,7 +92,11 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
   }
 
   const handleBuy = async (skill: MarketplaceSkill) => {
-    if (!wallet.connected) {
+    const isDemoSkill = skill.mint.startsWith('demo-')
+    const isFreeSkill = skill.price === 0
+
+    // Require wallet for paid non-demo skills
+    if (!wallet.connected && !isDemoSkill && !isFreeSkill) {
       setError('Please connect your wallet first')
       return
     }
@@ -102,7 +105,28 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     setError(null)
 
     try {
+      console.log('[Marketplace] Purchasing skill:', skill.name, skill.mint)
+
+      // For paid skills, request signature via popup
+      if (!isFreeSkill && !isDemoSkill && wallet.connected) {
+        const signResult = await requestSignature({
+          action: `Buy ${skill.name}`,
+          amount: skill.price,
+          to: skill.seller,
+        })
+
+        if (!signResult.success) {
+          if (signResult.cancelled) {
+            console.log('[Marketplace] Transaction cancelled by user')
+            return
+          }
+          throw new Error(signResult.error || 'Transaction failed')
+        }
+      }
+
       const result = await purchaseSkill(skill, 'devnet')
+      console.log('[Marketplace] Purchase result:', result)
+
       if (!result.success) {
         throw new Error(result.error || 'Purchase failed')
       }
@@ -110,6 +134,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
       // Refresh both the skills list and purchased skills
       await Promise.all([loadSkills(), loadPurchasedSkills()])
     } catch (err) {
+      console.error('[Marketplace] Purchase error:', err)
       setError(err instanceof Error ? err.message : 'Failed to purchase skill')
     } finally {
       setBuyingMint(null)
@@ -158,21 +183,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
       {/* Wallet Section */}
       <div className="marketplace-wallet-section">
         <div className="wallet-status">
-          {!isInstalled ? (
-            <div className="wallet-not-installed">
-              <AlertCircle size={16} />
-              <span>No Solana wallet found</span>
-              <a
-                href="https://phantom.app/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="wallet-install-link"
-              >
-                Install Phantom
-                <ExternalLink size={12} />
-              </a>
-            </div>
-          ) : wallet.connected ? (
+          {wallet.connected ? (
             <div className="wallet-connected">
               <div className="wallet-info">
                 <Wallet size={16} />
@@ -275,7 +286,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
                   skill={skill}
                   onBuy={handleBuy}
                   isLoading={buyingMint === skill.mint}
-                  disabled={!wallet.connected}
+                  disabled={false}
                 />
               ))
             )}

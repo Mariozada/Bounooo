@@ -27,6 +27,16 @@
   color: var(--text-warning);
 }
 
+.wallet-demo-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  width: 100%;
+}
+
 .wallet-install-link {
   display: inline-flex;
   align-items: center;

@@ -6,10 +6,12 @@
   "scripts": {
     "dev": "vite --config vite.config.ui.ts",
     "clean:dist": "rm -rf ../dist",
-    "build": "bun run clean:dist && bun run build:ui && bun run build:content && bun run build:background",
+    "build": "bun run clean:dist && bun run build:ui && bun run build:content && bun run build:background && bun run build:wallet && bun run build:wallet-bridge",
     "build:ui": "echo '=== Building UI ===' && vite build --config vite.config.ui.ts",
     "build:content": "echo '=== Building Content Script ===' && vite build --config vite.config.content.ts",
     "build:background": "echo '=== Building Background Script ===' && vite build --config vite.config.background.ts",
+    "build:wallet": "echo '=== Building Wallet Popup ===' && vite build --config vite.config.wallet.ts",
+    "build:wallet-bridge": "echo '=== Building Wallet Bridge ===' && vite build --config vite.config.wallet-bridge.ts",
     "lint": "eslint .",
     "preview": "vite preview --config vite.config.ui.ts"
   },

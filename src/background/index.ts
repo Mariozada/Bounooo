@@ -15,7 +15,11 @@ import { switchGlowToTab, hideAllGlowsWithMinimum, cleanupGlowForTab } from './g
 import { autoCaptureGifFrame } from './gifCapture'
 import { startCodexOAuth, logoutCodex, cancelCodexOAuth } from './codexOAuth'
 import { startGeminiOAuth, logoutGemini, setupGeminiOAuthListener } from './geminiOAuth'
+import { loadSettings, saveSettings } from '@shared/settings'
 import './relayClient'
+
+// Wallet popup state
+let walletPopupWindowId: number | null = null
 
 registerAllHandlers()
 setupGeminiOAuthListener()
@@ -265,6 +269,210 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     logoutGemini()
       .then((result) => sendResponse(result))
       .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
+    return true
+  }
+
+  // Wallet handlers - seamlessly connects to Phantom via content script bridge
+  if (type === MessageTypes.WALLET_POPUP_OPEN) {
+    const { mode = 'connect', signParams } = message as {
+      mode?: 'connect' | 'sign' | 'disconnect'
+      signParams?: { action: string; amount: number; to: string; tx?: string }
+    }
+
+    // Helper function to find or create a tab for wallet operations (completely transparent to user)
+    async function getWalletTab(): Promise<chrome.tabs.Tab | null> {
+      // First, try to find an existing regular webpage tab
+      const tabs = await chrome.tabs.query({})
+      const existingTab = tabs.find(t =>
+        t.url &&
+        (t.url.startsWith('http://') || t.url.startsWith('https://')) &&
+        !t.url.includes('chrome.google.com/webstore')
+      )
+
+      if (existingTab?.id) {
+        return existingTab
+      }
+
+      // Create a new tab in background
+      const newTab = await chrome.tabs.create({
+        url: 'https://www.google.com/',
+        active: false,
+      })
+
+      // Wait for page to load
+      await new Promise<void>((resolve) => {
+        const listener = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
+          if (tabId === newTab.id && changeInfo.status === 'complete') {
+            chrome.tabs.onUpdated.removeListener(listener)
+            resolve()
+          }
+        }
+        chrome.tabs.onUpdated.addListener(listener)
+        // Timeout fallback
+        setTimeout(() => {
+          chrome.tabs.onUpdated.removeListener(listener)
+          resolve()
+        }, 5000)
+      })
+
+      // Give content script time to inject
+      await new Promise(resolve => setTimeout(resolve, 500))
+
+      return newTab
+    }
+
+    // Helper to check wallet with retries
+    async function checkWalletWithRetries(tabId: number, maxAttempts = 5): Promise<{ available: boolean; address?: string }> {
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          const result = await chrome.tabs.sendMessage(tabId, { type: 'WALLET_BRIDGE_CHECK' }) as {
+            available?: boolean
+            address?: string
+            isConnected?: boolean
+          }
+          if (result.available) {
+            return { available: true, address: result.address || undefined }
+          }
+        } catch {
+          // Content script not ready yet
+        }
+        await new Promise(resolve => setTimeout(resolve, 500))
+      }
+      return { available: false }
+    }
+
+    // Execute wallet operation
+    (async () => {
+      try {
+        const tab = await getWalletTab()
+        if (!tab?.id) {
+          sendResponse({ success: false, error: 'Failed to initialize wallet connection' })
+          return
+        }
+
+        if (mode === 'connect') {
+          // Check if wallet is available with retries
+          const checkResult = await checkWalletWithRetries(tab.id)
+
+          if (!checkResult.available) {
+            sendResponse({ success: false, error: 'Phantom wallet not detected. Please install Phantom from phantom.app' })
+            return
+          }
+
+          // Send connect request
+          const result = await chrome.tabs.sendMessage(tab.id, { type: 'WALLET_BRIDGE_CONNECT' }) as {
+            success: boolean
+            address?: string
+            error?: string
+            cancelled?: boolean
+          }
+
+          if (result.success && result.address) {
+            // Save wallet state
+            const settings = await loadSettings()
+            settings.wallet = {
+              connected: true,
+              address: result.address,
+              network: 'devnet',
+            }
+            await saveSettings(settings)
+
+            // Broadcast to all extension pages
+            chrome.runtime.sendMessage({
+              type: MessageTypes.WALLET_CONNECTED,
+              address: result.address,
+              network: 'devnet',
+            }).catch(() => {})
+
+            sendResponse({ success: true, address: result.address })
+          } else {
+            if (!result.cancelled) {
+              chrome.runtime.sendMessage({
+                type: MessageTypes.WALLET_DISCONNECTED,
+                error: result.error,
+              }).catch(() => {})
+            }
+            sendResponse({ success: false, error: result.error, cancelled: result.cancelled })
+          }
+        } else if (mode === 'sign' && signParams) {
+          const result = await chrome.tabs.sendMessage(tab.id, {
+            type: 'WALLET_BRIDGE_SIGN',
+            action: signParams.action,
+            amount: signParams.amount,
+            to: signParams.to,
+          }) as {
+            success: boolean
+            signature?: string
+            error?: string
+            cancelled?: boolean
+          }
+
+          chrome.runtime.sendMessage({
+            type: MessageTypes.WALLET_TX_COMPLETE,
+            success: result.success,
+            signature: result.signature,
+            error: result.error,
+            cancelled: result.cancelled,
+          }).catch(() => {})
+
+          sendResponse(result)
+        } else if (mode === 'disconnect') {
+          const result = await chrome.tabs.sendMessage(tab.id, { type: 'WALLET_BRIDGE_DISCONNECT' }) as {
+            success: boolean
+            error?: string
+          }
+          sendResponse(result)
+        }
+      } catch (err) {
+        sendResponse({ success: false, error: (err as Error).message })
+      }
+    })()
+
+    return true
+  }
+
+  // Keep these for backwards compatibility with popup flow if needed
+  if (type === MessageTypes.WALLET_CONNECT_RESULT) {
+    // This is now handled inline in WALLET_POPUP_OPEN
+    sendResponse({ success: true })
+    return true
+  }
+
+  if (type === MessageTypes.WALLET_SIGN_RESULT) {
+    // This is now handled inline in WALLET_POPUP_OPEN
+    sendResponse({ success: true })
+    return true
+  }
+
+  if (type === MessageTypes.WALLET_DISCONNECT) {
+    loadSettings().then(async (settings) => {
+      settings.wallet = {
+        connected: false,
+        network: 'devnet',
+      }
+      await saveSettings(settings)
+
+      // Broadcast disconnection
+      chrome.runtime.sendMessage({
+        type: MessageTypes.WALLET_DISCONNECTED,
+      }).catch(() => {})
+
+      sendResponse({ success: true })
+    }).catch((err) => {
+      sendResponse({ success: false, error: (err as Error).message })
+    })
+    return true
+  }
+
+  if (type === MessageTypes.WALLET_GET_STATE) {
+    loadSettings().then((settings) => {
+      sendResponse({
+        success: true,
+        wallet: settings.wallet || { connected: false, network: 'devnet' },
+      })
+    }).catch((err) => {
+      sendResponse({ success: false, error: (err as Error).message })
+    })
     return true
   }
 
