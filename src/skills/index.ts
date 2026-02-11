@@ -43,6 +43,10 @@ export {
   getSkillCount,
   getSkillsBySource,
   importSkills,
+  // Marketplace functions
+  installSkillFromMarketplace,
+  getMarketplaceSkills,
+  isSkillMintInstalled,
 } from './storage'
 
 // Manager

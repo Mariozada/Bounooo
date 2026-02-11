@@ -23,7 +23,8 @@ export async function getAllSkills(): Promise<StoredSkill[]> {
  * Get all enabled skills
  */
 export async function getEnabledSkills(): Promise<StoredSkill[]> {
-  return db.skills.where('enabled').equals(1).toArray()
+  // Note: Dexie stores booleans as 0/1 in IndexedDB, but we query with the boolean value
+  return db.skills.filter(skill => skill.enabled === true).toArray()
 }
 
 /**
@@ -240,6 +241,88 @@ export async function getSkillCount(): Promise<number> {
  */
 export async function getSkillsBySource(source: SkillSource): Promise<StoredSkill[]> {
   return db.skills.where('source').equals(source).toArray()
+}
+
+/**
+ * Install a skill from the marketplace with metadata
+ */
+export async function installSkillFromMarketplace(
+  rawContent: string,
+  marketplaceData: {
+    mint: string
+    seller: string
+    pricePaid: number
+  }
+): Promise<StoredSkill> {
+  log('Installing skill from marketplace...')
+
+  // Parse the SKILL.md content
+  const parsed = parseSkillContent(rawContent)
+
+  // Validate
+  const errors = validateParsedSkill(parsed)
+  if (errors.length > 0) {
+    throw new Error(`Invalid skill: ${errors.join(', ')}`)
+  }
+
+  // Check if skill with same name exists
+  const existing = await getSkillByName(parsed.frontmatter.name)
+  if (existing) {
+    // If already installed from same mint, just return it
+    if (existing.marketplaceData?.mint === marketplaceData.mint) {
+      log('Skill already installed from this mint:', existing.name)
+      return existing
+    }
+    throw new Error(`Skill "${parsed.frontmatter.name}" already exists. Uninstall it first.`)
+  }
+
+  const now = Date.now()
+  const skill: StoredSkill = {
+    id: generateSkillId(),
+    name: parsed.frontmatter.name,
+    description: parsed.frontmatter.description,
+    version: parsed.frontmatter.version || '1.0.0',
+    author: parsed.frontmatter.author,
+
+    rawContent: rawContent,
+    frontmatter: parsed.frontmatter,
+    instructions: parsed.instructions,
+
+    source: 'marketplace',
+    enabled: true,
+    userInvocable: parsed.frontmatter.userInvocable ?? true,
+    autoDiscover: parsed.frontmatter.autoDiscover ?? false,
+
+    installedAt: now,
+    updatedAt: now,
+
+    marketplaceData: {
+      mint: marketplaceData.mint,
+      purchasedAt: now,
+      seller: marketplaceData.seller,
+      pricePaid: marketplaceData.pricePaid,
+    },
+  }
+
+  await db.skills.add(skill)
+  log('Marketplace skill installed:', skill.name, skill.id)
+
+  return skill
+}
+
+/**
+ * Get all marketplace-installed skills
+ */
+export async function getMarketplaceSkills(): Promise<StoredSkill[]> {
+  return db.skills.filter(skill => skill.source === 'marketplace').toArray()
+}
+
+/**
+ * Check if a skill from a specific mint is already installed
+ */
+export async function isSkillMintInstalled(mint: string): Promise<boolean> {
+  const skills = await getMarketplaceSkills()
+  return skills.some(s => s.marketplaceData?.mint === mint)
 }
 
 /**

@@ -8,7 +8,7 @@
 /**
  * Skill source - where the skill came from
  */
-export type SkillSource = 'builtin' | 'user' | 'registry'
+export type SkillSource = 'builtin' | 'user' | 'registry' | 'marketplace'
 
 /**
  * Parsed YAML frontmatter from SKILL.md
@@ -70,6 +70,14 @@ export interface StoredSkill {
   // Metadata
   installedAt: number
   updatedAt: number
+
+  // Marketplace data (if purchased from marketplace)
+  marketplaceData?: {
+    mint: string           // NFT mint address
+    purchasedAt: number    // Timestamp of purchase
+    seller: string         // Seller wallet address
+    pricePaid: number      // Price paid in lamports
+  }
 }
 
 /**

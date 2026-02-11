@@ -22,6 +22,8 @@ export const aliases = {
   '@skills': resolve(__dirname, 'src/skills'),
   '@mcp': resolve(__dirname, 'src/mcp'),
   '@auth': resolve(__dirname, 'src/auth'),
+  '@wallet': resolve(__dirname, 'src/wallet'),
+  '@marketplace': resolve(__dirname, 'src/marketplace'),
 }
 
 /**

@@ -7,6 +7,7 @@
 
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 import { resolve } from 'path'
 import { copyFileSync, existsSync, rmSync } from 'fs'
 import { resolveConfig, __dirname } from './vite.config.shared'
@@ -14,6 +15,15 @@ import { resolveConfig, __dirname } from './vite.config.shared'
 export default defineConfig({
   plugins: [
     react(),
+    nodePolyfills({
+      // Enable polyfills for Node.js modules used by Metaplex/Solana
+      include: ['buffer', 'crypto', 'stream', 'assert', 'events', 'util', 'process'],
+      globals: {
+        Buffer: true,
+        global: true,
+        process: true,
+      },
+    }),
     {
       name: 'fix-sidepanel-html',
       writeBundle() {

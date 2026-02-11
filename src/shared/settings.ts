@@ -25,6 +25,17 @@ export interface CustomModelSettings {
   reasoning: boolean
 }
 
+export interface WalletSettings {
+  connected: boolean
+  address?: string
+  network: 'devnet' | 'mainnet-beta'
+}
+
+export interface PinataSettings {
+  apiKey: string
+  secretKey: string
+}
+
 export interface ProviderSettings {
   provider: ProviderType
   model: string
@@ -42,6 +53,8 @@ export interface ProviderSettings {
   geminiAuth?: GeminiAuth
   userPreference?: string
   gifEnabled?: boolean
+  wallet?: WalletSettings
+  pinata?: PinataSettings
 }
 
 export const DEFAULT_TRACING_SETTINGS: TracingSettings = {

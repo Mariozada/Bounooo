@@ -10,6 +10,7 @@ import './styles/markdown-content.css'
 import './styles/settings.css'
 import './styles/skills.css'
 import './styles/sidebar.css'
+import './styles/marketplace.css'
 
 const App: FC = () => {
   return <ChatApp />

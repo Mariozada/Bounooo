@@ -8,8 +8,9 @@ import { DataTab } from './DataTab'
 import { SkillsTab } from './SkillsTab'
 import { McpTab } from './McpTab'
 import { ApiTab } from './ApiTab'
+import { MarketplaceTab } from './MarketplaceTab'
 
-type SettingsTab = 'provider' | 'tracing' | 'skills' | 'mcp' | 'api' | 'data'
+type SettingsTab = 'provider' | 'tracing' | 'skills' | 'mcp' | 'api' | 'data' | 'marketplace'
 
 interface SettingsPanelProps {
   settings: ProviderSettings
@@ -166,6 +167,13 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
             >
               Data
             </button>
+            <button
+              type="button"
+              className={`settings-tab ${activeTab === 'marketplace' ? 'active' : ''}`}
+              onClick={() => setActiveTab('marketplace')}
+            >
+              Market
+            </button>
           </div>
 
           <div className="settings-content">
@@ -211,6 +219,15 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
             {activeTab === 'api' && <ApiTab />}
 
             {activeTab === 'data' && <DataTab onRefreshThreads={onRefreshThreads} />}
+
+            {activeTab === 'marketplace' && (
+              <MarketplaceTab
+                pinataSettings={localSettings.pinata}
+                onPinataSettingsChange={(pinata) => {
+                  handleTracingUpdate({ pinata } as Parameters<typeof handleTracingUpdate>[0])
+                }}
+              />
+            )}
           </div>
         </div>
       </div>

@@ -1,0 +1,489 @@
+/* Marketplace Tab Styles */
+
+.marketplace-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+/* Wallet Section */
+.marketplace-wallet-section {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.wallet-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.wallet-not-installed {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-warning);
+}
+
+.wallet-install-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+.wallet-install-link:hover {
+  text-decoration: underline;
+}
+
+.wallet-connected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.wallet-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wallet-address {
+  font-family: monospace;
+  font-size: 13px;
+}
+
+.wallet-balance {
+  color: var(--text-success);
+  font-weight: 500;
+}
+
+.wallet-network {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.wallet-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wallet-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px;
+  background: var(--bg-error);
+  color: var(--text-error);
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+/* View Tabs */
+.marketplace-view-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+
+.view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.view-tab:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.view-tab.active {
+  background: var(--accent-color);
+  color: white;
+}
+
+/* Skills Grid */
+.skills-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+/* Skill Card */
+.skill-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color 0.15s ease;
+}
+
+.skill-card:hover {
+  border-color: var(--accent-color);
+}
+
+.skill-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.skill-card-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.skill-card-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+.skill-card-description {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skill-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.skill-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: auto;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-color);
+}
+
+.skill-card-price {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.skill-card-buy,
+.skill-card-installed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+.skill-card-buy {
+  background: var(--accent-color, hsl(0 0% 98%));
+  color: var(--accent-foreground, hsl(0 0% 9%));
+}
+
+.skill-card-buy:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.skill-card-buy:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.skill-card-installed {
+  background: transparent;
+  border-color: var(--border-color);
+  color: var(--text-success);
+  cursor: default;
+}
+
+/* Publish Section */
+.publish-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.publish-info h4 {
+  margin: 0 0 4px 0;
+}
+
+.publish-info p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.publish-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: flex-start;
+}
+
+/* Pinata Config */
+.pinata-config {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.config-status {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.config-status.success {
+  background: var(--bg-success);
+  color: var(--text-success);
+}
+
+.config-status.warning {
+  background: var(--bg-warning);
+  color: var(--text-warning);
+}
+
+.config-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.config-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* My Skills Section */
+.my-skills-section h4 {
+  margin: 0 0 12px 0;
+}
+
+/* Empty & Loading States */
+.empty-state,
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  text-align: center;
+  color: var(--text-secondary);
+  gap: 8px;
+}
+
+.empty-state svg {
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg-primary);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px;
+  border-top: 1px solid var(--border-color);
+}
+
+/* Skill Preview */
+.skill-preview {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.skill-preview h4 {
+  margin: 0 0 4px 0;
+  font-size: 14px;
+}
+
+.skill-preview p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Utility Classes */
+.text-muted {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.text-success {
+  color: var(--text-success);
+}
+
+.button-sm {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* Marketplace-specific icon button (wallet refresh) */
+.marketplace-tab .button-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+}
+
+.marketplace-tab .button-icon:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Form Elements */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-group input,
+.form-group select {
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.form-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.form-hint a {
+  color: var(--accent-color);
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--bg-error);
+  color: var(--text-error);
+  border-radius: 6px;
+  font-size: 13px;
+}

@@ -309,20 +309,52 @@ export function validateParsedSkill(parsed: ParsedSkill): string[] {
 }
 
 /**
+ * Escape a YAML string value if needed
+ * Quotes strings containing special characters
+ */
+function escapeYamlValue(value: string): string {
+  // Check if the value needs quoting
+  const needsQuoting =
+    value.includes(':') ||
+    value.includes('#') ||
+    value.includes("'") ||
+    value.includes('"') ||
+    value.includes('\n') ||
+    value.includes('\r') ||
+    value.startsWith(' ') ||
+    value.endsWith(' ') ||
+    value.startsWith('-') ||
+    value.startsWith('[') ||
+    value.startsWith('{') ||
+    value === 'true' ||
+    value === 'false' ||
+    value === 'null' ||
+    /^\d/.test(value)
+
+  if (!needsQuoting) {
+    return value
+  }
+
+  // Use double quotes and escape internal quotes
+  const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  return `"${escaped}"`
+}
+
+/**
  * Serialize a skill back to SKILL.md format
  */
 export function serializeSkill(frontmatter: SkillFrontmatter, instructions: string): string {
   const lines: string[] = ['---']
 
-  lines.push(`name: ${frontmatter.name}`)
-  lines.push(`description: ${frontmatter.description}`)
+  lines.push(`name: ${escapeYamlValue(frontmatter.name)}`)
+  lines.push(`description: ${escapeYamlValue(frontmatter.description)}`)
 
   if (frontmatter.version) {
-    lines.push(`version: ${frontmatter.version}`)
+    lines.push(`version: ${escapeYamlValue(frontmatter.version)}`)
   }
 
   if (frontmatter.author) {
-    lines.push(`author: ${frontmatter.author}`)
+    lines.push(`author: ${escapeYamlValue(frontmatter.author)}`)
   }
 
   if (frontmatter.userInvocable !== undefined) {
@@ -334,24 +366,26 @@ export function serializeSkill(frontmatter: SkillFrontmatter, instructions: stri
   }
 
   if (frontmatter.allowedTools && frontmatter.allowedTools.length > 0) {
-    lines.push(`allowed-tools: [${frontmatter.allowedTools.join(', ')}]`)
+    const escapedTools = frontmatter.allowedTools.map(escapeYamlValue)
+    lines.push(`allowed-tools: [${escapedTools.join(', ')}]`)
   }
 
   if (frontmatter.requires?.tools && frontmatter.requires.tools.length > 0) {
+    const escapedRequiredTools = frontmatter.requires.tools.map(escapeYamlValue)
     lines.push('requires:')
-    lines.push(`  tools: [${frontmatter.requires.tools.join(', ')}]`)
+    lines.push(`  tools: [${escapedRequiredTools.join(', ')}]`)
   }
 
   if (frontmatter.arguments && frontmatter.arguments.length > 0) {
     lines.push('arguments:')
     for (const arg of frontmatter.arguments) {
-      lines.push(`  - name: ${arg.name}`)
-      lines.push(`    description: ${arg.description}`)
+      lines.push(`  - name: ${escapeYamlValue(arg.name)}`)
+      lines.push(`    description: ${escapeYamlValue(arg.description)}`)
       if (arg.required) {
         lines.push(`    required: true`)
       }
       if (arg.default !== undefined) {
-        lines.push(`    default: ${arg.default}`)
+        lines.push(`    default: ${escapeYamlValue(arg.default)}`)
       }
     }
   }

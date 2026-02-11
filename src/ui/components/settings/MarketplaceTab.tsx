@@ -1,0 +1,414 @@
+import { useState, useEffect, useCallback, type FC } from 'react'
+import { Wallet, RefreshCw, Upload, Store, Package, AlertCircle, ExternalLink } from 'lucide-react'
+import { useWallet } from '@ui/hooks/useWallet'
+import { shortenAddress } from '@wallet/solana'
+import {
+  browseSkills,
+  purchaseSkill,
+  publishSkill,
+  getMyPurchases,
+  type MarketplaceSkill,
+} from '@marketplace/manager'
+import { getAllSkills, getMarketplaceSkills } from '@skills/storage'
+import type { StoredSkill } from '@skills/types'
+import type { PinataSettings } from '@shared/settings'
+import { SkillCard } from './SkillCard'
+import { PublishSkillModal } from './PublishSkillModal'
+
+type MarketplaceView = 'browse' | 'my-skills' | 'publish'
+
+interface MarketplaceTabProps {
+  pinataSettings?: PinataSettings
+  onPinataSettingsChange?: (settings: PinataSettings) => void
+}
+
+export const MarketplaceTab: FC<MarketplaceTabProps> = ({
+  pinataSettings,
+  onPinataSettingsChange,
+}) => {
+  const { wallet, isLoading: walletLoading, error: walletError, isInstalled, connect, disconnect, refresh } = useWallet('devnet')
+
+  const [view, setView] = useState<MarketplaceView>('browse')
+  const [skills, setSkills] = useState<MarketplaceSkill[]>([])
+  const [mySkills, setMySkills] = useState<StoredSkill[]>([])
+  const [purchasedSkills, setPurchasedSkills] = useState<MarketplaceSkill[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [buyingMint, setBuyingMint] = useState<string | null>(null)
+  const [showPublishModal, setShowPublishModal] = useState(false)
+  const [showPinataConfig, setShowPinataConfig] = useState(false)
+  const [pinataKey, setPinataKey] = useState(pinataSettings?.apiKey || '')
+  const [pinataSecret, setPinataSecret] = useState(pinataSettings?.secretKey || '')
+
+  // Load marketplace skills
+  const loadSkills = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const marketplaceSkills = await browseSkills('devnet', true)
+      setSkills(marketplaceSkills)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load skills')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // Load user's local skills for publishing
+  const loadMySkills = useCallback(async () => {
+    try {
+      const storedSkills = await getAllSkills()
+      setMySkills(storedSkills)
+    } catch (err) {
+      console.error('Failed to load local skills:', err)
+    }
+  }, [])
+
+  // Load purchased skills from storage
+  const loadPurchasedSkills = useCallback(async () => {
+    try {
+      const purchased = await getMyPurchases('devnet')
+      setPurchasedSkills(purchased)
+    } catch (err) {
+      console.error('Failed to load purchased skills:', err)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSkills()
+    loadMySkills()
+    loadPurchasedSkills()
+  }, [loadSkills, loadMySkills, loadPurchasedSkills])
+
+  const handleConnect = async () => {
+    try {
+      await connect()
+    } catch (err) {
+      // Error is handled by the hook
+    }
+  }
+
+  const handleDisconnect = async () => {
+    await disconnect()
+  }
+
+  const handleBuy = async (skill: MarketplaceSkill) => {
+    if (!wallet.connected) {
+      setError('Please connect your wallet first')
+      return
+    }
+
+    setBuyingMint(skill.mint)
+    setError(null)
+
+    try {
+      const result = await purchaseSkill(skill, 'devnet')
+      if (!result.success) {
+        throw new Error(result.error || 'Purchase failed')
+      }
+
+      // Refresh both the skills list and purchased skills
+      await Promise.all([loadSkills(), loadPurchasedSkills()])
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to purchase skill')
+    } finally {
+      setBuyingMint(null)
+    }
+  }
+
+  const handlePublish = async (skill: StoredSkill, price: number, category: string) => {
+    if (!wallet.connected) {
+      throw new Error('Please connect your wallet first')
+    }
+
+    if (!pinataSettings?.apiKey || !pinataSettings?.secretKey) {
+      throw new Error('Please configure Pinata API keys first')
+    }
+
+    const result = await publishSkill(
+      skill,
+      price,
+      category,
+      pinataSettings,
+      'devnet'
+    )
+
+    if (!result.success) {
+      throw new Error(result.error || 'Publish failed')
+    }
+
+    // Refresh the skills list
+    await loadSkills()
+  }
+
+  const handleSavePinata = () => {
+    if (onPinataSettingsChange) {
+      onPinataSettingsChange({
+        apiKey: pinataKey,
+        secretKey: pinataSecret,
+      })
+    }
+    setShowPinataConfig(false)
+  }
+
+  const hasPinataConfig = pinataSettings?.apiKey && pinataSettings?.secretKey
+
+  return (
+    <div className="marketplace-tab">
+      {/* Wallet Section */}
+      <div className="marketplace-wallet-section">
+        <div className="wallet-status">
+          {!isInstalled ? (
+            <div className="wallet-not-installed">
+              <AlertCircle size={16} />
+              <span>No Solana wallet found</span>
+              <a
+                href="https://phantom.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="wallet-install-link"
+              >
+                Install Phantom
+                <ExternalLink size={12} />
+              </a>
+            </div>
+          ) : wallet.connected ? (
+            <div className="wallet-connected">
+              <div className="wallet-info">
+                <Wallet size={16} />
+                <span className="wallet-address">{shortenAddress(wallet.address || '', 6)}</span>
+                <span className="wallet-balance">{wallet.balance.toFixed(4)} SOL</span>
+                <span className="wallet-network">({wallet.network})</span>
+              </div>
+              <div className="wallet-actions">
+                <button
+                  type="button"
+                  className="button-icon"
+                  onClick={refresh}
+                  disabled={walletLoading}
+                  title="Refresh balance"
+                >
+                  <RefreshCw size={14} className={walletLoading ? 'spinning' : ''} />
+                </button>
+                <button
+                  type="button"
+                  className="button-secondary button-sm"
+                  onClick={handleDisconnect}
+                  disabled={walletLoading}
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="button-primary"
+              onClick={handleConnect}
+              disabled={walletLoading}
+            >
+              <Wallet size={16} />
+              {walletLoading ? 'Connecting...' : 'Connect Wallet'}
+            </button>
+          )}
+        </div>
+
+        {walletError && (
+          <div className="wallet-error">
+            <AlertCircle size={14} />
+            {walletError}
+          </div>
+        )}
+      </div>
+
+      {/* View Tabs */}
+      <div className="marketplace-view-tabs">
+        <button
+          type="button"
+          className={`view-tab ${view === 'browse' ? 'active' : ''}`}
+          onClick={() => setView('browse')}
+        >
+          <Store size={14} />
+          Browse
+        </button>
+        <button
+          type="button"
+          className={`view-tab ${view === 'my-skills' ? 'active' : ''}`}
+          onClick={() => setView('my-skills')}
+        >
+          <Package size={14} />
+          My Skills
+        </button>
+        <button
+          type="button"
+          className={`view-tab ${view === 'publish' ? 'active' : ''}`}
+          onClick={() => setView('publish')}
+        >
+          <Upload size={14} />
+          Publish
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="marketplace-content">
+        {error && (
+          <div className="error-message">
+            <AlertCircle size={14} />
+            {error}
+          </div>
+        )}
+
+        {view === 'browse' && (
+          <div className="skills-grid">
+            {isLoading ? (
+              <div className="loading-state">Loading skills...</div>
+            ) : skills.length === 0 ? (
+              <div className="empty-state">
+                <Store size={32} />
+                <p>No skills available yet</p>
+                <p className="text-muted">Be the first to publish a skill!</p>
+              </div>
+            ) : (
+              skills.map((skill) => (
+                <SkillCard
+                  key={skill.mint}
+                  skill={skill}
+                  onBuy={handleBuy}
+                  isLoading={buyingMint === skill.mint}
+                  disabled={!wallet.connected}
+                />
+              ))
+            )}
+          </div>
+        )}
+
+        {view === 'my-skills' && (
+          <div className="my-skills-section">
+            <h4>Purchased Skills</h4>
+            <div className="skills-grid">
+              {purchasedSkills.length === 0 ? (
+                <div className="empty-state">
+                  <Package size={32} />
+                  <p>No purchased skills yet</p>
+                  <p className="text-muted">Skills you buy from the marketplace will appear here</p>
+                </div>
+              ) : (
+                purchasedSkills.map((skill, index) => (
+                  <SkillCard
+                    key={skill.mint ? `mint-${skill.mint}` : `skill-${skill.name}-${index}`}
+                    skill={skill}
+                    onBuy={handleBuy}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {view === 'publish' && (
+          <div className="publish-section">
+            <div className="publish-info">
+              <h4>Publish Your Skills</h4>
+              <p>
+                Share your skills with the community and earn SOL when others purchase them.
+              </p>
+            </div>
+
+            {/* Pinata Configuration */}
+            <div className="pinata-config">
+              <div className="config-header">
+                <span>IPFS Storage (Pinata)</span>
+                {hasPinataConfig ? (
+                  <span className="config-status success">Configured</span>
+                ) : (
+                  <span className="config-status warning">Not configured</span>
+                )}
+              </div>
+
+              {showPinataConfig ? (
+                <div className="config-form">
+                  <div className="form-group">
+                    <label htmlFor="pinata-key">API Key</label>
+                    <input
+                      id="pinata-key"
+                      type="text"
+                      value={pinataKey}
+                      onChange={(e) => setPinataKey(e.target.value)}
+                      placeholder="Enter Pinata API Key"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label htmlFor="pinata-secret">Secret Key</label>
+                    <input
+                      id="pinata-secret"
+                      type="password"
+                      value={pinataSecret}
+                      onChange={(e) => setPinataSecret(e.target.value)}
+                      placeholder="Enter Pinata Secret Key"
+                    />
+                  </div>
+                  <div className="config-actions">
+                    <button
+                      type="button"
+                      className="button-secondary"
+                      onClick={() => setShowPinataConfig(false)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="button-primary"
+                      onClick={handleSavePinata}
+                    >
+                      Save
+                    </button>
+                  </div>
+                  <p className="form-hint">
+                    Get free API keys at{' '}
+                    <a href="https://pinata.cloud" target="_blank" rel="noopener noreferrer">
+                      pinata.cloud
+                    </a>
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="button-secondary"
+                  onClick={() => setShowPinataConfig(true)}
+                >
+                  {hasPinataConfig ? 'Update Keys' : 'Configure Pinata'}
+                </button>
+              )}
+            </div>
+
+            <button
+              type="button"
+              className="button-primary publish-button"
+              onClick={() => setShowPublishModal(true)}
+              disabled={!wallet.connected || !hasPinataConfig}
+            >
+              <Upload size={16} />
+              Publish a Skill
+            </button>
+
+            {!wallet.connected && (
+              <p className="text-muted">Connect your wallet to publish skills</p>
+            )}
+            {wallet.connected && !hasPinataConfig && (
+              <p className="text-muted">Configure Pinata to store skill files</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Publish Modal */}
+      {showPublishModal && (
+        <PublishSkillModal
+          skills={mySkills}
+          onPublish={handlePublish}
+          onClose={() => setShowPublishModal(false)}
+        />
+      )}
+    </div>
+  )
+}

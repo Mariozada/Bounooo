@@ -33,7 +33,9 @@
       "@storage/*": ["src/storage/*"],
       "@skills/*": ["src/skills/*"],
       "@mcp/*": ["src/mcp/*"],
-      "@auth/*": ["src/auth/*"]
+      "@auth/*": ["src/auth/*"],
+      "@wallet/*": ["src/wallet/*"],
+      "@marketplace/*": ["src/marketplace/*"]
     }
   },
   "include": ["src", "vite.config.ts"]
