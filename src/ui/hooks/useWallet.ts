@@ -46,10 +46,6 @@ export function useWallet(network: NetworkType = 'devnet'): UseWalletResult {
   const [wallet, setWallet] = useState<WalletState>(DEFAULT_WALLET_STATE)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [pendingSignature, setPendingSignature] = useState<{
-    resolve: (result: SignatureResult) => void
-    reject: (error: Error) => void
-  } | null>(null)
 
   // Load wallet state from storage on mount
   useEffect(() => {
@@ -70,17 +66,14 @@ export function useWallet(network: NetworkType = 'devnet'): UseWalletResult {
       })
   }, [network])
 
-  // Listen for wallet events from background
+  // Listen for wallet events from background (for external updates)
   useEffect(() => {
     const handleMessage = (message: {
       type: string
       address?: string
       balance?: number
       network?: string
-      success?: boolean
-      signature?: string
       error?: string
-      cancelled?: boolean
     }) => {
       console.log('[Wallet] Received message:', message.type, message)
 
@@ -102,24 +95,11 @@ export function useWallet(network: NetworkType = 'devnet'): UseWalletResult {
         }
         setIsLoading(false)
       }
-
-      if (message.type === MessageTypes.WALLET_TX_COMPLETE) {
-        if (pendingSignature) {
-          pendingSignature.resolve({
-            success: message.success || false,
-            signature: message.signature,
-            error: message.error,
-            cancelled: message.cancelled,
-          })
-          setPendingSignature(null)
-        }
-        setIsLoading(false)
-      }
     }
 
     chrome.runtime.onMessage.addListener(handleMessage)
     return () => chrome.runtime.onMessage.removeListener(handleMessage)
-  }, [pendingSignature])
+  }, [])
 
   // Fetch balance from RPC (no popup needed)
   const fetchBalance = async (address: string, net: NetworkType): Promise<number> => {
@@ -134,7 +114,7 @@ export function useWallet(network: NetworkType = 'devnet'): UseWalletResult {
     }
   }
 
-  // Connect wallet (opens popup)
+  // Connect wallet (uses content script bridge)
   const connect = useCallback(async () => {
     setIsLoading(true)
     setError(null)
@@ -143,22 +123,36 @@ export function useWallet(network: NetworkType = 'devnet'): UseWalletResult {
       const response = await chrome.runtime.sendMessage({
         type: MessageTypes.WALLET_POPUP_OPEN,
         mode: 'connect',
-      })
+      }) as { success: boolean; address?: string; error?: string; cancelled?: boolean }
 
       if (!response.success) {
-        throw new Error(response.error || 'Failed to open wallet popup')
+        if (response.cancelled) {
+          // User cancelled - don't show as error
+          setIsLoading(false)
+          return
+        }
+        throw new Error(response.error || 'Failed to connect wallet')
       }
 
-      // Wait for WALLET_CONNECTED message (handled by useEffect listener)
-      // The popup will send WALLET_CONNECT_RESULT to background
-      // Background will broadcast WALLET_CONNECTED
+      // Use the response directly instead of waiting for broadcast
+      if (response.address) {
+        // Fetch balance for the connected address
+        const balance = await fetchBalance(response.address, network)
+        setWallet({
+          connected: true,
+          address: response.address,
+          balance,
+          network,
+        })
+        setIsLoading(false)
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to connect wallet'
       setError(message)
       setIsLoading(false)
       throw err
     }
-  }, [])
+  }, [network])
 
   // Disconnect wallet
   const disconnect = useCallback(async () => {
@@ -193,15 +187,13 @@ export function useWallet(network: NetworkType = 'devnet'): UseWalletResult {
     }
   }, [wallet.connected, wallet.address, wallet.network])
 
-  // Request signature (opens popup for signing)
+  // Request signature (uses content script bridge)
   const requestSignature = useCallback(async (params: SignatureRequest): Promise<SignatureResult> => {
     setIsLoading(true)
     setError(null)
 
-    return new Promise((resolve, reject) => {
-      setPendingSignature({ resolve, reject })
-
-      chrome.runtime.sendMessage({
+    try {
+      const response = await chrome.runtime.sendMessage({
         type: MessageTypes.WALLET_POPUP_OPEN,
         mode: 'sign',
         signParams: {
@@ -210,12 +202,19 @@ export function useWallet(network: NetworkType = 'devnet'): UseWalletResult {
           to: params.to,
           tx: params.transactionBase64,
         },
-      }).catch(err => {
-        reject(err)
-        setPendingSignature(null)
-        setIsLoading(false)
-      })
-    })
+      }) as SignatureResult
+
+      setIsLoading(false)
+      return response
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Transaction failed'
+      setError(message)
+      setIsLoading(false)
+      return {
+        success: false,
+        error: message,
+      }
+    }
   }, [])
 
   return {

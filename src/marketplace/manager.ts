@@ -5,12 +5,27 @@ import { uploadToIPFS, uploadJSONToIPFS, fetchFromIPFS } from './ipfs'
 import {
   mintSkillNFT,
   getSkillNFTsByOwner,
-  getSkillNFTMetadata,
   createSkillMetadata,
   type SkillNFT,
 } from './nft'
-import { getProvider, solToLamports, lamportsToSol, getBalance } from '@wallet/solana'
+import { solToLamports, lamportsToSol } from '@wallet/solana'
 import { installSkillFromMarketplace, getMarketplaceSkills, isSkillMintInstalled } from '@skills/storage'
+import { loadSettings } from '@shared/settings'
+
+/**
+ * Get current wallet address from settings (stored by background script)
+ */
+async function getWalletAddress(): Promise<string | null> {
+  try {
+    const settings = await loadSettings()
+    if (settings.wallet?.connected && settings.wallet?.address) {
+      return settings.wallet.address
+    }
+    return null
+  } catch {
+    return null
+  }
+}
 
 export interface MarketplaceSkill {
   mint: string
@@ -46,9 +61,6 @@ export interface PurchaseResult {
 // In production, use an indexer or backend
 const skillListCache: Map<string, MarketplaceSkill[]> = new Map()
 
-// Estimated transaction cost for minting NFT (in SOL)
-const ESTIMATED_MINT_COST = 0.015 // ~0.015 SOL for account creation + tx fee
-
 /**
  * Validate Pinata configuration
  */
@@ -73,14 +85,10 @@ export async function publishSkill(
   network: NetworkType = 'devnet'
 ): Promise<PublishResult> {
   try {
-    // Validate wallet connection
-    const provider = getProvider()
-    if (!provider?.publicKey) {
+    // Validate wallet connection using stored state (not direct provider)
+    const walletAddress = await getWalletAddress()
+    if (!walletAddress) {
       return { success: false, error: 'Wallet not connected', errorType: 'wallet' }
-    }
-
-    if (!provider.isConnected) {
-      return { success: false, error: 'Wallet disconnected. Please reconnect.', errorType: 'wallet' }
     }
 
     // Validate Pinata config
@@ -94,15 +102,8 @@ export async function publishSkill(
       return { success: false, error: 'Price cannot be negative', errorType: 'validation' }
     }
 
-    // Check balance for transaction fees
-    const balance = await getBalance(provider.publicKey, network)
-    if (balance < ESTIMATED_MINT_COST) {
-      return {
-        success: false,
-        error: `Insufficient balance. You need at least ${ESTIMATED_MINT_COST} SOL for transaction fees. Current balance: ${balance.toFixed(4)} SOL`,
-        errorType: 'balance'
-      }
-    }
+    // Note: Balance check requires RPC call, skipping for now as the signing
+    // will fail anyway if insufficient balance
 
     // 1. Upload skill YAML to IPFS
     const yamlUpload = await uploadToIPFS(
@@ -158,7 +159,7 @@ export async function publishSkill(
       description: skill.description,
       price: priceSol,
       priceLamports,
-      seller: provider.publicKey.toBase58(),
+      seller: walletAddress,
       ipfsCid: yamlUpload.cid,
       category,
       version: skill.version,
@@ -194,7 +195,7 @@ export async function publishSkill(
  */
 export async function browseSkills(
   network: NetworkType = 'devnet',
-  forceRefresh = false
+  _forceRefresh = false
 ): Promise<MarketplaceSkill[]> {
   const cacheKey = `${network}-all`
 
@@ -218,17 +219,13 @@ export async function browseSkills(
 export async function getMyListings(
   network: NetworkType = 'devnet'
 ): Promise<MarketplaceSkill[]> {
-  const provider = getProvider()
-  if (!provider?.publicKey || !provider.isConnected) {
+  const walletAddress = await getWalletAddress()
+  if (!walletAddress) {
     return []
   }
 
-  // Store address immediately to avoid race condition
-  const publicKey = provider.publicKey
-  const address = publicKey.toBase58()
-
   try {
-    const nfts = await getSkillNFTsByOwner(address, network)
+    const nfts = await getSkillNFTsByOwner(walletAddress, network)
     // Handle individual NFT conversion failures gracefully
     const results = await Promise.allSettled(nfts.map(nftToMarketplaceSkill))
     return results
@@ -244,7 +241,7 @@ export async function getMyListings(
  * Get skills purchased by the current user
  */
 export async function getMyPurchases(
-  network: NetworkType = 'devnet'
+  _network: NetworkType = 'devnet'
 ): Promise<MarketplaceSkill[]> {
   // Get from local storage instead of blockchain (more reliable)
   try {
@@ -276,8 +273,13 @@ export async function purchaseSkill(
   network: NetworkType = 'devnet'
 ): Promise<PurchaseResult> {
   try {
-    const provider = getProvider()
-    if (!provider?.publicKey) {
+    // For paid skills, we check wallet connection
+    // For free/demo skills, wallet is optional
+    const walletAddress = await getWalletAddress()
+    const isDemoSkill = marketplaceSkill.mint.startsWith('demo-')
+    const isFreeSkill = marketplaceSkill.price === 0
+
+    if (!walletAddress && !isDemoSkill && !isFreeSkill) {
       return { success: false, error: 'Wallet not connected', errorType: 'wallet' }
     }
 

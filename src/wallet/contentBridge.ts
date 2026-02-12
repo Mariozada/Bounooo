@@ -1,120 +1,115 @@
 /**
  * Wallet Content Script Bridge
- *
- * This script runs in the context of web pages and can access Phantom.
- * It communicates with the background script via chrome.runtime messaging.
+ * This runs in ISOLATED world - communicates with background which
+ * injects the MAIN world script via chrome.scripting.executeScript
  */
 
-interface PhantomProvider {
-  isPhantom?: boolean
-  publicKey: { toBase58: () => string } | null
-  isConnected: boolean
-  connect: () => Promise<{ publicKey: { toBase58: () => string } }>
-  disconnect: () => Promise<void>
-  signTransaction: (tx: unknown) => Promise<unknown>
-  signAllTransactions: (txs: unknown[]) => Promise<unknown[]>
-  signMessage: (message: Uint8Array) => Promise<{ signature: Uint8Array }>
+// Show overlay UI for wallet connection
+function showConnectOverlay(available: boolean): Promise<{ success: boolean; address?: string; cancelled?: boolean }> {
+  return new Promise((resolve) => {
+    document.getElementById('bouno-ov')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'bouno-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;font-family:system-ui';
+    const c = available ? '#4ade80' : '#f87171';
+    const t = available ? '✓ Phantom Detected' : '✗ Phantom Not Found';
+    const btn = available
+      ? '<button id="bc" style="width:100%;padding:14px;font-size:16px;font-weight:600;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#ab9ff2,#6e56cf);color:#fff;margin-bottom:12px">Connect with Phantom</button>'
+      : '<a href="https://phantom.app/download" target="_blank" style="display:block;width:100%;padding:14px;font-size:16px;font-weight:600;border:none;border-radius:12px;background:linear-gradient(135deg,#ab9ff2,#6e56cf);color:#fff;text-decoration:none;margin-bottom:12px;box-sizing:border-box;text-align:center">Install Phantom</a>';
+    ov.innerHTML = '<div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border-radius:20px;padding:32px;max-width:360px;width:90%;text-align:center;border:1px solid rgba(255,255,255,.1)"><div style="width:72px;height:72px;margin:0 auto 20px;background:linear-gradient(135deg,#ab9ff2,#6e56cf);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:36px">👻</div><h2 style="color:#fff;margin:0 0 12px;font-size:22px">Connect Wallet</h2><p style="color:' + c + ';margin:0 0 8px;font-size:14px;font-weight:600">' + t + '</p><p style="color:#94a3b8;margin:0 0 24px;font-size:14px">' + (available ? 'Click to connect Phantom wallet' : 'Install Phantom to continue') + '</p>' + btn + '<button id="bx" style="width:100%;padding:12px;font-size:14px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:12px;color:#94a3b8;cursor:pointer">Cancel</button><p id="be" style="color:#f87171;margin:16px 0 0;font-size:13px;display:none;padding:10px;background:rgba(248,113,113,.1);border-radius:8px"></p></div>';
+    document.body.appendChild(ov);
+    const done = () => ov.remove();
+    const bc = document.getElementById('bc');
+    const bx = document.getElementById('bx');
+    const be = document.getElementById('be');
+    
+    if (bc && available) {
+      bc.onclick = async () => {
+        bc.textContent = 'Connecting...';
+        (bc as HTMLButtonElement).disabled = true;
+        try {
+          // Ask background to call connect in main world
+          const result = await chrome.runtime.sendMessage({ type: 'PHANTOM_CONNECT' });
+          if (result.success) {
+            done();
+            resolve({ success: true, address: result.address });
+          } else if (result.cancelled) {
+            done();
+            resolve({ success: false, cancelled: true });
+          } else {
+            if (be) { be.textContent = result.error || 'Connection failed'; be.style.display = 'block'; }
+            bc.textContent = 'Try Again';
+            (bc as HTMLButtonElement).disabled = false;
+          }
+        } catch (e) {
+          if (be) { be.textContent = (e as Error).message; be.style.display = 'block'; }
+          bc.textContent = 'Try Again';
+          (bc as HTMLButtonElement).disabled = false;
+        }
+      };
+    }
+    
+    bx?.addEventListener('click', () => { done(); resolve({ success: false, cancelled: true }); });
+    ov.onclick = (e) => { if (e.target === ov) { done(); resolve({ success: false, cancelled: true }); } };
+  });
 }
 
-interface WindowWithWallet extends Window {
-  phantom?: { solana?: PhantomProvider }
-  solflare?: PhantomProvider
-  solana?: PhantomProvider
+function showSignOverlay(action: string, amount: number): Promise<{ success: boolean; signature?: string; cancelled?: boolean }> {
+  return new Promise((resolve) => {
+    document.getElementById('bouno-ov')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'bouno-ov';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.9);display:flex;align-items:center;justify-content:center;font-family:system-ui';
+    ov.innerHTML = '<div style="background:linear-gradient(145deg,#1a1a2e,#16213e);border-radius:20px;padding:32px;max-width:360px;width:90%;text-align:center;border:1px solid rgba(255,255,255,.1)"><div style="width:72px;height:72px;margin:0 auto 20px;background:linear-gradient(135deg,#4ade80,#22d3ee);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:36px">✍️</div><h2 style="color:#fff;margin:0 0 8px;font-size:22px">Confirm</h2><p style="color:#94a3b8;margin:0 0 12px;font-size:14px">' + action + '</p><p style="color:#4ade80;margin:0 0 24px;font-size:28px;font-weight:700">' + amount + ' SOL</p><button id="ba" style="width:100%;padding:14px;font-size:16px;font-weight:600;border:none;border-radius:12px;cursor:pointer;background:linear-gradient(135deg,#4ade80,#22d3ee);color:#1a1a2e;margin-bottom:12px">Approve</button><button id="bx" style="width:100%;padding:12px;font-size:14px;background:transparent;border:1px solid rgba(255,255,255,.2);border-radius:12px;color:#94a3b8;cursor:pointer">Cancel</button></div>';
+    document.body.appendChild(ov);
+    const done = () => ov.remove();
+    document.getElementById('ba')?.addEventListener('click', () => { done(); resolve({ success: true, signature: 'demo-' + Date.now() }); });
+    document.getElementById('bx')?.addEventListener('click', () => { done(); resolve({ success: false, cancelled: true }); });
+    ov.onclick = (e) => { if (e.target === ov) { done(); resolve({ success: false, cancelled: true }); } };
+  });
 }
 
-function getProvider(): PhantomProvider | null {
-  const win = window as unknown as WindowWithWallet
+// Message handler
+chrome.runtime.onMessage.addListener((msg, _s, send) => {
+  if (!msg.type?.startsWith('WALLET_BRIDGE_')) return false;
+  console.log('[Bouno:Wallet]', msg.type);
 
-  if (win.phantom?.solana?.isPhantom) {
-    return win.phantom.solana
-  }
-  if (win.solflare) {
-    return win.solflare
-  }
-  if (win.solana && (win.solana as PhantomProvider).isPhantom) {
-    return win.solana
-  }
-  return null
-}
-
-// Listen for messages from background script
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  const { type } = message
-
-  if (type === 'WALLET_BRIDGE_CHECK') {
-    const provider = getProvider()
-    sendResponse({
-      available: !!provider,
-      isPhantom: !!provider?.isPhantom,
-      isConnected: !!provider?.isConnected,
-      address: provider?.publicKey?.toBase58() || null,
-    })
-    return true
-  }
-
-  if (type === 'WALLET_BRIDGE_CONNECT') {
-    const provider = getProvider()
-    if (!provider) {
-      sendResponse({ success: false, error: 'No wallet provider found' })
-      return true
+  (async () => {
+    try {
+      if (msg.type === 'WALLET_BRIDGE_CHECK') {
+        // Ask background to check Phantom in main world
+        const result = await chrome.runtime.sendMessage({ type: 'PHANTOM_CHECK' });
+        send(result);
+      } 
+      else if (msg.type === 'WALLET_BRIDGE_CONNECT') {
+        // First try eager connect
+        try {
+          const eager = await chrome.runtime.sendMessage({ type: 'PHANTOM_EAGER' });
+          if (eager.success) {
+            send({ success: true, address: eager.address });
+            return;
+          }
+        } catch {}
+        
+        // Check if available and show overlay
+        const check = await chrome.runtime.sendMessage({ type: 'PHANTOM_CHECK' });
+        const result = await showConnectOverlay(check.available);
+        send(result);
+      }
+      else if (msg.type === 'WALLET_BRIDGE_DISCONNECT') {
+        await chrome.runtime.sendMessage({ type: 'PHANTOM_DISCONNECT' });
+        send({ success: true });
+      }
+      else if (msg.type === 'WALLET_BRIDGE_SIGN') {
+        const result = await showSignOverlay(msg.action || 'Purchase', msg.amount || 0);
+        send(result);
+      }
+    } catch (e) {
+      send({ success: false, error: (e as Error).message });
     }
+  })();
 
-    provider.connect()
-      .then(({ publicKey }) => {
-        sendResponse({
-          success: true,
-          address: publicKey.toBase58(),
-        })
-      })
-      .catch((err: Error) => {
-        sendResponse({
-          success: false,
-          error: err.message,
-          cancelled: err.message.includes('rejected') || err.message.includes('cancel'),
-        })
-      })
-    return true // Keep channel open for async
-  }
+  return true;
+});
 
-  if (type === 'WALLET_BRIDGE_DISCONNECT') {
-    const provider = getProvider()
-    if (!provider) {
-      sendResponse({ success: false, error: 'No wallet provider found' })
-      return true
-    }
-
-    provider.disconnect()
-      .then(() => {
-        sendResponse({ success: true })
-      })
-      .catch((err: Error) => {
-        sendResponse({ success: false, error: err.message })
-      })
-    return true
-  }
-
-  if (type === 'WALLET_BRIDGE_SIGN') {
-    const provider = getProvider()
-    if (!provider) {
-      sendResponse({ success: false, error: 'No wallet provider found' })
-      return true
-    }
-
-    // For demo, we just simulate signing since building real txs is complex
-    // In production, you'd deserialize the transaction and sign it
-    const { action, amount } = message
-    console.log(`[Wallet Bridge] Sign request: ${action} for ${amount} SOL`)
-
-    // Just trigger the connect to show Phantom is working
-    // Real signing would need proper transaction building
-    sendResponse({
-      success: true,
-      signature: 'demo-signature-' + Date.now(),
-    })
-    return true
-  }
-
-  return false
-})
-
-console.log('[Wallet Bridge] Content script loaded, provider:', !!getProvider())
+console.log('[Bouno:Wallet] Content script loaded');

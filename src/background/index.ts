@@ -18,9 +18,6 @@ import { startGeminiOAuth, logoutGemini, setupGeminiOAuthListener } from './gemi
 import { loadSettings, saveSettings } from '@shared/settings'
 import './relayClient'
 
-// Wallet popup state
-let walletPopupWindowId: number | null = null
-
 registerAllHandlers()
 setupGeminiOAuthListener()
 
@@ -272,57 +269,139 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
-  // Wallet handlers - seamlessly connects to Phantom via content script bridge
+  // Phantom handlers - use chrome.scripting.executeScript with world: MAIN
+  if (type === 'PHANTOM_CHECK' || type === 'PHANTOM_CONNECT' || type === 'PHANTOM_EAGER' || type === 'PHANTOM_DISCONNECT') {
+    (async () => {
+      try {
+        // Get the current active tab
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (!tab?.id || !tab.url?.startsWith('http')) {
+          sendResponse({ available: false, success: false, error: 'No valid tab' })
+          return
+        }
+
+        let results: chrome.scripting.InjectionResult[]
+
+        if (type === 'PHANTOM_CHECK') {
+          results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            world: 'MAIN',
+            func: () => {
+              const w = window as { phantom?: { solana?: { isPhantom?: boolean; isConnected?: boolean; publicKey?: { toBase58: () => string } } } }
+              const p = w.phantom?.solana
+              return { available: !!p?.isPhantom, isConnected: !!p?.isConnected, address: p?.publicKey?.toBase58() || null }
+            }
+          })
+        } else if (type === 'PHANTOM_CONNECT') {
+          results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            world: 'MAIN',
+            func: async () => {
+              const w = window as { phantom?: { solana?: { isPhantom?: boolean; connect: () => Promise<{ publicKey: { toBase58: () => string } }> } } }
+              const p = w.phantom?.solana
+              if (!p?.isPhantom) return { success: false, error: 'Phantom not found' }
+              try {
+                const { publicKey } = await p.connect()
+                return { success: true, address: publicKey.toBase58() }
+              } catch (e) {
+                const err = e as { code?: number; message?: string }
+                return { success: false, error: err.message, cancelled: err.code === 4001 }
+              }
+            }
+          })
+        } else if (type === 'PHANTOM_EAGER') {
+          results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            world: 'MAIN',
+            func: async () => {
+              const w = window as { phantom?: { solana?: { isPhantom?: boolean; isConnected?: boolean; publicKey?: { toBase58: () => string }; connect: (o: { onlyIfTrusted: boolean }) => Promise<{ publicKey: { toBase58: () => string } }> } } }
+              const p = w.phantom?.solana
+              if (!p?.isPhantom) return { success: false, error: 'Phantom not found' }
+              if (p.isConnected && p.publicKey) return { success: true, address: p.publicKey.toBase58() }
+              try {
+                const { publicKey } = await p.connect({ onlyIfTrusted: true })
+                return { success: true, address: publicKey.toBase58() }
+              } catch {
+                return { success: false, error: 'Not trusted' }
+              }
+            }
+          })
+        } else {
+          results = await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            world: 'MAIN',
+            func: async () => {
+              const w = window as { phantom?: { solana?: { disconnect: () => Promise<void> } } }
+              if (w.phantom?.solana) await w.phantom.solana.disconnect()
+              return { success: true }
+            }
+          })
+        }
+
+        const result = results[0]?.result as Record<string, unknown> | undefined
+        sendResponse(result || { available: false, success: false })
+      } catch (err) {
+        sendResponse({ success: false, error: (err as Error).message })
+      }
+    })()
+    return true
+  }
+
+  // Wallet handlers - uses content script bridge on active tab
   if (type === MessageTypes.WALLET_POPUP_OPEN) {
     const { mode = 'connect', signParams } = message as {
       mode?: 'connect' | 'sign' | 'disconnect'
       signParams?: { action: string; amount: number; to: string; tx?: string }
     }
 
-    // Helper function to find or create a tab for wallet operations (completely transparent to user)
-    async function getWalletTab(): Promise<chrome.tabs.Tab | null> {
-      // First, try to find an existing regular webpage tab
-      const tabs = await chrome.tabs.query({})
-      const existingTab = tabs.find(t =>
-        t.url &&
-        (t.url.startsWith('http://') || t.url.startsWith('https://')) &&
-        !t.url.includes('chrome.google.com/webstore')
-      )
-
-      if (existingTab?.id) {
-        return existingTab
+    // Find a suitable tab for wallet operations
+    async function findWalletTab(): Promise<chrome.tabs.Tab | null> {
+      // First try to find an active tab in the current window
+      const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true })
+      if (activeTab?.id && activeTab.url?.startsWith('http')) {
+        return activeTab
       }
 
-      // Create a new tab in background
-      const newTab = await chrome.tabs.create({
-        url: 'https://www.google.com/',
-        active: false,
-      })
+      // Find any https tab that's not a restricted page
+      const allTabs = await chrome.tabs.query({})
+      const suitableTab = allTabs.find(t =>
+        t.id &&
+        t.url &&
+        (t.url.startsWith('https://') || t.url.startsWith('http://')) &&
+        !t.url.includes('chrome.google.com') &&
+        !t.url.includes('accounts.google.com') &&
+        !t.url.includes('chrome://') &&
+        !t.url.includes('edge://')
+      )
 
-      // Wait for page to load
-      await new Promise<void>((resolve) => {
-        const listener = (tabId: number, changeInfo: chrome.tabs.TabChangeInfo) => {
-          if (tabId === newTab.id && changeInfo.status === 'complete') {
-            chrome.tabs.onUpdated.removeListener(listener)
-            resolve()
-          }
-        }
-        chrome.tabs.onUpdated.addListener(listener)
-        // Timeout fallback
-        setTimeout(() => {
-          chrome.tabs.onUpdated.removeListener(listener)
-          resolve()
-        }, 5000)
-      })
-
-      // Give content script time to inject
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      return newTab
+      return suitableTab || null
     }
 
-    // Helper to check wallet with retries
-    async function checkWalletWithRetries(tabId: number, maxAttempts = 5): Promise<{ available: boolean; address?: string }> {
+    // Ensure tab is active and inject content script if needed
+    async function prepareTab(tab: chrome.tabs.Tab): Promise<boolean> {
+      if (!tab.id) return false
+
+      // Focus the tab to ensure Phantom injects
+      await chrome.tabs.update(tab.id, { active: true })
+
+      // Small delay for Phantom to notice the tab is active
+      await new Promise(resolve => setTimeout(resolve, 300))
+
+      // Try to inject our content script if it's not there
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['wallet-bridge.js']
+        })
+      } catch {
+        // Script might already be injected or page doesn't allow it
+      }
+
+      return true
+    }
+
+    // Check if Phantom is available with retries
+    async function checkPhantomAvailable(tabId: number, maxAttempts = 10): Promise<{ available: boolean; address?: string }> {
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
         try {
           const result = await chrome.tabs.sendMessage(tabId, { type: 'WALLET_BRIDGE_CHECK' }) as {
@@ -330,12 +409,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             address?: string
             isConnected?: boolean
           }
+          console.log(`[Wallet] Check attempt ${attempt + 1}:`, result)
           if (result.available) {
             return { available: true, address: result.address || undefined }
           }
-        } catch {
-          // Content script not ready yet
+        } catch (err) {
+          console.log(`[Wallet] Check attempt ${attempt + 1} failed:`, err)
         }
+        // Wait longer between attempts (500ms)
         await new Promise(resolve => setTimeout(resolve, 500))
       }
       return { available: false }
@@ -344,28 +425,57 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Execute wallet operation
     (async () => {
       try {
-        const tab = await getWalletTab()
+        // Find a suitable tab
+        const tab = await findWalletTab()
+
+        // If no suitable tab, return error - don't create phantom.app tab
         if (!tab?.id) {
-          sendResponse({ success: false, error: 'Failed to initialize wallet connection' })
+          console.log('[Wallet] No suitable HTTPS tab found')
+          sendResponse({
+            success: false,
+            error: 'Please open any HTTPS website (like google.com) and try again'
+          })
           return
         }
 
+        // Prepare the tab (focus it, inject script)
+        await prepareTab(tab)
+
         if (mode === 'connect') {
-          // Check if wallet is available with retries
-          const checkResult = await checkWalletWithRetries(tab.id)
+          // Check if Phantom is available
+          const checkResult = await checkPhantomAvailable(tab.id)
 
           if (!checkResult.available) {
-            sendResponse({ success: false, error: 'Phantom wallet not detected. Please install Phantom from phantom.app' })
+            sendResponse({
+              success: false,
+              error: 'Phantom wallet not detected. Please make sure Phantom is installed and try refreshing the page.'
+            })
+            return
+          }
+
+          // If already connected, just return the address
+          if (checkResult.address) {
+            const settings = await loadSettings()
+            settings.wallet = {
+              connected: true,
+              address: checkResult.address,
+              network: 'devnet',
+            }
+            await saveSettings(settings)
+            sendResponse({ success: true, address: checkResult.address })
             return
           }
 
           // Send connect request
+          console.log('[Wallet] Sending connect request to tab', tab.id)
           const result = await chrome.tabs.sendMessage(tab.id, { type: 'WALLET_BRIDGE_CONNECT' }) as {
             success: boolean
             address?: string
             error?: string
             cancelled?: boolean
           }
+
+          console.log('[Wallet] Connect result:', result)
 
           if (result.success && result.address) {
             // Save wallet state
@@ -395,6 +505,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({ success: false, error: result.error, cancelled: result.cancelled })
           }
         } else if (mode === 'sign' && signParams) {
+          // For signing, first check Phantom is available
+          const checkResult = await checkPhantomAvailable(tab.id, 3)
+          if (!checkResult.available) {
+            sendResponse({ success: false, error: 'Phantom wallet not available' })
+            return
+          }
+
           const result = await chrome.tabs.sendMessage(tab.id, {
             type: 'WALLET_BRIDGE_SIGN',
             action: signParams.action,
@@ -417,13 +534,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
           sendResponse(result)
         } else if (mode === 'disconnect') {
-          const result = await chrome.tabs.sendMessage(tab.id, { type: 'WALLET_BRIDGE_DISCONNECT' }) as {
-            success: boolean
-            error?: string
+          // Disconnect - clear state and optionally disconnect from Phantom
+          try {
+            if (tab.id) {
+              await chrome.tabs.sendMessage(tab.id, { type: 'WALLET_BRIDGE_DISCONNECT' })
+            }
+          } catch {
+            // Ignore errors
           }
-          sendResponse(result)
+
+          const settings = await loadSettings()
+          settings.wallet = {
+            connected: false,
+            network: 'devnet',
+          }
+          await saveSettings(settings)
+          sendResponse({ success: true })
         }
       } catch (err) {
+        console.error('[Wallet] Error:', err)
         sendResponse({ success: false, error: (err as Error).message })
       }
     })()

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, type FC } from 'react'
-import { Wallet, RefreshCw, Upload, Store, Package, AlertCircle } from 'lucide-react'
+import { Wallet, RefreshCw, Upload, Store, Package, AlertCircle, Edit3 } from 'lucide-react'
 import { useWallet, shortenAddress } from '@ui/hooks/useWallet'
 import {
   browseSkills,
@@ -11,10 +11,19 @@ import {
 import { getAllSkills, getMarketplaceSkills } from '@skills/storage'
 import type { StoredSkill } from '@skills/types'
 import type { PinataSettings } from '@shared/settings'
+import { loadSettings, saveSettings } from '@shared/settings'
 import { SkillCard } from './SkillCard'
 import { PublishSkillModal } from './PublishSkillModal'
 
 type MarketplaceView = 'browse' | 'my-skills' | 'publish'
+
+// Validate Solana address (base58, 32-44 chars)
+function isValidSolanaAddress(address: string): boolean {
+  if (!address || address.length < 32 || address.length > 44) return false
+  // Base58 characters (no 0, O, I, l)
+  const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/
+  return base58Regex.test(address)
+}
 
 interface MarketplaceTabProps {
   pinataSettings?: PinataSettings
@@ -38,6 +47,11 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
   const [showPinataConfig, setShowPinataConfig] = useState(false)
   const [pinataKey, setPinataKey] = useState(pinataSettings?.apiKey || '')
   const [pinataSecret, setPinataSecret] = useState(pinataSettings?.secretKey || '')
+
+  // Manual wallet entry
+  const [showManualEntry, setShowManualEntry] = useState(false)
+  const [manualAddress, setManualAddress] = useState('')
+  const [manualError, setManualError] = useState<string | null>(null)
 
   // Load marketplace skills
   const loadSkills = useCallback(async () => {
@@ -87,8 +101,40 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     }
   }
 
+  const handleManualConnect = async () => {
+    setManualError(null)
+
+    if (!manualAddress.trim()) {
+      setManualError('Please enter a wallet address')
+      return
+    }
+
+    if (!isValidSolanaAddress(manualAddress.trim())) {
+      setManualError('Invalid Solana address format')
+      return
+    }
+
+    try {
+      // Save to settings
+      const settings = await loadSettings()
+      settings.wallet = {
+        connected: true,
+        address: manualAddress.trim(),
+        network: 'devnet',
+      }
+      await saveSettings(settings)
+
+      // Refresh the page to pick up new wallet state
+      window.location.reload()
+    } catch (err) {
+      setManualError('Failed to save wallet address')
+    }
+  }
+
   const handleDisconnect = async () => {
     await disconnect()
+    setShowManualEntry(false)
+    setManualAddress('')
   }
 
   const handleBuy = async (skill: MarketplaceSkill) => {
@@ -211,16 +257,58 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
                 </button>
               </div>
             </div>
+          ) : showManualEntry ? (
+            <div className="wallet-manual-entry">
+              <div className="manual-input-group">
+                <input
+                  type="text"
+                  value={manualAddress}
+                  onChange={(e) => setManualAddress(e.target.value)}
+                  placeholder="Enter Solana wallet address"
+                  className="manual-address-input"
+                />
+                <button
+                  type="button"
+                  className="button-primary button-sm"
+                  onClick={handleManualConnect}
+                >
+                  Connect
+                </button>
+              </div>
+              {manualError && (
+                <div className="manual-error">
+                  <AlertCircle size={12} />
+                  {manualError}
+                </div>
+              )}
+              <button
+                type="button"
+                className="button-link"
+                onClick={() => setShowManualEntry(false)}
+              >
+                ← Back to Phantom
+              </button>
+            </div>
           ) : (
-            <button
-              type="button"
-              className="button-primary"
-              onClick={handleConnect}
-              disabled={walletLoading}
-            >
-              <Wallet size={16} />
-              {walletLoading ? 'Connecting...' : 'Connect Wallet'}
-            </button>
+            <div className="wallet-connect-options">
+              <button
+                type="button"
+                className="button-primary"
+                onClick={handleConnect}
+                disabled={walletLoading}
+              >
+                <Wallet size={16} />
+                {walletLoading ? 'Connecting...' : 'Connect Phantom'}
+              </button>
+              <button
+                type="button"
+                className="button-secondary"
+                onClick={() => setShowManualEntry(true)}
+              >
+                <Edit3 size={16} />
+                Enter Manually
+              </button>
+            </div>
           )}
         </div>
 

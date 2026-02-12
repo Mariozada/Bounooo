@@ -109,6 +109,12 @@ console.log('[Bouno:content] Setting up message listener...')
 try {
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const { type } = message as { type: string }
+
+    // Ignore wallet bridge messages - they're handled by wallet-bridge.js
+    if (type?.startsWith('WALLET_BRIDGE_')) {
+      return false // Let other listeners handle it
+    }
+
     console.log('[Bouno:content] Message received:', type)
 
     const handler = handlers[type]

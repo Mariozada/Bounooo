@@ -95,6 +95,95 @@
   font-size: 13px;
 }
 
+/* Wallet Connect Options */
+.wallet-connect-options {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.wallet-connect-options .button-primary,
+.wallet-connect-options .button-secondary {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+}
+
+/* Manual Wallet Entry */
+.wallet-manual-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  padding: 8px;
+  background: var(--bg-tertiary, rgba(255,255,255,0.03));
+  border-radius: 8px;
+}
+
+.manual-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.manual-address-input {
+  flex: 1;
+  padding: 10px 12px;
+  background: var(--bg-secondary, #1a1a1a);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  color: var(--text-primary, #fff);
+  font-family: monospace;
+  font-size: 13px;
+  min-width: 0;
+}
+
+.manual-address-input:focus {
+  outline: none;
+  border-color: var(--accent-color, #9945FF);
+  box-shadow: 0 0 0 2px rgba(153, 69, 255, 0.2);
+}
+
+.manual-address-input::placeholder {
+  color: var(--text-muted, #666);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12px;
+}
+
+.manual-input-group .button-primary {
+  padding: 10px 16px;
+  white-space: nowrap;
+}
+
+.manual-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-error, #ff6b6b);
+  font-size: 12px;
+  padding: 6px 8px;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 4px;
+}
+
+.button-link {
+  background: none;
+  border: none;
+  color: var(--text-muted, #888);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 0;
+  text-align: left;
+  transition: color 0.15s;
+}
+
+.button-link:hover {
+  color: var(--text-primary, #fff);
+}
+
 /* View Tabs */
 .marketplace-view-tabs {
   display: flex;
@@ -414,8 +503,15 @@
 }
 
 .button-sm {
-  padding: 4px 8px;
-  font-size: 12px;
+  padding: 8px 14px !important;
+  font-size: 13px !important;
+}
+
+/* Ensure inputs are visible in dark mode */
+.marketplace-tab input[type="text"] {
+  background: var(--bg-secondary, #1a1a1a);
+  color: var(--text-primary, #fff);
+  border: 1px solid var(--border-color, #333);
 }
 
 /* Marketplace-specific icon button (wallet refresh) */
