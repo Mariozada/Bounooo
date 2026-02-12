@@ -1,5 +1,4 @@
 import type { StoredSkill } from '@skills/types'
-import type { NetworkType } from '@wallet/solana'
 import type { PinataConfig } from './ipfs'
 import { uploadToIPFS, uploadJSONToIPFS, fetchFromIPFS } from './ipfs'
 import {
@@ -8,8 +7,10 @@ import {
   createSkillMetadata,
   type SkillNFT,
 } from './nft'
-import { solToLamports, lamportsToSol } from '@wallet/solana'
+import { solToLamports, lamportsToSol, getConnection, type NetworkType } from '@wallet/solana'
+import { PublicKey } from '@solana/web3.js'
 import { installSkillFromMarketplace, getMarketplaceSkills, isSkillMintInstalled } from '@skills/storage'
+import { invalidateSkillCache } from '@skills/manager'
 import { loadSettings } from '@shared/settings'
 
 /**
@@ -60,6 +61,34 @@ export interface PurchaseResult {
 // In-memory cache for demo purposes
 // In production, use an indexer or backend
 const skillListCache: Map<string, MarketplaceSkill[]> = new Map()
+
+// Valid demo mint addresses (whitelist for security)
+const VALID_DEMO_MINTS = new Set([
+  'demo-mint-1',
+  'demo-mint-2',
+  'demo-mint-3',
+])
+
+/**
+ * Check if a mint is a valid demo mint
+ */
+function isValidDemoMint(mint: string): boolean {
+  return VALID_DEMO_MINTS.has(mint)
+}
+
+/**
+ * Check wallet balance
+ */
+async function checkWalletBalance(address: string, network: NetworkType): Promise<number> {
+  try {
+    const connection = getConnection(network)
+    const publicKey = new PublicKey(address)
+    const balance = await connection.getBalance(publicKey)
+    return lamportsToSol(balance)
+  } catch {
+    return 0
+  }
+}
 
 /**
  * Validate Pinata configuration
@@ -274,13 +303,30 @@ export async function purchaseSkill(
 ): Promise<PurchaseResult> {
   try {
     // For paid skills, we check wallet connection
-    // For free/demo skills, wallet is optional
+    // For free/demo skills, wallet is optional (but demo mints must be whitelisted)
     const walletAddress = await getWalletAddress()
-    const isDemoSkill = marketplaceSkill.mint.startsWith('demo-')
+    const isDemoSkill = isValidDemoMint(marketplaceSkill.mint)
     const isFreeSkill = marketplaceSkill.price === 0
+
+    // Reject unknown "demo-" prefixed mints that aren't in whitelist
+    if (marketplaceSkill.mint.startsWith('demo-') && !isDemoSkill) {
+      return { success: false, error: 'Invalid demo skill', errorType: 'validation' }
+    }
 
     if (!walletAddress && !isDemoSkill && !isFreeSkill) {
       return { success: false, error: 'Wallet not connected', errorType: 'wallet' }
+    }
+
+    // Check balance for paid skills
+    if (walletAddress && !isFreeSkill && !isDemoSkill && marketplaceSkill.price > 0) {
+      const balance = await checkWalletBalance(walletAddress, network)
+      if (balance < marketplaceSkill.price) {
+        return {
+          success: false,
+          error: `Insufficient balance. You have ${balance.toFixed(4)} SOL but need ${marketplaceSkill.price} SOL`,
+          errorType: 'wallet'
+        }
+      }
     }
 
     // Check if already installed
@@ -301,7 +347,14 @@ export async function purchaseSkill(
 
     // 3. Fetch skill YAML from IPFS
     if (!marketplaceSkill.ipfsCid || marketplaceSkill.ipfsCid.startsWith('QmDemo')) {
-      // Demo skill - use placeholder content
+      // Demo skill - verify it's a valid demo mint before using placeholder content
+      if (!isDemoSkill) {
+        return {
+          success: false,
+          error: 'Cannot install: skill has no valid IPFS content',
+          errorType: 'validation'
+        }
+      }
       const demoContent = createDemoSkillContent(marketplaceSkill)
 
       const installedSkill = await installSkillFromMarketplace(
@@ -312,6 +365,9 @@ export async function purchaseSkill(
           pricePaid: marketplaceSkill.priceLamports,
         }
       )
+
+      // Invalidate skill cache so the new skill appears immediately
+      invalidateSkillCache()
 
       return {
         success: true,
@@ -348,6 +404,9 @@ export async function purchaseSkill(
         pricePaid: marketplaceSkill.priceLamports,
       }
     )
+
+    // Invalidate skill cache so the new skill appears immediately
+    invalidateSkillCache()
 
     // Update cache to reflect installed status
     const cacheKey = `${network}-all`
