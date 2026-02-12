@@ -234,7 +234,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
               <div className="wallet-info">
                 <Wallet size={16} />
                 <span className="wallet-address">{shortenAddress(wallet.address || '', 6)}</span>
-                <span className="wallet-balance">{wallet.balance.toFixed(4)} SOL</span>
+                <span className="wallet-balance">{(wallet.balance ?? 0).toFixed(4)} SOL</span>
                 <span className="wallet-network">({wallet.network})</span>
               </div>
               <div className="wallet-actions">
