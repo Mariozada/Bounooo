@@ -47,6 +47,7 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
     handleMaxStepsChange,
     handleGeminiThinkingLevelChange,
     handleUserPreferenceChange,
+    handleGifEnabledChange,
     handleTracingUpdate,
     handleCodexAuthChange,
     handleGeminiAuthChange,
@@ -186,6 +187,7 @@ export const SettingsPanel: FC<SettingsPanelProps> = ({
                   onMaxStepsChange={handleMaxStepsChange}
                   onGeminiThinkingLevelChange={handleGeminiThinkingLevelChange}
                   onUserPreferenceChange={handleUserPreferenceChange}
+                  onGifEnabledChange={handleGifEnabledChange}
                   onToggleShowApiKey={() => setShowApiKey(!showApiKey)}
                   onCodexAuthChange={handleCodexAuthChange}
                   onGeminiAuthChange={handleGeminiAuthChange}

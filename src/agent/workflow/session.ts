@@ -28,7 +28,8 @@ export function createSession(options: AgentOptions): AgentSession {
 
   const hasSkills = (availableSkills && availableSkills.length > 0) || activeSkill
   const toolDefinitions = getEnabledToolDefinitions().filter(
-    t => hasSkills || t.category !== 'skills'
+    t => (hasSkills || t.category !== 'skills')
+      && (options.gifEnabled || t.name !== 'record_gif')
   )
 
   // Render system prompt with optional skills and MCP tools

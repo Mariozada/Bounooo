@@ -181,4 +181,6 @@ export interface AgentOptions {
 
   /** Delay in seconds after tools that cause page changes (default: 0.5) */
   postToolDelay?: number
+  /** Enable GIF recording tool (default: false) */
+  gifEnabled?: boolean
 }

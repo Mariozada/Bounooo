@@ -144,6 +144,13 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     }))
   }, [])
 
+  const handleGifEnabledChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    setLocalSettings((prev) => ({
+      ...prev,
+      gifEnabled: e.target.checked,
+    }))
+  }, [])
+
   const handleTracingUpdate = useCallback((updates: Partial<ProviderSettings>) => {
     setLocalSettings((prev) => ({ ...prev, ...updates }))
   }, [])
@@ -199,6 +206,7 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     handleMaxStepsChange,
     handleGeminiThinkingLevelChange,
     handleUserPreferenceChange,
+    handleGifEnabledChange,
     handleTracingUpdate,
     handleCodexAuthChange,
     handleGeminiAuthChange,

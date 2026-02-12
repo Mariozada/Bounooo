@@ -451,6 +451,8 @@ export function useWorkflowStream({
         availableSkills: skillOptions?.availableSkills,
         // Post-tool delay
         postToolDelay: settings.postToolDelay,
+        // GIF recording
+        gifEnabled: settings.gifEnabled,
         // Inject fresh tab context before each LLM call
         getTabContext: async () => {
           const tabs = await chrome.tabs.query(groupId !== undefined ? { groupId } : {})

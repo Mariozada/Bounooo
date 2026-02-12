@@ -24,6 +24,7 @@ interface ProviderTabProps {
   onMaxStepsChange: (e: ChangeEvent<HTMLInputElement>) => void
   onGeminiThinkingLevelChange: (e: ChangeEvent<HTMLSelectElement>) => void
   onUserPreferenceChange: (e: ChangeEvent<HTMLTextAreaElement>) => void
+  onGifEnabledChange: (e: ChangeEvent<HTMLInputElement>) => void
   onToggleShowApiKey: () => void
   onCodexAuthChange?: () => void  // Callback to refresh settings after auth change
   onGeminiAuthChange?: () => void  // Callback to refresh settings after Gemini auth change
@@ -45,6 +46,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
   onMaxStepsChange,
   onGeminiThinkingLevelChange,
   onUserPreferenceChange,
+  onGifEnabledChange,
   onToggleShowApiKey,
   onCodexAuthChange,
   onGeminiAuthChange,
@@ -456,6 +458,18 @@ export const ProviderTab: FC<ProviderTabProps> = ({
           onChange={onMaxStepsChange}
         />
         <span className="help-text">Maximum tool-use steps per response (1–50)</span>
+      </div>
+
+      <div className="form-group">
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={settings.gifEnabled ?? false}
+            onChange={onGifEnabledChange}
+          />
+          Enable GIF recording
+        </label>
+        <span className="help-text">Allow the agent to record and export GIF animations</span>
       </div>
 
       {isOpenAICompatible && (

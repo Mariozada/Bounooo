@@ -41,6 +41,7 @@ export interface ProviderSettings {
   codexAuth?: CodexAuth
   geminiAuth?: GeminiAuth
   userPreference?: string
+  gifEnabled?: boolean
 }
 
 export const DEFAULT_TRACING_SETTINGS: TracingSettings = {
