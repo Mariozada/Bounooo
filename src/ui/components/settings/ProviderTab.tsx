@@ -322,9 +322,7 @@ export const ProviderTab: FC<ProviderTabProps> = ({
         <div className="form-group gemini-auth-section">
           {hasGeminiAuth ? (
             <div className="gemini-logged-in">
-              <span className="gemini-status">
-                Logged in{settings.geminiAuth?.email ? ` as ${settings.geminiAuth.email}` : ' with Google'}
-              </span>
+              <span className="gemini-status">Logged in with Google</span>
               <button
                 type="button"
                 className="button-secondary gemini-logout-btn"
