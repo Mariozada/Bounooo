@@ -32,7 +32,7 @@ export const mediaTools: ToolDefinition[] = [
         items: { type: 'number' }
       }
     ],
-    enabled: true,
+    enabled: false,
     category: 'media'
   }
 ]
