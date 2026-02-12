@@ -43,8 +43,19 @@ function extractScreenshots(toolResults: ToolExecutionResult[]): string[] {
   return images
 }
 
-export function buildToolResultsMessage(toolResults: ToolExecutionResult[]): string | ContentPart[] {
-  const images = extractScreenshots(toolResults)
+export function buildToolResultsMessage(toolResults: ToolExecutionResult[], vision?: boolean): string | ContentPart[] {
+  // Only extract screenshots as image content for vision-capable models
+  const images = vision ? extractScreenshots(toolResults) : []
+
+  // For non-vision models, strip dataUrl from results to avoid sending huge base64 text
+  if (!vision) {
+    for (const tr of toolResults) {
+      const result = tr.result as Record<string, unknown> | null
+      if (result && typeof result === 'object' && typeof result.dataUrl === 'string') {
+        delete result.dataUrl
+      }
+    }
+  }
 
   const text = formatToolResults(
     toolResults.map(tr => ({ name: tr.toolCall.name, result: tr.result }))
@@ -97,6 +108,6 @@ export function appendStepMessages(
   const assistantContent = buildAssistantResponse(stepResult)
   appendAssistantMessage(session, assistantContent)
 
-  const toolResultsContent = buildToolResultsMessage(toolResults)
+  const toolResultsContent = buildToolResultsMessage(toolResults, session.config.vision)
   appendUserMessage(session, toolResultsContent)
 }

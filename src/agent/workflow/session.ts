@@ -53,6 +53,7 @@ export function createSession(options: AgentOptions): AgentSession {
       groupId,
       toolExecutor,
       postToolDelay,
+      vision,
       getTabContext,
     },
     abortSignal,

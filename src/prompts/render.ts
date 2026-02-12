@@ -75,12 +75,19 @@ Multiple tool calls at once:
 </tool-format>`
 }
 
-function renderWorkflow(): string {
+function renderWorkflow(vision?: boolean): string {
+  const actLine = vision
+    ? '3. Act: Use refs from the accessibility tree to interact. Prefer form_input for setting input values — it\'s more reliable than typing. Use computer for clicks, keyboard shortcuts, scrolling, and screenshots.'
+    : '3. Act: Use refs from the accessibility tree to interact. Prefer form_input for setting input values — it\'s more reliable than typing. Use computer for clicks, keyboard shortcuts, and scrolling.'
+  const verifyLine = vision
+    ? '4. Verify: After important actions (navigation, form submission), use read_page or screenshot to confirm the result.'
+    : '4. Verify: After important actions (navigation, form submission), always call read_page to confirm the result. You must re-read the page after every navigation — you have no other way to see what changed.'
+
   return `<workflow>
 1. Plan: For multi-step tasks, call update_plan with your approach and the domains you'll visit. Adjust the plan as you go if needed.
 2. Read: Use read_page before interacting to understand the page and get element refs. Use find when looking for something specific, get_page_text when you need raw text content.
-3. Act: Use refs from the accessibility tree to interact. Prefer form_input for setting input values — it's more reliable than typing. Use computer for clicks, keyboard shortcuts, scrolling, and screenshots.
-4. Verify: After important actions (navigation, form submission), use read_page or screenshot to confirm the result.
+${actLine}
+${verifyLine}
 
 Tab context: Each user message includes a <tabs_list current="tabId"> block listing all tabs in your group with their IDs, URLs, and titles. Use the "current" attribute as the default tabId for tools. The list is refreshed before each turn, so always refer to the latest one.
 </workflow>
@@ -102,6 +109,27 @@ Important: Refs become stale after page navigation or major DOM changes. Always 
 </accessibility-tree>`
 }
 
+/** Vision-only actions and params to strip from the computer tool for non-vision models */
+const VISION_ACTIONS = new Set(['screenshot', 'zoom'])
+const VISION_PARAMS = new Set(['region'])
+
+function stripVisionFromComputerTool(tool: ToolDefinition): ToolDefinition {
+  if (tool.name !== 'computer') return tool
+
+  return {
+    ...tool,
+    description: 'Perform mouse and keyboard actions: click, type, press keys, scroll, hover, drag, and wait.',
+    parameters: tool.parameters
+      .filter(p => !VISION_PARAMS.has(p.name))
+      .map(p => {
+        if (p.name === 'action' && p.enum) {
+          return { ...p, enum: p.enum.filter(v => !VISION_ACTIONS.has(v)) }
+        }
+        return p
+      }),
+  }
+}
+
 function renderToolJson(tool: ToolDefinition): string {
   const params: Record<string, unknown> = {}
   for (const param of tool.parameters) {
@@ -116,12 +144,13 @@ function renderToolJson(tool: ToolDefinition): string {
   return JSON.stringify({ name: tool.name, description: tool.description, parameters: params })
 }
 
-function renderToolSection(tools: ToolDefinition[]): string {
+function renderToolSection(tools: ToolDefinition[], vision?: boolean): string {
   const toolEntries: string[] = []
 
   for (const tool of tools) {
     if (!tool.enabled) continue
-    toolEntries.push(`<tool>${renderToolJson(tool)}</tool>`)
+    const effective = vision ? tool : stripVisionFromComputerTool(tool)
+    toolEntries.push(`<tool>${renderToolJson(effective)}</tool>`)
   }
 
   return `<tools>\n${toolEntries.join('\n')}\n</tools>`
@@ -151,6 +180,8 @@ function renderBestPractices(vision?: boolean): string {
 
   if (vision) {
     lines.push('- Verify visually: When you finish a task, take a screenshot to confirm the final result before reporting success.')
+  } else {
+    lines.push('- No vision: You cannot view screenshots or images. Do not use the screenshot or zoom actions of the computer tool. Use read_page and get_page_text to understand page content instead.')
   }
 
   lines.push('</best-practices>')
@@ -215,9 +246,9 @@ export function renderSystemPrompt(toolsOrOptions: ToolDefinition[] | RenderOpti
   const sections: string[] = [
     renderRole(),
     renderToolCallFormat(),
-    renderWorkflow(),
+    renderWorkflow(options.vision),
     renderBestPractices(options.vision),
-    renderToolSection(options.tools),
+    renderToolSection(options.tools, options.vision),
   ]
 
   // Add MCP tools section if any MCP tools are configured

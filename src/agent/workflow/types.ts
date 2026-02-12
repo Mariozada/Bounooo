@@ -96,6 +96,8 @@ export interface AgentConfig {
   toolExecutor?: ToolExecutor
   /** Delay in seconds after tools that cause page changes (default: 0.5) */
   postToolDelay?: number
+  /** Whether the model supports image/vision input */
+  vision?: boolean
   /** Returns the current list of tabs in the agent's group. Called before each LLM call to inject fresh tab context. */
   getTabContext?: () => Promise<TabInfo[]>
 }

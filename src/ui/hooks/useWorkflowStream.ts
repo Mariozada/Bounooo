@@ -441,7 +441,7 @@ export function useWorkflowStream({
         tracing: settings.tracing as TracingSettings,
         modelName: settings.model,
         provider: settings.provider,
-        vision: modelConfig?.vision ?? false,
+        vision: modelConfig?.vision ?? settings.customModelSettings?.vision ?? false,
         reasoningEnabled: effectiveReasoningEnabled,
         geminiThinkingLevel: settings.geminiThinkingLevel,
         // User preference for system prompt

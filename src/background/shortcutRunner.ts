@@ -118,7 +118,7 @@ export async function runShortcut(shortcutId: string): Promise<ShortcutRunResult
       messages,
       tabId,
       maxSteps: settings.maxSteps ?? 15,
-      vision: shortcutModelConfig?.vision ?? false,
+      vision: shortcutModelConfig?.vision ?? settings.customModelSettings?.vision ?? false,
       toolExecutor: directToolExecutor,
       modelName: effectiveSettings.model,
       provider: effectiveSettings.provider,
