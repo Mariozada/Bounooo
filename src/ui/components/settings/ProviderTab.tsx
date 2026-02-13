@@ -451,11 +451,11 @@ export const ProviderTab: FC<ProviderTabProps> = ({
           id="max-steps"
           type="number"
           min={1}
-          max={50}
+          max={1000}
           value={settings.maxSteps ?? 15}
           onChange={onMaxStepsChange}
         />
-        <span className="help-text">Maximum tool-use steps per response (1–50)</span>
+        <span className="help-text">Maximum tool-use steps per response (1–1000)</span>
       </div>
 
       <div className="form-group">

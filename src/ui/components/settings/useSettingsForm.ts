@@ -126,7 +126,7 @@ export function useSettingsForm(initialSettings: ProviderSettings) {
     const value = parseInt(e.target.value, 10)
     setLocalSettings((prev) => ({
       ...prev,
-      maxSteps: Number.isNaN(value) ? undefined : Math.max(1, Math.min(50, value)),
+      maxSteps: Number.isNaN(value) ? undefined : Math.max(1, Math.min(1000, value)),
     }))
   }, [])
 

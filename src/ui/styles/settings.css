@@ -22,7 +22,7 @@
 
 .settings-panel {
   width: min(520px, calc(100vw - 32px));
-  max-height: calc(100vh - 64px);
+  height: min(640px, calc(100vh - 64px));
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
@@ -119,7 +119,6 @@
   padding: 20px;
   overflow-y: auto;
   flex: 1;
-  min-height: min(400px, 50vh);
 }
 
 .settings-section {
@@ -860,6 +859,6 @@
 @media (max-width: 720px) {
   .settings-panel {
     width: calc(100vw - 24px);
-    max-height: calc(100vh - 48px);
+    height: min(640px, calc(100vh - 48px));
   }
 }
