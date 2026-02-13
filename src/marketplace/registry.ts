@@ -26,6 +26,7 @@ export interface SkillRow {
   mint_address: string | null
   tx_signature: string | null
   downloads: number
+  raw_content: string | null
   created_at: string
   updated_at: string
 }

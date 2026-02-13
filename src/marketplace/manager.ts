@@ -46,6 +46,7 @@ export interface MarketplaceSkill {
   image: string
   installed: boolean
   downloads: number
+  rawContent?: string  // Inline skill content (from Supabase, bypasses IPFS)
 }
 
 export interface PublishResult {
@@ -85,6 +86,7 @@ async function rowToSkill(row: SkillRow): Promise<MarketplaceSkill> {
     image: row.image_url || '',
     installed,
     downloads: row.downloads,
+    rawContent: row.raw_content || undefined,
   }
 }
 
@@ -340,25 +342,30 @@ export async function purchaseSkill(
       }
     }
 
-    // Fetch skill content from IPFS
-    if (!marketplaceSkill.ipfsCid) {
-      return {
-        success: false,
-        error: 'Skill has no IPFS content',
-        errorType: 'validation'
+    // Get skill content: try inline content first, then IPFS
+    let skillContent: string | undefined = marketplaceSkill.rawContent
+
+    if (!skillContent) {
+      if (!marketplaceSkill.ipfsCid) {
+        return {
+          success: false,
+          error: 'Skill has no content available',
+          errorType: 'validation'
+        }
       }
+
+      const yamlResult = await fetchFromIPFS(marketplaceSkill.ipfsCid)
+      if (!yamlResult.success || !yamlResult.content) {
+        return {
+          success: false,
+          error: 'Failed to fetch skill content from IPFS. The file may be unavailable.',
+          errorType: 'ipfs'
+        }
+      }
+      skillContent = yamlResult.content
     }
 
-    const yamlResult = await fetchFromIPFS(marketplaceSkill.ipfsCid)
-    if (!yamlResult.success || !yamlResult.content) {
-      return {
-        success: false,
-        error: 'Failed to fetch skill content from IPFS. The file may be unavailable.',
-        errorType: 'ipfs'
-      }
-    }
-
-    if (!yamlResult.content.includes('---') || !yamlResult.content.includes('name:')) {
+    if (!skillContent.includes('---') || !skillContent.includes('name:')) {
       return {
         success: false,
         error: 'Invalid skill file format',
@@ -368,7 +375,7 @@ export async function purchaseSkill(
 
     // Install skill locally
     const installedSkill = await installSkillFromMarketplace(
-      yamlResult.content,
+      skillContent,
       {
         mint: marketplaceSkill.mint,
         seller: marketplaceSkill.seller,
