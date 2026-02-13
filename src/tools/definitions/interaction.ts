@@ -3,7 +3,7 @@ import type { ToolDefinition } from './types'
 export const interactionTools: ToolDefinition[] = [
   {
     name: 'computer',
-    description: 'Perform mouse and keyboard actions: click, type, press keys, scroll, hover, drag, take screenshots, and wait.',
+    description: 'Perform mouse and keyboard actions: click, type, press keys, scroll, scroll to element, hover, drag, take screenshots, and wait.',
     parameters: [
       {
         name: 'tabId',
@@ -25,7 +25,7 @@ export const interactionTools: ToolDefinition[] = [
       {
         name: 'ref',
         type: 'string',
-        description: 'Element ref (e.g., "ref_1"). Required for click, type, hover',
+        description: 'Element ref (e.g., "ref_1"). Needed for click, type, hover, scroll_to',
         required: false
       },
       {

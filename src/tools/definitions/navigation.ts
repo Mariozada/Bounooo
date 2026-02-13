@@ -3,7 +3,7 @@ import type { ToolDefinition } from './types'
 export const navigationTools: ToolDefinition[] = [
   {
     name: 'navigate',
-    description: 'Navigate to a URL, or pass "back"/"forward" for history navigation. Refs become stale after navigation — re-read the page.',
+    description: 'Navigate to a URL, or pass "back"/"forward" for history navigation.',
     parameters: [
       {
         name: 'tabId',
