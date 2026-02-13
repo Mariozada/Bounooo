@@ -6,9 +6,7 @@ Open-source browser automation Chrome extension. Control web pages using natural
 
 ## Demo
 
-
-
-https://github.com/user-attachments/assets/1d5c45dd-f63b-49b4-a938-1865869e6d7b
+https://github.com/Mariozada/Bouno/blob/main/docs/demo.mp4
 
 
 
