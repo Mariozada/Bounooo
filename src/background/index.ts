@@ -269,6 +269,137 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true
   }
 
+  // PHANTOM_SIGN — sign and send a transaction via the wallet in MAIN world
+  if (type === 'PHANTOM_SIGN') {
+    const { transactionBase64, rpcUrl } = message as { transactionBase64: string; rpcUrl: string }
+    ;(async () => {
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+        if (!tab?.id || !tab.url?.startsWith('http')) {
+          sendResponse({ success: false, error: 'No valid tab' })
+          return
+        }
+
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          world: 'MAIN',
+          args: [transactionBase64, rpcUrl],
+          func: async (txBase64: string, rpc: string) => {
+            try {
+              // Get wallet provider
+              type WalletProvider = {
+                signTransaction?: (tx: { serialize: () => Uint8Array }) => Promise<{ serialize: () => Uint8Array }>
+                signAndSendTransaction?: (tx: Uint8Array, opts?: unknown) => Promise<{ signature: string }>
+                isConnected?: boolean
+                publicKey?: { toBase58: () => string }
+                connect?: () => Promise<unknown>
+              }
+              const w = window as unknown as {
+                phantom?: { solana?: WalletProvider }
+                solflare?: WalletProvider
+                backpack?: WalletProvider
+                solana?: WalletProvider
+              }
+              const provider = w.phantom?.solana || w.solflare || w.backpack || w.solana
+              if (!provider) return { success: false, error: 'No wallet provider found' }
+
+              // Ensure connected
+              if (!provider.isConnected && provider.connect) {
+                await provider.connect()
+              }
+
+              // Decode base64 transaction to bytes
+              const txBytes = Uint8Array.from(atob(txBase64), c => c.charCodeAt(0))
+
+              // Phantom and most wallets support signAndSendTransaction on raw bytes
+              // But the standard approach uses the Transaction object
+              // We'll use the lower-level approach: create a transaction-like object
+              // that the wallet can sign
+
+              // Try signAndSendTransaction first (Phantom supports this)
+              if (provider.signAndSendTransaction) {
+                try {
+                  const result = await provider.signAndSendTransaction(txBytes, {
+                    skipPreflight: false,
+                    preflightCommitment: 'confirmed',
+                  })
+                  return { success: true, signature: result.signature }
+                } catch {
+                  // Fall through to manual approach
+                }
+              }
+
+              // Manual approach: sign + send via RPC
+              if (provider.signTransaction) {
+                // Create a minimal transaction wrapper that wallet providers accept
+                const tx = {
+                  serialize: () => txBytes,
+                  // Phantom checks for these properties
+                  _serialize: () => txBytes,
+                } as unknown as { serialize: () => Uint8Array }
+
+                // Actually, most wallets need a real Transaction object.
+                // We need to reconstruct one. Phantom injects solanaWeb3 sometimes,
+                // but we can't rely on that. Instead, sign the raw bytes.
+                // The Phantom provider.request method accepts raw bytes:
+                const phantomProvider = w.phantom?.solana as unknown as {
+                  request?: (args: { method: string; params: { message: string } }) => Promise<{ signature: string }>
+                  signTransaction?: (tx: unknown) => Promise<unknown>
+                }
+
+                if (phantomProvider?.request) {
+                  // Use Phantom's request API with raw transaction
+                  const { signature } = await phantomProvider.request({
+                    method: 'signAndSendTransaction',
+                    params: { message: txBase64 },
+                  })
+                  return { success: true, signature }
+                }
+
+                // Last resort: send signed bytes via fetch to RPC
+                const signedTx = await provider.signTransaction(tx)
+                const signedBytes = signedTx.serialize()
+                const base64Signed = btoa(String.fromCharCode(...signedBytes))
+
+                const rpcResponse = await fetch(rpc, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method: 'sendTransaction',
+                    params: [base64Signed, { encoding: 'base64', skipPreflight: false, preflightCommitment: 'confirmed' }],
+                  }),
+                })
+
+                const rpcResult = await rpcResponse.json() as { result?: string; error?: { message: string } }
+                if (rpcResult.error) {
+                  return { success: false, error: rpcResult.error.message }
+                }
+                return { success: true, signature: rpcResult.result }
+              }
+
+              return { success: false, error: 'Wallet does not support transaction signing' }
+            } catch (e) {
+              const err = e as { code?: number; message?: string }
+              return {
+                success: false,
+                error: err.message || 'Transaction signing failed',
+                cancelled: err.code === 4001,
+              }
+            }
+          },
+        })
+
+        const result = results[0]?.result as Record<string, unknown> | undefined
+        sendResponse(result || { success: false, error: 'No result from signing' })
+      } catch (err) {
+        sendResponse({ success: false, error: (err as Error).message })
+      }
+    })()
+    return true
+  }
+
   // Phantom handlers - use chrome.scripting.executeScript with world: MAIN
   if (type === 'PHANTOM_CHECK' || type === 'PHANTOM_CONNECT' || type === 'PHANTOM_EAGER' || type === 'PHANTOM_DISCONNECT') {
     (async () => {
@@ -327,12 +458,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               if (!p) return { success: false, error: 'No wallet found' }
               if (p.isConnected && p.publicKey) return { success: true, address: p.publicKey.toBase58() }
               try {
-                const conn = w.phantom?.solana
-                if (conn) {
-                  const { publicKey } = await conn.connect({ onlyIfTrusted: true })
-                  return { success: true, address: publicKey.toBase58() }
-                }
-                return { success: false, error: 'Not trusted' }
+                // Try eager (trusted) connect on any available wallet
+                const { publicKey } = await p.connect({ onlyIfTrusted: true } as Parameters<typeof p.connect>[0])
+                return { success: true, address: publicKey.toBase58() }
               } catch {
                 return { success: false, error: 'Not trusted' }
               }
@@ -530,6 +658,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             action: signParams.action,
             amount: signParams.amount,
             to: signParams.to,
+            transactionBase64: signParams.tx,
           }) as {
             success: boolean
             signature?: string

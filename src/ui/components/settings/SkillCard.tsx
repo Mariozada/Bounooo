@@ -1,5 +1,5 @@
 import { type FC } from 'react'
-import { ShoppingCart, Check, Tag } from 'lucide-react'
+import { ShoppingCart, Check, Tag, Download } from 'lucide-react'
 import type { MarketplaceSkill } from '@marketplace/manager'
 import { shortenAddress } from '@wallet/solana'
 
@@ -36,6 +36,12 @@ export const SkillCard: FC<SkillCardProps> = ({
         <span className="skill-card-seller" title={skill.seller}>
           by {shortenAddress(skill.seller)}
         </span>
+        {skill.downloads > 0 && (
+          <span className="skill-card-downloads">
+            <Download size={11} />
+            {skill.downloads}
+          </span>
+        )}
       </div>
 
       <div className="skill-card-footer">
@@ -53,6 +59,7 @@ export const SkillCard: FC<SkillCardProps> = ({
             className="button-primary skill-card-buy"
             onClick={() => onBuy(skill)}
             disabled={!canBuy || isLoading}
+            title={disabled ? 'Connect a wallet extension to purchase' : undefined}
           >
             {isLoading ? (
               'Processing...'

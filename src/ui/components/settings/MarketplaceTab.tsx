@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback, type FC } from 'react'
-import { Wallet, RefreshCw, Upload, Store, Package, AlertCircle, Edit3 } from 'lucide-react'
+import { useState, useEffect, useCallback, useRef, type FC } from 'react'
+import { Wallet, RefreshCw, Upload, Store, Package, AlertCircle, Edit3, Search } from 'lucide-react'
 import { useWallet, shortenAddress } from '@ui/hooks/useWallet'
 import {
   browseSkills,
+  searchMarketplaceSkills,
   purchaseSkill,
   publishSkill,
   buildPurchaseTransaction,
@@ -10,7 +11,7 @@ import {
   type MarketplaceSkill,
 } from '@marketplace/manager'
 import { lamportsToSol } from '@wallet/solana'
-import { getAllSkills, getMarketplaceSkills } from '@skills/storage'
+import { getAllSkills } from '@skills/storage'
 import type { StoredSkill } from '@skills/types'
 import type { PinataSettings } from '@shared/settings'
 import { loadSettings, saveSettings } from '@shared/settings'
@@ -19,10 +20,11 @@ import { PublishSkillModal } from './PublishSkillModal'
 
 type MarketplaceView = 'browse' | 'my-skills' | 'publish'
 
+const CATEGORIES = ['all', 'defi', 'trading', 'consumer', 'payments', 'ai', 'security', 'identity', 'infra', 'governance', 'general']
+
 // Validate Solana address (base58, 32-44 chars)
 function isValidSolanaAddress(address: string): boolean {
   if (!address || address.length < 32 || address.length > 44) return false
-  // Base58 characters (no 0, O, I, l)
   const base58Regex = /^[1-9A-HJ-NP-Za-km-z]+$/
   return base58Regex.test(address)
 }
@@ -50,17 +52,29 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
   const [pinataKey, setPinataKey] = useState(pinataSettings?.apiKey || '')
   const [pinataSecret, setPinataSecret] = useState(pinataSettings?.secretKey || '')
 
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('all')
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   // Manual wallet entry
   const [showManualEntry, setShowManualEntry] = useState(false)
   const [manualAddress, setManualAddress] = useState('')
   const [manualError, setManualError] = useState<string | null>(null)
+  // Track if wallet was manually entered (can't sign transactions)
+  const [isManualWallet, setIsManualWallet] = useState(false)
 
   // Load marketplace skills
-  const loadSkills = useCallback(async () => {
+  const loadSkills = useCallback(async (category?: string, search?: string) => {
     setIsLoading(true)
     setError(null)
     try {
-      const marketplaceSkills = await browseSkills('devnet', true)
+      let marketplaceSkills: MarketplaceSkill[]
+      if (search && search.trim()) {
+        marketplaceSkills = await searchMarketplaceSkills(search.trim())
+      } else {
+        marketplaceSkills = await browseSkills('devnet', { category: category !== 'all' ? category : undefined })
+      }
       setSkills(marketplaceSkills)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load skills')
@@ -89,16 +103,37 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     }
   }, [])
 
+  // Check if manual wallet on mount
   useEffect(() => {
-    loadSkills()
+    loadSettings().then(settings => {
+      if (settings.wallet?.connected && settings.wallet?.address) {
+        // If wallet is connected but we can't detect if it's manual,
+        // we check by trying eager connect later. For now assume extension-based.
+        setIsManualWallet(false)
+      }
+    }).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    loadSkills(selectedCategory)
     loadMySkills()
     loadPurchasedSkills()
-  }, [loadSkills, loadMySkills, loadPurchasedSkills])
+  }, [loadSkills, loadMySkills, loadPurchasedSkills, selectedCategory])
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    searchTimeout.current = setTimeout(() => {
+      loadSkills(selectedCategory, searchQuery)
+    }, 300)
+    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current) }
+  }, [searchQuery, selectedCategory, loadSkills])
 
   const handleConnect = async () => {
+    setIsManualWallet(false)
     try {
       await connect()
-    } catch (err) {
+    } catch {
       // Error is handled by the hook
     }
   }
@@ -117,7 +152,6 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     }
 
     try {
-      // Save to settings
       const settings = await loadSettings()
       settings.wallet = {
         connected: true,
@@ -125,10 +159,9 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
         network: 'devnet',
       }
       await saveSettings(settings)
-
-      // Refresh the page to pick up new wallet state
+      setIsManualWallet(true)
       window.location.reload()
-    } catch (err) {
+    } catch {
       setManualError('Failed to save wallet address')
     }
   }
@@ -137,15 +170,20 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     await disconnect()
     setShowManualEntry(false)
     setManualAddress('')
+    setIsManualWallet(false)
   }
 
   const handleBuy = async (skill: MarketplaceSkill) => {
-    const isDemoSkill = skill.mint.startsWith('demo-')
     const isFreeSkill = skill.price === 0
 
-    // Require wallet for paid non-demo skills
-    if (!wallet.connected && !isDemoSkill && !isFreeSkill) {
+    // Require wallet for paid skills, and must not be manual wallet
+    if (!wallet.connected && !isFreeSkill) {
       setError('Please connect your wallet first')
+      return
+    }
+
+    if (isManualWallet && !isFreeSkill) {
+      setError('Connect a wallet extension (Phantom, Solflare) to purchase paid skills')
       return
     }
 
@@ -155,8 +193,10 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     try {
       console.log('[Marketplace] Purchasing skill:', skill.name, skill.mint)
 
+      let signature: string | undefined
+
       // For paid skills, build a real transaction with commission split
-      if (!isFreeSkill && !isDemoSkill && wallet.connected && wallet.address) {
+      if (!isFreeSkill && wallet.connected && wallet.address) {
         const { transaction, sellerAmount, treasuryAmount } = await buildPurchaseTransaction(
           wallet.address,
           skill.seller,
@@ -180,9 +220,12 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
           }
           throw new Error(signResult.error || 'Transaction failed')
         }
+
+        signature = signResult.signature
       }
 
-      const result = await purchaseSkill(skill, 'devnet')
+      // Install skill (with on-chain verification for paid)
+      const result = await purchaseSkill(skill, 'devnet', signature)
       console.log('[Marketplace] Purchase result:', result)
 
       if (!result.success) {
@@ -190,7 +233,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
       }
 
       // Refresh balance + skill lists
-      await Promise.all([refresh(), loadSkills(), loadPurchasedSkills()])
+      await Promise.all([refresh(), loadSkills(selectedCategory, searchQuery), loadPurchasedSkills()])
     } catch (err) {
       console.error('[Marketplace] Purchase error:', err)
       setError(err instanceof Error ? err.message : 'Failed to purchase skill')
@@ -221,7 +264,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     }
 
     // Refresh the skills list
-    await loadSkills()
+    await loadSkills(selectedCategory, searchQuery)
   }
 
   const handleSavePinata = () => {
@@ -248,6 +291,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
                 <span className="wallet-address">{shortenAddress(wallet.address || '', 6)}</span>
                 <span className="wallet-balance">{(wallet.balance ?? 0).toFixed(4)} SOL</span>
                 <span className="wallet-network">({wallet.network})</span>
+                {isManualWallet && <span className="wallet-badge-manual">view-only</span>}
               </div>
               <div className="wallet-actions">
                 <button
@@ -293,6 +337,9 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
                   {manualError}
                 </div>
               )}
+              <p className="text-muted" style={{ fontSize: '12px', marginTop: '4px' }}>
+                View-only — you can browse but not purchase paid skills
+              </p>
               <button
                 type="button"
                 className="button-link"
@@ -370,27 +417,56 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
         )}
 
         {view === 'browse' && (
-          <div className="skills-grid">
-            {isLoading ? (
-              <div className="loading-state">Loading skills...</div>
-            ) : skills.length === 0 ? (
-              <div className="empty-state">
-                <Store size={32} />
-                <p>No skills available yet</p>
-                <p className="text-muted">Be the first to publish a skill!</p>
-              </div>
-            ) : (
-              skills.map((skill) => (
-                <SkillCard
-                  key={skill.mint}
-                  skill={skill}
-                  onBuy={handleBuy}
-                  isLoading={buyingMint === skill.mint}
-                  disabled={false}
+          <>
+            {/* Search + Filter */}
+            <div className="marketplace-search-bar">
+              <div className="search-input-wrapper">
+                <Search size={14} className="search-icon" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search skills..."
+                  className="search-input"
                 />
-              ))
-            )}
-          </div>
+              </div>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="category-filter"
+              >
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>
+                    {cat === 'all' ? 'All Categories' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="skills-grid">
+              {isLoading ? (
+                <div className="loading-state">Loading skills...</div>
+              ) : skills.length === 0 ? (
+                <div className="empty-state">
+                  <Store size={32} />
+                  <p>{searchQuery ? 'No skills match your search' : 'No skills available yet'}</p>
+                  <p className="text-muted">
+                    {searchQuery ? 'Try a different search term' : 'Be the first to publish a skill!'}
+                  </p>
+                </div>
+              ) : (
+                skills.map((skill) => (
+                  <SkillCard
+                    key={skill.id}
+                    skill={skill}
+                    onBuy={handleBuy}
+                    isLoading={buyingMint === skill.mint}
+                    disabled={isManualWallet && skill.price > 0}
+                  />
+                ))
+              )}
+            </div>
+          </>
         )}
 
         {view === 'my-skills' && (

@@ -583,6 +583,79 @@
   color: var(--accent-color);
 }
 
+/* Search Bar */
+.marketplace-search-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.search-input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-wrapper .search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 32px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.category-filter {
+  padding: 8px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  min-width: 140px;
+}
+
+.category-filter:focus {
+  outline: none;
+  border-color: var(--accent-color);
+}
+
+/* Download count */
+.skill-card-downloads {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+/* Manual wallet view-only badge */
+.wallet-badge-manual {
+  padding: 2px 6px;
+  background: var(--bg-warning, rgba(255, 170, 0, 0.15));
+  color: var(--text-warning, #ffaa00);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
 .error-message {
   display: flex;
   align-items: center;

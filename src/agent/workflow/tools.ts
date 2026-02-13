@@ -1,5 +1,6 @@
 import type { ToolCallInfo, ToolExecutionResult, AgentSession, ToolExecutor } from './types'
 import { getTracer, type SpanContext, type TracingConfig } from '../tracing'
+import { readOutput, processOutput } from '@shared/outputStore'
 
 const log = (...args: unknown[]) => console.log('[Workflow:Tools]', ...args)
 const logError = (...args: unknown[]) => console.error('[Workflow:Tools]', ...args)
@@ -95,7 +96,16 @@ export async function executeTool(
     startedAt: Date.now(),
   }
 
-  const result = await sendToolMessage(toolCall.name, toolCall.input, groupId, startingTabId, directExecutor)
+  // read_result and process_result must run in the same context where storeOutput
+  // stored the data (the caller's context), not in the background service worker.
+  let result: unknown
+  if (toolCall.name === 'read_result') {
+    result = readOutput(toolCall.input as Parameters<typeof readOutput>[0])
+  } else if (toolCall.name === 'process_result') {
+    result = processOutput(toolCall.input as Parameters<typeof processOutput>[0])
+  } else {
+    result = await sendToolMessage(toolCall.name, toolCall.input, groupId, startingTabId, directExecutor)
+  }
   const hasError = isErrorResult(result)
 
   updatedToolCall.result = result

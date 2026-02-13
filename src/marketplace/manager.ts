@@ -1,18 +1,21 @@
 import type { StoredSkill } from '@skills/types'
 import type { PinataConfig } from './ipfs'
 import { uploadToIPFS, uploadJSONToIPFS, fetchFromIPFS } from './ipfs'
-import {
-  mintSkillNFT,
-  getSkillNFTsByOwner,
-  createSkillMetadata,
-  type SkillNFT,
-} from './nft'
+import { createSkillMetadata } from './nft'
 import { solToLamports, lamportsToSol, getConnection, type NetworkType } from '@wallet/solana'
 import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
 import { TREASURY_PUBLIC_KEY, COMMISSION_BPS, MIN_COMMISSION_LAMPORTS } from './config'
-import { installSkillFromMarketplace, getMarketplaceSkills, isSkillMintInstalled } from '@skills/storage'
+import { installSkillFromMarketplace, isSkillMintInstalled } from '@skills/storage'
 import { invalidateSkillCache } from '@skills/manager'
 import { loadSettings } from '@shared/settings'
+import {
+  listSkills as registryListSkills,
+  searchSkills as registrySearchSkills,
+  publishSkillListing,
+  incrementDownloads,
+  type SkillRow,
+  type ListSkillsOptions,
+} from './registry'
 
 /**
  * Get current wallet address from settings (stored by background script)
@@ -30,10 +33,11 @@ async function getWalletAddress(): Promise<string | null> {
 }
 
 export interface MarketplaceSkill {
-  mint: string
+  id: string          // Supabase row ID
+  mint: string        // NFT mint address or Supabase ID (for non-NFT listings)
   name: string
   description: string
-  price: number // in SOL
+  price: number       // in SOL
   priceLamports: number
   seller: string
   ipfsCid: string
@@ -41,10 +45,12 @@ export interface MarketplaceSkill {
   version: string
   image: string
   installed: boolean
+  downloads: number
 }
 
 export interface PublishResult {
   success: boolean
+  id?: string         // Supabase row ID
   mint?: string
   txId?: string
   error?: string
@@ -54,40 +60,65 @@ export interface PublishResult {
 export interface PurchaseResult {
   success: boolean
   txId?: string
+  signature?: string
   installedSkillId?: string
   error?: string
   errorType?: 'wallet' | 'network' | 'ipfs' | 'validation' | 'already_installed' | 'unknown'
 }
 
-// In-memory cache for demo purposes
-// In production, use an indexer or backend
-const skillListCache: Map<string, MarketplaceSkill[]> = new Map()
-
-// Valid demo mint addresses (whitelist for security)
-const VALID_DEMO_MINTS = new Set([
-  'demo-mint-1',
-  'demo-mint-2',
-  'demo-mint-3',
-])
-
 /**
- * Check if a mint is a valid demo mint
+ * Convert Supabase row to MarketplaceSkill
  */
-function isValidDemoMint(mint: string): boolean {
-  return VALID_DEMO_MINTS.has(mint)
+async function rowToSkill(row: SkillRow): Promise<MarketplaceSkill> {
+  const installed = await isSkillMintInstalled(row.mint_address || row.id)
+  return {
+    id: row.id,
+    mint: row.mint_address || row.id,
+    name: row.name,
+    description: row.description,
+    price: lamportsToSol(row.price_lamports),
+    priceLamports: row.price_lamports,
+    seller: row.seller,
+    ipfsCid: row.ipfs_cid,
+    category: row.category,
+    version: row.version,
+    image: row.image_url || '',
+    installed,
+    downloads: row.downloads,
+  }
 }
 
 /**
- * Check wallet balance
+ * Browse available skills from Supabase registry
  */
-async function checkWalletBalance(address: string, network: NetworkType): Promise<number> {
+export async function browseSkills(
+  network: NetworkType = 'devnet',
+  options?: { category?: string; limit?: number; offset?: number; orderBy?: ListSkillsOptions['orderBy'] }
+): Promise<MarketplaceSkill[]> {
   try {
-    const connection = getConnection(network)
-    const publicKey = new PublicKey(address)
-    const balance = await connection.getBalance(publicKey)
-    return lamportsToSol(balance)
-  } catch {
-    return 0
+    const rows = await registryListSkills({
+      category: options?.category,
+      limit: options?.limit || 50,
+      offset: options?.offset || 0,
+      orderBy: options?.orderBy || 'created_at',
+    })
+    return await Promise.all(rows.map(rowToSkill))
+  } catch (error) {
+    console.error('[Marketplace] browseSkills error:', error)
+    return []
+  }
+}
+
+/**
+ * Search skills by query
+ */
+export async function searchMarketplaceSkills(query: string, limit = 20): Promise<MarketplaceSkill[]> {
+  try {
+    const rows = await registrySearchSkills(query, limit)
+    return await Promise.all(rows.map(rowToSkill))
+  } catch (error) {
+    console.error('[Marketplace] searchSkills error:', error)
+    return []
   }
 }
 
@@ -115,7 +146,7 @@ export async function publishSkill(
   network: NetworkType = 'devnet'
 ): Promise<PublishResult> {
   try {
-    // Validate wallet connection using stored state (not direct provider)
+    // Validate wallet connection
     const walletAddress = await getWalletAddress()
     if (!walletAddress) {
       return { success: false, error: 'Wallet not connected', errorType: 'wallet' }
@@ -131,9 +162,6 @@ export async function publishSkill(
     if (priceSol < 0) {
       return { success: false, error: 'Price cannot be negative', errorType: 'validation' }
     }
-
-    // Note: Balance check requires RPC call, skipping for now as the signing
-    // will fail anyway if insufficient balance
 
     // 1. Upload skill YAML to IPFS
     const yamlUpload = await uploadToIPFS(
@@ -176,44 +204,30 @@ export async function publishSkill(
       }
     }
 
-    // 4. Mint NFT
-    const metadataUri = `https://gateway.pinata.cloud/ipfs/${metadataUpload.cid}`
-    const { mint, txId } = await mintSkillNFT(metadata, metadataUri, network)
-
-    // 5. Add to cache
-    const cacheKey = `${network}-all`
-    const cached = skillListCache.get(cacheKey) || []
-    cached.push({
-      mint,
+    // 4. Publish listing to Supabase registry
+    const listing = await publishSkillListing({
       name: skill.name,
       description: skill.description,
-      price: priceSol,
-      priceLamports,
-      seller: walletAddress,
-      ipfsCid: yamlUpload.cid,
       category,
       version: skill.version,
-      image: metadata.image,
-      installed: true, // We own it
+      price_lamports: priceLamports,
+      seller: walletAddress,
+      ipfs_cid: yamlUpload.cid,
+      metadata_cid: metadataUpload.cid,
     })
-    skillListCache.set(cacheKey, cached)
 
-    return { success: true, mint, txId }
+    return { success: true, id: listing.id, mint: listing.id }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to publish skill'
 
-    // Try to categorize the error
     let errorType: PublishResult['errorType'] = 'unknown'
     const lowerMessage = message.toLowerCase()
-
     if (lowerMessage.includes('wallet') || lowerMessage.includes('connect')) {
       errorType = 'wallet'
-    } else if (lowerMessage.includes('balance') || lowerMessage.includes('insufficient') || lowerMessage.includes('lamports')) {
+    } else if (lowerMessage.includes('balance') || lowerMessage.includes('insufficient')) {
       errorType = 'balance'
     } else if (lowerMessage.includes('ipfs') || lowerMessage.includes('pinata') || lowerMessage.includes('upload')) {
       errorType = 'ipfs'
-    } else if (lowerMessage.includes('transaction') || lowerMessage.includes('signature') || lowerMessage.includes('blockhash') || lowerMessage.includes('solana') || lowerMessage.includes('mint') || lowerMessage.includes('nft')) {
-      errorType = 'blockchain'
     }
 
     return { success: false, error: message, errorType }
@@ -221,87 +235,8 @@ export async function publishSkill(
 }
 
 /**
- * Browse available skills in the marketplace
- */
-export async function browseSkills(
-  network: NetworkType = 'devnet',
-  _forceRefresh = false
-): Promise<MarketplaceSkill[]> {
-  const cacheKey = `${network}-all`
-
-  // Get skills from cache (or empty array)
-  const skills = skillListCache.get(cacheKey) || []
-
-  if (skills.length === 0) {
-    return []
-  }
-
-  // Always update installed status from storage
-  return await Promise.all(skills.map(async (skill) => ({
-    ...skill,
-    installed: await isSkillMintInstalled(skill.mint)
-  })))
-}
-
-/**
- * Get skills listed by the current user
- */
-export async function getMyListings(
-  network: NetworkType = 'devnet'
-): Promise<MarketplaceSkill[]> {
-  const walletAddress = await getWalletAddress()
-  if (!walletAddress) {
-    return []
-  }
-
-  try {
-    const nfts = await getSkillNFTsByOwner(walletAddress, network)
-    // Handle individual NFT conversion failures gracefully
-    const results = await Promise.allSettled(nfts.map(nftToMarketplaceSkill))
-    return results
-      .filter((result): result is PromiseFulfilledResult<MarketplaceSkill> => result.status === 'fulfilled')
-      .map(result => result.value)
-  } catch (error) {
-    console.error('Failed to get listings:', error)
-    return []
-  }
-}
-
-/**
- * Get skills purchased by the current user
- */
-export async function getMyPurchases(
-  _network: NetworkType = 'devnet'
-): Promise<MarketplaceSkill[]> {
-  // Get from local storage instead of blockchain (more reliable)
-  try {
-    const marketplaceSkills = await getMarketplaceSkills()
-    return marketplaceSkills.map(skill => ({
-      mint: skill.marketplaceData?.mint || '',
-      name: skill.name,
-      description: skill.description,
-      price: skill.marketplaceData?.pricePaid ? lamportsToSol(skill.marketplaceData.pricePaid) : 0,
-      priceLamports: skill.marketplaceData?.pricePaid || 0,
-      seller: skill.marketplaceData?.seller || '',
-      ipfsCid: '',
-      category: 'purchased',
-      version: skill.version,
-      image: '',
-      installed: true,
-    }))
-  } catch (error) {
-    console.error('Failed to get purchases:', error)
-    return []
-  }
-}
-
-/**
  * Build a purchase transaction with commission split.
  * Returns a base64-encoded transaction for the wallet to sign.
- *
- * Payment split:
- *  - Seller receives: totalLamports - commission
- *  - Treasury receives: commission (COMMISSION_BPS basis points, min MIN_COMMISSION_LAMPORTS)
  */
 export async function buildPurchaseTransaction(
   buyerAddress: string,
@@ -361,32 +296,15 @@ export async function buildPurchaseTransaction(
  */
 export async function purchaseSkill(
   marketplaceSkill: MarketplaceSkill,
-  network: NetworkType = 'devnet'
+  network: NetworkType = 'devnet',
+  signature?: string
 ): Promise<PurchaseResult> {
   try {
     const walletAddress = await getWalletAddress()
-    const isDemoSkill = isValidDemoMint(marketplaceSkill.mint)
     const isFreeSkill = marketplaceSkill.price === 0
 
-    // Reject unknown "demo-" prefixed mints that aren't in whitelist
-    if (marketplaceSkill.mint.startsWith('demo-') && !isDemoSkill) {
-      return { success: false, error: 'Invalid demo skill', errorType: 'validation' }
-    }
-
-    if (!walletAddress && !isDemoSkill && !isFreeSkill) {
+    if (!walletAddress && !isFreeSkill) {
       return { success: false, error: 'Wallet not connected', errorType: 'wallet' }
-    }
-
-    // Check balance for paid skills
-    if (walletAddress && !isFreeSkill && !isDemoSkill && marketplaceSkill.price > 0) {
-      const balance = await checkWalletBalance(walletAddress, network)
-      if (balance < marketplaceSkill.price) {
-        return {
-          success: false,
-          error: `Insufficient balance. You have ${balance.toFixed(4)} SOL but need ${marketplaceSkill.price} SOL`,
-          errorType: 'wallet'
-        }
-      }
     }
 
     // Check if already installed
@@ -399,36 +317,38 @@ export async function purchaseSkill(
       }
     }
 
-    // Demo skills — skip payment, install directly
-    if (!marketplaceSkill.ipfsCid || marketplaceSkill.ipfsCid.startsWith('QmDemo')) {
-      if (!isDemoSkill) {
+    // For paid skills, verify the transaction landed on-chain
+    if (!isFreeSkill && signature) {
+      try {
+        const connection = getConnection(network)
+        const confirmation = await connection.confirmTransaction(signature, 'confirmed')
+        if (confirmation.value.err) {
+          return {
+            success: false,
+            error: 'Transaction failed on-chain: ' + JSON.stringify(confirmation.value.err),
+            errorType: 'network'
+          }
+        }
+        console.log('[Marketplace] Transaction confirmed on-chain:', signature)
+      } catch (err) {
+        console.error('[Marketplace] Transaction confirmation failed:', err)
         return {
           success: false,
-          error: 'Cannot install: skill has no valid IPFS content',
-          errorType: 'validation'
+          error: 'Could not confirm transaction on-chain. Please try again.',
+          errorType: 'network'
         }
-      }
-      const demoContent = createDemoSkillContent(marketplaceSkill)
-
-      const installedSkill = await installSkillFromMarketplace(
-        demoContent,
-        {
-          mint: marketplaceSkill.mint,
-          seller: marketplaceSkill.seller,
-          pricePaid: marketplaceSkill.priceLamports,
-        }
-      )
-
-      invalidateSkillCache()
-
-      return {
-        success: true,
-        txId: 'demo-tx-' + Date.now(),
-        installedSkillId: installedSkill.id,
       }
     }
 
-    // Real IPFS fetch
+    // Fetch skill content from IPFS
+    if (!marketplaceSkill.ipfsCid) {
+      return {
+        success: false,
+        error: 'Skill has no IPFS content',
+        errorType: 'validation'
+      }
+    }
+
     const yamlResult = await fetchFromIPFS(marketplaceSkill.ipfsCid)
     if (!yamlResult.success || !yamlResult.content) {
       return {
@@ -458,17 +378,16 @@ export async function purchaseSkill(
 
     invalidateSkillCache()
 
-    // Update cache to reflect installed status
-    const cacheKey = `${network}-all`
-    const cached = skillListCache.get(cacheKey) || []
-    const skillIndex = cached.findIndex(s => s.mint === marketplaceSkill.mint)
-    if (skillIndex >= 0) {
-      cached[skillIndex].installed = true
-      skillListCache.set(cacheKey, cached)
+    // Increment download count in registry
+    try {
+      await incrementDownloads(marketplaceSkill.id)
+    } catch {
+      // Non-critical — don't fail the purchase
     }
 
     return {
       success: true,
+      signature,
       installedSkillId: installedSkill.id,
     }
   } catch (error) {
@@ -485,214 +404,31 @@ export async function checkSkillInstalled(mint: string): Promise<boolean> {
 }
 
 /**
- * Escape a value for YAML output
+ * Get skills purchased by the current user (from local storage)
  */
-function escapeYamlValue(value: string): string {
-  // Check if the value needs quoting
-  const needsQuoting =
-    value.includes(':') ||
-    value.includes('#') ||
-    value.includes("'") ||
-    value.includes('"') ||
-    value.includes('\n') ||
-    value.includes('\r') ||
-    value.startsWith(' ') ||
-    value.endsWith(' ') ||
-    value.startsWith('-') ||
-    value.startsWith('[') ||
-    value.startsWith('{')
-
-  if (!needsQuoting) {
-    return value
-  }
-
-  // Use double quotes and escape internal quotes
-  const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n')
-  return `"${escaped}"`
-}
-
-/**
- * Create demo skill content for demo purchases
- */
-// Detailed instructions for each demo skill
-const DEMO_SKILL_INSTRUCTIONS: Record<string, string> = {
-  'jupiter-swap': `# Jupiter Token Swap
-
-Swap tokens on Jupiter DEX (jup.ag), the leading Solana DEX aggregator.
-
-## Instructions
-
-1. Navigate to https://jup.ag
-2. Use \`read_page\` to identify the swap interface
-3. Set the "from" token:
-   - Click the token selector for the input field
-   - Search for the requested token name or symbol
-   - Select it from the results
-4. Set the "to" token:
-   - Click the token selector for the output field
-   - Search and select the target token
-5. Enter the swap amount in the input field using \`form_input\`
-6. Review the swap details (rate, price impact, minimum received)
-7. If the user confirms, click "Swap" and wait for the wallet approval popup
-8. After the transaction, verify the swap completed by checking the success message
-
-## Notes
-- Always show the user the exchange rate and price impact before confirming
-- If price impact is > 5%, warn the user
-- Common tokens: SOL, USDC, USDT, JUP, BONK, RAY, ORCA
-- If a token isn't found, try searching by its contract address
-`,
-
-  'nft-sniper': `# NFT Collection Monitor
-
-Monitor and mint NFTs from new Solana collections using Magic Eden or Tensor.
-
-## Instructions
-
-1. Ask the user which marketplace to use (Magic Eden or Tensor)
-2. Navigate to the marketplace:
-   - Magic Eden: https://magiceden.io/marketplace
-   - Tensor: https://www.tensor.trade
-3. For monitoring a collection:
-   - Navigate to the collection page the user specifies
-   - Use \`read_page\` to get current floor price, listed count, and volume
-   - Report the key metrics to the user
-4. For minting from a launchpad:
-   - Navigate to the launchpad/mint page
-   - Use \`read_page\` to find mint details (price, supply, date)
-   - When mint is live, click the mint button
-   - Wait for wallet approval
-5. For buying a listed NFT:
-   - Find the NFT the user wants
-   - Click "Buy Now" or place a bid
-   - Confirm the transaction details with the user before proceeding
-
-## Notes
-- Always confirm prices with the user before any purchase
-- Check if the collection is verified on the marketplace
-- Report floor price changes if monitoring
-`,
-
-  'airdrop-hunter': `# Solana Airdrop Finder
-
-Find and check eligibility for airdrops across the Solana ecosystem.
-
-## Instructions
-
-1. Ask the user for their Solana wallet address (or use the connected wallet)
-2. Check common airdrop aggregator sites:
-   - Navigate to https://www.solanaairdrops.com or similar aggregators
-   - Use \`read_page\` to find active and upcoming airdrops
-3. For each potential airdrop:
-   - Report the project name, token, and estimated value
-   - Check eligibility criteria
-   - Provide the claim link if available
-4. To check a specific protocol's airdrop:
-   - Navigate to the protocol's airdrop/claim page
-   - Connect wallet if needed
-   - Check if the address is eligible
-   - Report the claimable amount
-5. For claiming:
-   - Navigate to the claim page
-   - Click the claim button
-   - Wait for wallet approval
-   - Verify the tokens were received
-
-## Notes
-- Never share or ask for private keys or seed phrases
-- Be cautious of phishing sites — verify URLs carefully
-- Some airdrops require specific on-chain activity to qualify
-- Free airdrops should never require sending tokens first
-`,
-}
-
-function createDemoSkillContent(skill: MarketplaceSkill): string {
-  const escapedName = escapeYamlValue(skill.name)
-  const escapedDescription = escapeYamlValue(skill.description)
-  const escapedVersion = escapeYamlValue(skill.version)
-
-  const instructions = DEMO_SKILL_INSTRUCTIONS[skill.name] || `# ${skill.name}\n\n${skill.description}\n\nFollow the user's instructions to complete the task.\n`
-
-  return `---
-name: ${escapedName}
-description: ${escapedDescription}
-version: ${escapedVersion}
-author: Marketplace Demo
-user-invocable: true
-auto-discover: true
----
-
-${instructions}`
-}
-
-/**
- * Convert NFT to MarketplaceSkill
- */
-async function nftToMarketplaceSkill(nft: SkillNFT): Promise<MarketplaceSkill> {
-  const installed = await isSkillMintInstalled(nft.mint)
-  return {
-    mint: nft.mint,
-    name: nft.name.replace('Bouno Skill: ', ''),
-    description: nft.description,
-    price: lamportsToSol(nft.price),
-    priceLamports: nft.price,
-    seller: nft.seller,
-    ipfsCid: nft.skillYamlCid,
-    category: nft.category,
-    version: nft.version,
-    image: nft.image,
-    installed,
+export async function getMyPurchases(
+  _network: NetworkType = 'devnet'
+): Promise<MarketplaceSkill[]> {
+  try {
+    const { getMarketplaceSkills } = await import('@skills/storage')
+    const marketplaceSkills = await getMarketplaceSkills()
+    return marketplaceSkills.map(skill => ({
+      id: skill.marketplaceData?.mint || skill.id,
+      mint: skill.marketplaceData?.mint || '',
+      name: skill.name,
+      description: skill.description,
+      price: skill.marketplaceData?.pricePaid ? lamportsToSol(skill.marketplaceData.pricePaid) : 0,
+      priceLamports: skill.marketplaceData?.pricePaid || 0,
+      seller: skill.marketplaceData?.seller || '',
+      ipfsCid: '',
+      category: 'purchased',
+      version: skill.version,
+      image: '',
+      installed: true,
+      downloads: 0,
+    }))
+  } catch (error) {
+    console.error('Failed to get purchases:', error)
+    return []
   }
 }
-
-/**
- * Add demo skills for testing
- */
-export function addDemoSkills(): void {
-  const demoSkills: MarketplaceSkill[] = [
-    {
-      mint: 'demo-mint-1',
-      name: 'jupiter-swap',
-      description: 'Swap any token pair on Jupiter DEX with natural language commands',
-      price: 0.5,
-      priceLamports: 500000000,
-      seller: 'DemoSeller111111111111111111111111111111111',
-      ipfsCid: 'QmDemo1',
-      category: 'defi',
-      version: '1.0.0',
-      image: 'https://arweave.net/placeholder',
-      installed: false,
-    },
-    {
-      mint: 'demo-mint-2',
-      name: 'nft-sniper',
-      description: 'Monitor and automatically mint NFTs from new collections',
-      price: 1.0,
-      priceLamports: 1000000000,
-      seller: 'DemoSeller222222222222222222222222222222222',
-      ipfsCid: 'QmDemo2',
-      category: 'consumer',
-      version: '1.2.0',
-      image: 'https://arweave.net/placeholder',
-      installed: false,
-    },
-    {
-      mint: 'demo-mint-3',
-      name: 'airdrop-hunter',
-      description: 'Find and claim airdrops across the Solana ecosystem',
-      price: 0,
-      priceLamports: 0,
-      seller: 'DemoSeller333333333333333333333333333333333',
-      ipfsCid: 'QmDemo3',
-      category: 'defi',
-      version: '2.0.0',
-      image: 'https://arweave.net/placeholder',
-      installed: false,
-    },
-  ]
-
-  skillListCache.set('devnet-all', demoSkills)
-}
-
-// Initialize demo data
-addDemoSkills()
