@@ -8,7 +8,8 @@ import {
   type SkillNFT,
 } from './nft'
 import { solToLamports, lamportsToSol, getConnection, type NetworkType } from '@wallet/solana'
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js'
+import { TREASURY_PUBLIC_KEY, COMMISSION_BPS, MIN_COMMISSION_LAMPORTS } from './config'
 import { installSkillFromMarketplace, getMarketplaceSkills, isSkillMintInstalled } from '@skills/storage'
 import { invalidateSkillCache } from '@skills/manager'
 import { loadSettings } from '@shared/settings'
@@ -292,6 +293,67 @@ export async function getMyPurchases(
     console.error('Failed to get purchases:', error)
     return []
   }
+}
+
+/**
+ * Build a purchase transaction with commission split.
+ * Returns a base64-encoded transaction for the wallet to sign.
+ *
+ * Payment split:
+ *  - Seller receives: totalLamports - commission
+ *  - Treasury receives: commission (COMMISSION_BPS basis points, min MIN_COMMISSION_LAMPORTS)
+ */
+export async function buildPurchaseTransaction(
+  buyerAddress: string,
+  sellerAddress: string,
+  totalLamports: number,
+  network: NetworkType = 'devnet'
+): Promise<{ transaction: string; sellerAmount: number; treasuryAmount: number }> {
+  const connection = getConnection(network)
+  const buyer = new PublicKey(buyerAddress)
+  const seller = new PublicKey(sellerAddress)
+  const treasury = new PublicKey(TREASURY_PUBLIC_KEY)
+
+  // Calculate commission
+  let treasuryAmount = Math.floor(totalLamports * COMMISSION_BPS / 10_000)
+  if (treasuryAmount < MIN_COMMISSION_LAMPORTS && totalLamports > MIN_COMMISSION_LAMPORTS) {
+    treasuryAmount = MIN_COMMISSION_LAMPORTS
+  }
+  const sellerAmount = totalLamports - treasuryAmount
+
+  const tx = new Transaction()
+
+  // Transfer to seller
+  if (sellerAmount > 0) {
+    tx.add(
+      SystemProgram.transfer({
+        fromPubkey: buyer,
+        toPubkey: seller,
+        lamports: sellerAmount,
+      })
+    )
+  }
+
+  // Transfer commission to treasury
+  if (treasuryAmount > 0) {
+    tx.add(
+      SystemProgram.transfer({
+        fromPubkey: buyer,
+        toPubkey: treasury,
+        lamports: treasuryAmount,
+      })
+    )
+  }
+
+  // Set recent blockhash and fee payer
+  const { blockhash } = await connection.getLatestBlockhash()
+  tx.recentBlockhash = blockhash
+  tx.feePayer = buyer
+
+  // Serialize (unsigned) for the wallet to sign
+  const serialized = tx.serialize({ requireAllSignatures: false }).toString('base64')
+
+  return { transaction: serialized, sellerAmount, treasuryAmount }
 }
 
 /**

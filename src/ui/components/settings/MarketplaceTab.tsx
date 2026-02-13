@@ -5,9 +5,11 @@ import {
   browseSkills,
   purchaseSkill,
   publishSkill,
+  buildPurchaseTransaction,
   getMyPurchases,
   type MarketplaceSkill,
 } from '@marketplace/manager'
+import { lamportsToSol } from '@wallet/solana'
 import { getAllSkills, getMarketplaceSkills } from '@skills/storage'
 import type { StoredSkill } from '@skills/types'
 import type { PinataSettings } from '@shared/settings'
@@ -153,12 +155,22 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     try {
       console.log('[Marketplace] Purchasing skill:', skill.name, skill.mint)
 
-      // For paid skills, request signature via wallet
-      if (!isFreeSkill && !isDemoSkill && wallet.connected) {
+      // For paid skills, build a real transaction with commission split
+      if (!isFreeSkill && !isDemoSkill && wallet.connected && wallet.address) {
+        const { transaction, sellerAmount, treasuryAmount } = await buildPurchaseTransaction(
+          wallet.address,
+          skill.seller,
+          skill.priceLamports,
+          'devnet'
+        )
+
+        console.log('[Marketplace] Transaction built — seller:', lamportsToSol(sellerAmount), 'SOL, commission:', lamportsToSol(treasuryAmount), 'SOL')
+
         const signResult = await requestSignature({
           action: `Buy ${skill.name}`,
           amount: skill.price,
           to: skill.seller,
+          transactionBase64: transaction,
         })
 
         if (!signResult.success) {
@@ -177,8 +189,8 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
         throw new Error(result.error || 'Purchase failed')
       }
 
-      // Refresh both the skills list and purchased skills
-      await Promise.all([loadSkills(), loadPurchasedSkills()])
+      // Refresh balance + skill lists
+      await Promise.all([refresh(), loadSkills(), loadPurchasedSkills()])
     } catch (err) {
       console.error('[Marketplace] Purchase error:', err)
       setError(err instanceof Error ? err.message : 'Failed to purchase skill')
