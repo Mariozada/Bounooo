@@ -37,6 +37,7 @@
     "remark-gfm": "^4.0.1",
     "shiki": "^3.21.0",
     "vite-plugin-node-polyfills": "^0.25.0",
+    "yaml": "^2.8.2",
     "zod": "^4.3.5"
   },
   "devDependencies": {

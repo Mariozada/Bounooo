@@ -291,7 +291,7 @@ export async function installSkillFromMarketplace(
     source: 'marketplace',
     enabled: true,
     userInvocable: parsed.frontmatter.userInvocable ?? true,
-    autoDiscover: parsed.frontmatter.autoDiscover ?? false,
+    autoDiscover: parsed.frontmatter.autoDiscover ?? true,
 
     installedAt: now,
     updatedAt: now,

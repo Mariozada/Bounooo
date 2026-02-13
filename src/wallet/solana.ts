@@ -29,6 +29,8 @@ declare global {
       solana?: PhantomProvider
     }
     solflare?: PhantomProvider
+    backpack?: PhantomProvider
+    solana?: PhantomProvider
   }
 }
 
@@ -58,6 +60,16 @@ export function getProvider(): PhantomProvider | null {
     return window.solflare
   }
 
+  // Try Backpack
+  if (window.backpack) {
+    return window.backpack
+  }
+
+  // Try generic window.solana (some wallets inject here)
+  if (window.solana) {
+    return window.solana
+  }
+
   return null
 }
 
@@ -69,7 +81,7 @@ export async function connectWallet(network: NetworkType = DEFAULT_NETWORK): Pro
   const provider = getProvider()
 
   if (!provider) {
-    throw new Error('No Solana wallet found. Please install Phantom or Solflare.')
+    throw new Error('No Solana wallet found. Install Phantom, Solflare, or Backpack.')
   }
 
   try {

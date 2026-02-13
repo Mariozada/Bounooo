@@ -717,6 +717,50 @@
   border-color: var(--muted-foreground);
 }
 
+.gemini-auth-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.gemini-logged-in {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.gemini-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: hsl(142 71% 45%);
+}
+
+.gemini-status::before {
+  content: '\2713';
+  font-weight: 600;
+}
+
+.gemini-login-btn {
+  width: 100%;
+  justify-content: center;
+  padding: 12px 16px;
+}
+
+.gemini-logout-btn {
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.gemini-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--muted-foreground);
+}
+
 .error-text {
   font-size: 12px;
   color: var(--destructive);

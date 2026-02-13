@@ -302,8 +302,6 @@ export async function purchaseSkill(
   network: NetworkType = 'devnet'
 ): Promise<PurchaseResult> {
   try {
-    // For paid skills, we check wallet connection
-    // For free/demo skills, wallet is optional (but demo mints must be whitelisted)
     const walletAddress = await getWalletAddress()
     const isDemoSkill = isValidDemoMint(marketplaceSkill.mint)
     const isFreeSkill = marketplaceSkill.price === 0
@@ -339,15 +337,8 @@ export async function purchaseSkill(
       }
     }
 
-    // 1. Get NFT metadata (for real purchases, verify on-chain)
-    // For demo, we use the marketplaceSkill data directly
-
-    // 2. For real implementation: Transfer payment to seller
-    // For demo, we skip the actual payment
-
-    // 3. Fetch skill YAML from IPFS
+    // Demo skills — skip payment, install directly
     if (!marketplaceSkill.ipfsCid || marketplaceSkill.ipfsCid.startsWith('QmDemo')) {
-      // Demo skill - verify it's a valid demo mint before using placeholder content
       if (!isDemoSkill) {
         return {
           success: false,
@@ -366,7 +357,6 @@ export async function purchaseSkill(
         }
       )
 
-      // Invalidate skill cache so the new skill appears immediately
       invalidateSkillCache()
 
       return {
@@ -386,7 +376,6 @@ export async function purchaseSkill(
       }
     }
 
-    // 4. Validate the content is valid YAML
     if (!yamlResult.content.includes('---') || !yamlResult.content.includes('name:')) {
       return {
         success: false,
@@ -395,7 +384,7 @@ export async function purchaseSkill(
       }
     }
 
-    // 5. Install skill locally with marketplace data
+    // Install skill locally
     const installedSkill = await installSkillFromMarketplace(
       yamlResult.content,
       {
@@ -405,7 +394,6 @@ export async function purchaseSkill(
       }
     )
 
-    // Invalidate skill cache so the new skill appears immediately
     invalidateSkillCache()
 
     // Update cache to reflect installed status
@@ -419,7 +407,6 @@ export async function purchaseSkill(
 
     return {
       success: true,
-      txId: 'demo-tx-' + Date.now(),
       installedSkillId: installedSkill.id,
     }
   } catch (error) {
@@ -465,10 +452,104 @@ function escapeYamlValue(value: string): string {
 /**
  * Create demo skill content for demo purchases
  */
+// Detailed instructions for each demo skill
+const DEMO_SKILL_INSTRUCTIONS: Record<string, string> = {
+  'jupiter-swap': `# Jupiter Token Swap
+
+Swap tokens on Jupiter DEX (jup.ag), the leading Solana DEX aggregator.
+
+## Instructions
+
+1. Navigate to https://jup.ag
+2. Use \`read_page\` to identify the swap interface
+3. Set the "from" token:
+   - Click the token selector for the input field
+   - Search for the requested token name or symbol
+   - Select it from the results
+4. Set the "to" token:
+   - Click the token selector for the output field
+   - Search and select the target token
+5. Enter the swap amount in the input field using \`form_input\`
+6. Review the swap details (rate, price impact, minimum received)
+7. If the user confirms, click "Swap" and wait for the wallet approval popup
+8. After the transaction, verify the swap completed by checking the success message
+
+## Notes
+- Always show the user the exchange rate and price impact before confirming
+- If price impact is > 5%, warn the user
+- Common tokens: SOL, USDC, USDT, JUP, BONK, RAY, ORCA
+- If a token isn't found, try searching by its contract address
+`,
+
+  'nft-sniper': `# NFT Collection Monitor
+
+Monitor and mint NFTs from new Solana collections using Magic Eden or Tensor.
+
+## Instructions
+
+1. Ask the user which marketplace to use (Magic Eden or Tensor)
+2. Navigate to the marketplace:
+   - Magic Eden: https://magiceden.io/marketplace
+   - Tensor: https://www.tensor.trade
+3. For monitoring a collection:
+   - Navigate to the collection page the user specifies
+   - Use \`read_page\` to get current floor price, listed count, and volume
+   - Report the key metrics to the user
+4. For minting from a launchpad:
+   - Navigate to the launchpad/mint page
+   - Use \`read_page\` to find mint details (price, supply, date)
+   - When mint is live, click the mint button
+   - Wait for wallet approval
+5. For buying a listed NFT:
+   - Find the NFT the user wants
+   - Click "Buy Now" or place a bid
+   - Confirm the transaction details with the user before proceeding
+
+## Notes
+- Always confirm prices with the user before any purchase
+- Check if the collection is verified on the marketplace
+- Report floor price changes if monitoring
+`,
+
+  'airdrop-hunter': `# Solana Airdrop Finder
+
+Find and check eligibility for airdrops across the Solana ecosystem.
+
+## Instructions
+
+1. Ask the user for their Solana wallet address (or use the connected wallet)
+2. Check common airdrop aggregator sites:
+   - Navigate to https://www.solanaairdrops.com or similar aggregators
+   - Use \`read_page\` to find active and upcoming airdrops
+3. For each potential airdrop:
+   - Report the project name, token, and estimated value
+   - Check eligibility criteria
+   - Provide the claim link if available
+4. To check a specific protocol's airdrop:
+   - Navigate to the protocol's airdrop/claim page
+   - Connect wallet if needed
+   - Check if the address is eligible
+   - Report the claimable amount
+5. For claiming:
+   - Navigate to the claim page
+   - Click the claim button
+   - Wait for wallet approval
+   - Verify the tokens were received
+
+## Notes
+- Never share or ask for private keys or seed phrases
+- Be cautious of phishing sites — verify URLs carefully
+- Some airdrops require specific on-chain activity to qualify
+- Free airdrops should never require sending tokens first
+`,
+}
+
 function createDemoSkillContent(skill: MarketplaceSkill): string {
   const escapedName = escapeYamlValue(skill.name)
   const escapedDescription = escapeYamlValue(skill.description)
   const escapedVersion = escapeYamlValue(skill.version)
+
+  const instructions = DEMO_SKILL_INSTRUCTIONS[skill.name] || `# ${skill.name}\n\n${skill.description}\n\nFollow the user's instructions to complete the task.\n`
 
   return `---
 name: ${escapedName}
@@ -476,18 +557,10 @@ description: ${escapedDescription}
 version: ${escapedVersion}
 author: Marketplace Demo
 user-invocable: true
+auto-discover: true
 ---
 
-# ${skill.name}
-
-This is a demo skill purchased from the marketplace.
-
-## Instructions
-
-${skill.description}
-
-Follow the user's instructions to complete the task.
-`
+${instructions}`
 }
 
 /**

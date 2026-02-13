@@ -282,14 +282,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
         let results: chrome.scripting.InjectionResult[]
 
+        // Helper type for wallet provider detection in MAIN world
+        type WalletWindow = {
+          phantom?: { solana?: { isPhantom?: boolean; isConnected?: boolean; publicKey?: { toBase58: () => string }; connect: (o?: { onlyIfTrusted?: boolean }) => Promise<{ publicKey: { toBase58: () => string } }>; disconnect: () => Promise<void> } }
+          solflare?: { isConnected?: boolean; publicKey?: { toBase58: () => string }; connect: () => Promise<{ publicKey: { toBase58: () => string } }>; disconnect: () => Promise<void> }
+          backpack?: { isConnected?: boolean; publicKey?: { toBase58: () => string }; connect: () => Promise<{ publicKey: { toBase58: () => string } }>; disconnect: () => Promise<void> }
+          solana?: { isConnected?: boolean; publicKey?: { toBase58: () => string }; connect: () => Promise<{ publicKey: { toBase58: () => string } }>; disconnect: () => Promise<void> }
+        }
+
         if (type === 'PHANTOM_CHECK') {
           results = await chrome.scripting.executeScript({
             target: { tabId: tab.id },
             world: 'MAIN',
             func: () => {
-              const w = window as { phantom?: { solana?: { isPhantom?: boolean; isConnected?: boolean; publicKey?: { toBase58: () => string } } } }
-              const p = w.phantom?.solana
-              return { available: !!p?.isPhantom, isConnected: !!p?.isConnected, address: p?.publicKey?.toBase58() || null }
+              const w = window as unknown as WalletWindow
+              const p = w.phantom?.solana || w.solflare || w.backpack || w.solana
+              return { available: !!p, isConnected: !!p?.isConnected, address: p?.publicKey?.toBase58() || null }
             }
           })
         } else if (type === 'PHANTOM_CONNECT') {
@@ -297,9 +305,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             target: { tabId: tab.id },
             world: 'MAIN',
             func: async () => {
-              const w = window as { phantom?: { solana?: { isPhantom?: boolean; connect: () => Promise<{ publicKey: { toBase58: () => string } }> } } }
-              const p = w.phantom?.solana
-              if (!p?.isPhantom) return { success: false, error: 'Phantom not found' }
+              const w = window as unknown as WalletWindow
+              const p = w.phantom?.solana || w.solflare || w.backpack || w.solana
+              if (!p) return { success: false, error: 'No Solana wallet found' }
               try {
                 const { publicKey } = await p.connect()
                 return { success: true, address: publicKey.toBase58() }
@@ -314,13 +322,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             target: { tabId: tab.id },
             world: 'MAIN',
             func: async () => {
-              const w = window as { phantom?: { solana?: { isPhantom?: boolean; isConnected?: boolean; publicKey?: { toBase58: () => string }; connect: (o: { onlyIfTrusted: boolean }) => Promise<{ publicKey: { toBase58: () => string } }> } } }
-              const p = w.phantom?.solana
-              if (!p?.isPhantom) return { success: false, error: 'Phantom not found' }
+              const w = window as unknown as WalletWindow
+              const p = w.phantom?.solana || w.solflare || w.backpack || w.solana
+              if (!p) return { success: false, error: 'No wallet found' }
               if (p.isConnected && p.publicKey) return { success: true, address: p.publicKey.toBase58() }
               try {
-                const { publicKey } = await p.connect({ onlyIfTrusted: true })
-                return { success: true, address: publicKey.toBase58() }
+                const conn = w.phantom?.solana
+                if (conn) {
+                  const { publicKey } = await conn.connect({ onlyIfTrusted: true })
+                  return { success: true, address: publicKey.toBase58() }
+                }
+                return { success: false, error: 'Not trusted' }
               } catch {
                 return { success: false, error: 'Not trusted' }
               }
@@ -331,8 +343,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             target: { tabId: tab.id },
             world: 'MAIN',
             func: async () => {
-              const w = window as { phantom?: { solana?: { disconnect: () => Promise<void> } } }
-              if (w.phantom?.solana) await w.phantom.solana.disconnect()
+              const w = window as unknown as WalletWindow
+              const p = w.phantom?.solana || w.solflare || w.backpack || w.solana
+              if (p?.disconnect) await p.disconnect()
               return { success: true }
             }
           })
@@ -448,7 +461,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           if (!checkResult.available) {
             sendResponse({
               success: false,
-              error: 'Phantom wallet not detected. Please make sure Phantom is installed and try refreshing the page.'
+              error: 'No Solana wallet detected. Install Phantom, Solflare, or Backpack and refresh the page.'
             })
             return
           }
@@ -508,7 +521,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           // For signing, first check Phantom is available
           const checkResult = await checkPhantomAvailable(tab.id, 3)
           if (!checkResult.available) {
-            sendResponse({ success: false, error: 'Phantom wallet not available' })
+            sendResponse({ success: false, error: 'Solana wallet not available' })
             return
           }
 

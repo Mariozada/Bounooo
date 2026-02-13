@@ -153,7 +153,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
     try {
       console.log('[Marketplace] Purchasing skill:', skill.name, skill.mint)
 
-      // For paid skills, request signature via popup
+      // For paid skills, request signature via wallet
       if (!isFreeSkill && !isDemoSkill && wallet.connected) {
         const signResult = await requestSignature({
           action: `Buy ${skill.name}`,
@@ -286,7 +286,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
                 className="button-link"
                 onClick={() => setShowManualEntry(false)}
               >
-                ← Back to Phantom
+                ← Back
               </button>
             </div>
           ) : (
@@ -298,7 +298,7 @@ export const MarketplaceTab: FC<MarketplaceTabProps> = ({
                 disabled={walletLoading}
               >
                 <Wallet size={16} />
-                {walletLoading ? 'Connecting...' : 'Connect Phantom'}
+                {walletLoading ? 'Connecting...' : 'Connect Wallet'}
               </button>
               <button
                 type="button"

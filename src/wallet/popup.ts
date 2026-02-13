@@ -175,7 +175,7 @@ async function connectWallet(): Promise<void> {
     errorEl.textContent = message
     errorEl.style.display = 'block'
     connectBtn.disabled = false
-    connectBtn.textContent = 'Connect with Phantom'
+    connectBtn.textContent = 'Connect Wallet'
 
     // If user rejected, just close
     if (message.includes('rejected') || message.includes('cancelled')) {

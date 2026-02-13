@@ -16,6 +16,7 @@
  * ```
  */
 
+import { parse, stringify } from 'yaml'
 import type { SkillFrontmatter, ParsedSkill, SkillArgument } from './types'
 
 const FRONTMATTER_REGEX = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/
@@ -34,7 +35,12 @@ export function parseSkillContent(content: string): ParsedSkill {
   const yamlContent = match[1]
   const instructions = trimmed.slice(match[0].length).trim()
 
-  const frontmatter = parseYamlFrontmatter(yamlContent)
+  const raw = parse(yamlContent) as Record<string, unknown> | null
+  if (!raw || typeof raw !== 'object') {
+    throw new Error('Invalid SKILL.md: frontmatter is not a valid YAML object')
+  }
+
+  const frontmatter = normalizeFrontmatter(raw)
 
   if (!frontmatter.name) {
     throw new Error('Invalid SKILL.md: missing required "name" field in frontmatter')
@@ -48,189 +54,6 @@ export function parseSkillContent(content: string): ParsedSkill {
     frontmatter,
     instructions,
   }
-}
-
-/**
- * Simple YAML parser for frontmatter
- * Handles basic key-value pairs, arrays, and nested objects
- */
-function parseYamlFrontmatter(yaml: string): SkillFrontmatter {
-  const result: Record<string, unknown> = {}
-  const lines = yaml.split('\n')
-
-  let currentKey = ''
-  let currentArray: unknown[] | null = null
-  let currentObject: Record<string, unknown> | null = null
-  let objectKey = ''
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const trimmedLine = line.trim()
-
-    // Skip empty lines and comments
-    if (!trimmedLine || trimmedLine.startsWith('#')) {
-      continue
-    }
-
-    // Check for array item
-    if (trimmedLine.startsWith('- ')) {
-      if (currentArray !== null) {
-        const value = parseYamlValue(trimmedLine.slice(2).trim())
-        // Check if it's an object item (like arguments array)
-        if (typeof value === 'string' && value.includes(':')) {
-          const objItem = parseInlineObject(trimmedLine.slice(2).trim(), lines, i)
-          currentArray.push(objItem.obj)
-          i = objItem.endIndex
-        } else {
-          currentArray.push(value)
-        }
-      }
-      continue
-    }
-
-    // Check for indented object property
-    const indentMatch = line.match(/^(\s+)(\w+):\s*(.*)$/)
-    if (indentMatch && currentObject !== null) {
-      const [, , key, value] = indentMatch
-      currentObject[key] = parseYamlValue(value)
-      continue
-    }
-
-    // Check for top-level key-value
-    const kvMatch = trimmedLine.match(/^(\w+):\s*(.*)$/)
-    if (kvMatch) {
-      // Save previous array/object if any
-      if (currentArray !== null && currentKey) {
-        result[currentKey] = currentArray
-        currentArray = null
-      }
-      if (currentObject !== null && objectKey) {
-        result[objectKey] = currentObject
-        currentObject = null
-      }
-
-      const [, key, value] = kvMatch
-      currentKey = key
-
-      if (value === '' || value === '|' || value === '>') {
-        // Check next line for array or object
-        const nextLine = lines[i + 1]?.trim() || ''
-        if (nextLine.startsWith('- ')) {
-          currentArray = []
-        } else if (nextLine.match(/^\w+:/)) {
-          currentObject = {}
-          objectKey = key
-        } else {
-          result[key] = ''
-        }
-      } else if (value.startsWith('[') && value.endsWith(']')) {
-        // Inline array
-        result[key] = parseInlineArray(value)
-      } else {
-        result[key] = parseYamlValue(value)
-      }
-    }
-  }
-
-  // Save any remaining array/object
-  if (currentArray !== null && currentKey) {
-    result[currentKey] = currentArray
-  }
-  if (currentObject !== null && objectKey) {
-    result[objectKey] = currentObject
-  }
-
-  return normalizeFrontmatter(result)
-}
-
-/**
- * Parse an inline YAML array like [a, b, c]
- */
-function parseInlineArray(value: string): unknown[] {
-  const inner = value.slice(1, -1).trim()
-  if (!inner) return []
-
-  return inner.split(',').map(item => {
-    const trimmed = item.trim()
-    // Remove quotes if present
-    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-      return trimmed.slice(1, -1)
-    }
-    return parseYamlValue(trimmed)
-  })
-}
-
-/**
- * Parse inline object from array item
- */
-function parseInlineObject(
-  firstLine: string,
-  lines: string[],
-  startIndex: number
-): { obj: Record<string, unknown>; endIndex: number } {
-  const obj: Record<string, unknown> = {}
-  let endIndex = startIndex
-
-  // Parse first line if it has a key
-  const firstKv = firstLine.match(/^(\w+):\s*(.*)$/)
-  if (firstKv) {
-    obj[firstKv[1]] = parseYamlValue(firstKv[2])
-  }
-
-  // Look for indented properties on following lines
-  for (let i = startIndex + 1; i < lines.length; i++) {
-    const line = lines[i]
-    const indentMatch = line.match(/^(\s{2,})(\w+):\s*(.*)$/)
-
-    if (indentMatch) {
-      obj[indentMatch[2]] = parseYamlValue(indentMatch[3])
-      endIndex = i
-    } else if (line.trim().startsWith('- ') || line.match(/^\w+:/)) {
-      // New array item or top-level key, stop
-      break
-    } else if (line.trim() === '') {
-      continue
-    } else {
-      break
-    }
-  }
-
-  return { obj, endIndex }
-}
-
-/**
- * Parse a YAML value (handle booleans, numbers, quoted strings)
- */
-function parseYamlValue(value: string): unknown {
-  const trimmed = value.trim()
-
-  // Empty value
-  if (trimmed === '' || trimmed === 'null' || trimmed === '~') {
-    return undefined
-  }
-
-  // Booleans
-  if (trimmed === 'true' || trimmed === 'yes' || trimmed === 'on') {
-    return true
-  }
-  if (trimmed === 'false' || trimmed === 'no' || trimmed === 'off') {
-    return false
-  }
-
-  // Quoted strings
-  if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-    return trimmed.slice(1, -1)
-  }
-
-  // Numbers
-  if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-    return parseFloat(trimmed)
-  }
-
-  // Plain string
-  return trimmed
 }
 
 /**
@@ -309,90 +132,23 @@ export function validateParsedSkill(parsed: ParsedSkill): string[] {
 }
 
 /**
- * Escape a YAML string value if needed
- * Quotes strings containing special characters
- */
-function escapeYamlValue(value: string): string {
-  // Check if the value needs quoting
-  const needsQuoting =
-    value.includes(':') ||
-    value.includes('#') ||
-    value.includes("'") ||
-    value.includes('"') ||
-    value.includes('\n') ||
-    value.includes('\r') ||
-    value.startsWith(' ') ||
-    value.endsWith(' ') ||
-    value.startsWith('-') ||
-    value.startsWith('[') ||
-    value.startsWith('{') ||
-    value === 'true' ||
-    value === 'false' ||
-    value === 'null' ||
-    /^\d/.test(value)
-
-  if (!needsQuoting) {
-    return value
-  }
-
-  // Use double quotes and escape internal quotes
-  const escaped = value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-  return `"${escaped}"`
-}
-
-/**
  * Serialize a skill back to SKILL.md format
  */
 export function serializeSkill(frontmatter: SkillFrontmatter, instructions: string): string {
-  const lines: string[] = ['---']
-
-  lines.push(`name: ${escapeYamlValue(frontmatter.name)}`)
-  lines.push(`description: ${escapeYamlValue(frontmatter.description)}`)
-
-  if (frontmatter.version) {
-    lines.push(`version: ${escapeYamlValue(frontmatter.version)}`)
+  const obj: Record<string, unknown> = {
+    name: frontmatter.name,
+    description: frontmatter.description,
   }
 
-  if (frontmatter.author) {
-    lines.push(`author: ${escapeYamlValue(frontmatter.author)}`)
-  }
+  if (frontmatter.version) obj.version = frontmatter.version
+  if (frontmatter.author) obj.author = frontmatter.author
+  if (frontmatter.userInvocable !== undefined) obj['user-invocable'] = frontmatter.userInvocable
+  if (frontmatter.autoDiscover !== undefined) obj['auto-discover'] = frontmatter.autoDiscover
+  if (frontmatter.allowedTools?.length) obj['allowed-tools'] = frontmatter.allowedTools
+  if (frontmatter.requires?.tools?.length) obj.requires = { tools: frontmatter.requires.tools }
+  if (frontmatter.arguments?.length) obj.arguments = frontmatter.arguments
 
-  if (frontmatter.userInvocable !== undefined) {
-    lines.push(`user-invocable: ${frontmatter.userInvocable}`)
-  }
+  const yaml = stringify(obj, { lineWidth: 0 }).trimEnd()
 
-  if (frontmatter.autoDiscover !== undefined) {
-    lines.push(`auto-discover: ${frontmatter.autoDiscover}`)
-  }
-
-  if (frontmatter.allowedTools && frontmatter.allowedTools.length > 0) {
-    const escapedTools = frontmatter.allowedTools.map(escapeYamlValue)
-    lines.push(`allowed-tools: [${escapedTools.join(', ')}]`)
-  }
-
-  if (frontmatter.requires?.tools && frontmatter.requires.tools.length > 0) {
-    const escapedRequiredTools = frontmatter.requires.tools.map(escapeYamlValue)
-    lines.push('requires:')
-    lines.push(`  tools: [${escapedRequiredTools.join(', ')}]`)
-  }
-
-  if (frontmatter.arguments && frontmatter.arguments.length > 0) {
-    lines.push('arguments:')
-    for (const arg of frontmatter.arguments) {
-      lines.push(`  - name: ${escapeYamlValue(arg.name)}`)
-      lines.push(`    description: ${escapeYamlValue(arg.description)}`)
-      if (arg.required) {
-        lines.push(`    required: true`)
-      }
-      if (arg.default !== undefined) {
-        lines.push(`    default: ${escapeYamlValue(arg.default)}`)
-      }
-    }
-  }
-
-  lines.push('---')
-  lines.push('')
-  lines.push(instructions)
-
-  return lines.join('\n')
+  return `---\n${yaml}\n---\n\n${instructions}`
 }
