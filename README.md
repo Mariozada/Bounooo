@@ -71,6 +71,10 @@ Select "OpenAI Compatible" provider:
 - **Ollama** — `http://localhost:11434/v1`
 - **LM Studio** — `http://localhost:1234/v1`
 
+## Browser Compatibility
+
+This extension has been tested on **Google Chrome** only. It may work on other Chromium-based browsers (Edge, Brave, Arc, etc.), but you might encounter issues. If you do, please [open an issue](https://github.com/Mariozada/Bouno/issues).
+
 ## Contributing
 
 Contributions are welcome! Feel free to open a PR.
