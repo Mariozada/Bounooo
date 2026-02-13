@@ -6,6 +6,7 @@ import { runWorkflow } from '@agent/workflow/runner'
 import { executeTool as registryExecuteTool } from '@tools/registry'
 import type { Message } from '@agent/workflow/types'
 import type { ProviderSettings } from '@shared/settings'
+import { detachAllDebuggers } from '@shared/debuggerSession'
 
 const log = (...args: unknown[]) => console.log('[Bouno:ShortcutRunner]', ...args)
 const logError = (...args: unknown[]) => console.error('[Bouno:ShortcutRunner]', ...args)
@@ -127,6 +128,30 @@ export async function runShortcut(shortcutId: string): Promise<ShortcutRunResult
         const tab = await chrome.tabs.get(tabId)
         return [{ id: tab.id!, title: tab.title || '', url: tab.url || '' }]
       },
+      getWebsiteState: async (stateTabId: number) => {
+        const tab = await chrome.tabs.get(stateTabId)
+        const result = await registryExecuteTool('read_page', { tabId: stateTabId })
+        const tree = result.success
+          ? (typeof result.result === 'string' ? result.result : JSON.stringify(result.result))
+          : `Error reading page: ${result.error ?? 'unknown'}`
+
+        let screenshot: string | undefined
+        if (shortcutModelConfig?.vision ?? settings.customModelSettings?.vision) {
+          try {
+            const ssResult = await registryExecuteTool('computer', { tabId: stateTabId, action: 'screenshot' })
+            if (ssResult.success) {
+              const ssData = ssResult.result as Record<string, unknown> | null
+              if (ssData && typeof ssData.dataUrl === 'string') {
+                screenshot = ssData.dataUrl
+              }
+            }
+          } catch {
+            // Ignore screenshot errors in shortcuts
+          }
+        }
+
+        return { tree, url: tab.url || '', screenshot }
+      },
     })
 
     log(`Shortcut "${shortcut.name}" completed:`, {
@@ -152,5 +177,6 @@ export async function runShortcut(shortcutId: string): Promise<ShortcutRunResult
     return { success: false, error: errorMessage }
   } finally {
     runningShortcutIds.delete(shortcutId)
+    await detachAllDebuggers().catch(() => {})
   }
 }

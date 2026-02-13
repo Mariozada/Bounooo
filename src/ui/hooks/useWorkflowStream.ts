@@ -458,6 +458,38 @@ export function useWorkflowStream({
           const tabs = await chrome.tabs.query(groupId !== undefined ? { groupId } : {})
           return tabs.map((t) => ({ id: t.id!, title: t.title || '', url: t.url || '', audible: t.audible }))
         },
+        // Inject fresh page state (accessibility tree + screenshot) before each LLM call
+        getWebsiteState: async (stateTabId: number) => {
+          const tab = await chrome.tabs.get(stateTabId)
+          const readPageResponse = await chrome.runtime.sendMessage({
+            type: 'EXECUTE_TOOL',
+            tool: 'read_page',
+            params: { tabId: stateTabId },
+          })
+          const tree = readPageResponse?.success
+            ? (typeof readPageResponse.result === 'string'
+              ? readPageResponse.result
+              : JSON.stringify(readPageResponse.result))
+            : `Error reading page: ${readPageResponse?.error ?? 'unknown'}`
+
+          let screenshot: string | undefined
+          if (modelConfig?.vision ?? settings.customModelSettings?.vision) {
+            try {
+              const screenshotResponse = await chrome.runtime.sendMessage({
+                type: 'EXECUTE_TOOL',
+                tool: 'computer',
+                params: { tabId: stateTabId, action: 'screenshot' },
+              })
+              if (screenshotResponse?.success && screenshotResponse.result?.dataUrl) {
+                screenshot = screenshotResponse.result.dataUrl
+              }
+            } catch (err) {
+              log('Failed to capture screenshot for website state:', err)
+            }
+          }
+
+          return { tree, url: tab.url || '', screenshot }
+        },
         // Pass MCP tools to workflow
         mcpTools: mcpOptions?.mcpTools,
         // Route MCP tool calls to the MCP manager
@@ -635,6 +667,8 @@ export function useWorkflowStream({
         }
       } finally {
         sendScreenGlowOff()
+        // Detach Chrome debugger sessions at end of workflow
+        chrome.runtime.sendMessage({ type: MessageTypes.DETACH_DEBUGGERS }).catch(() => {})
         setStreamingState(false)
         abortControllerRef.current = null
         hasCompletedToolCallInRunRef.current = false

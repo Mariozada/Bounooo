@@ -23,6 +23,7 @@ export function createSession(options: AgentOptions): AgentSession {
     postToolDelay,
     vision,
     getTabContext,
+    getWebsiteState,
     userPreference,
   } = options
 
@@ -56,6 +57,7 @@ export function createSession(options: AgentOptions): AgentSession {
       postToolDelay,
       vision,
       getTabContext,
+      getWebsiteState,
     },
     abortSignal,
   }

@@ -7,7 +7,7 @@ import type {
   FinishReason,
 } from './types'
 import { createSession, isAborted } from './session'
-import { streamLLMResponse, hasToolCalls } from './stream'
+import { streamLLMResponse, hasToolCalls, type WebsiteState } from './stream'
 import { ToolQueue, getToolCallsFromResults } from './tools'
 import { appendStepMessages, injectTabContext } from './messages'
 import { clearOutputs } from '@shared/outputStore'
@@ -77,6 +77,19 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
     }
   }
 
+  // Fetch fresh website state (accessibility tree + screenshot) for the current tab
+  let websiteState: WebsiteState | undefined
+  const previousWebsiteState = session.previousWebsiteState as WebsiteState | undefined
+  if (session.config.getWebsiteState) {
+    const stateTabId = session.lastTabId ?? session.config.tabId
+    try {
+      const state = await session.config.getWebsiteState(stateTabId)
+      websiteState = { ...state, tabId: stateTabId }
+    } catch (err) {
+      log('Failed to get website state:', err)
+    }
+  }
+
   // Stream LLM response — tool calls are pushed into the queue as they're parsed
   const stepResult = await streamLLMResponse(session, {
     onTextDelta: callbacks?.onTextDelta,
@@ -95,7 +108,12 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
     provider,
     modelId: modelName,
     geminiThinkingLevel,
-  })
+  }, websiteState, previousWebsiteState)
+
+  // Store current state as previous for next step (tree only, no screenshot)
+  if (websiteState) {
+    session.previousWebsiteState = { tree: websiteState.tree, url: websiteState.url, tabId: websiteState.tabId }
+  }
 
   log('Step streamed:', {
     textLength: stepResult.text.length,
@@ -125,6 +143,15 @@ async function executeStep(options: ExecuteStepOptions): Promise<{ shouldContinu
 
   // Wait for any remaining tool calls still in the queue to finish
   const toolResults = await toolQueue.drain()
+
+  // Track last interacted tab for website state injection
+  for (let i = toolResults.length - 1; i >= 0; i--) {
+    const tid = toolResults[i].toolCall.input.tabId as number | undefined
+    if (tid) {
+      session.lastTabId = tid
+      break
+    }
+  }
 
   appendStepMessages(session, stepResult, toolResults)
 

@@ -8,6 +8,7 @@ import {
 } from '@tools/index'
 import { MessageTypes } from '@shared/messages'
 import { captureTabScreenshot } from '@shared/screenshot'
+import { detachAllDebuggers, detachDebugger, markDetached } from '@shared/debuggerSession'
 import { tabGroups } from './tabGroups'
 import { syncAlarms, shortcutIdFromAlarm } from './scheduler'
 import { runShortcut } from './shortcutRunner'
@@ -19,6 +20,11 @@ import { loadSettings, saveSettings } from '@shared/settings'
 import './relayClient'
 
 registerAllHandlers()
+
+// Keep debugger session Set in sync when Chrome detaches (navigation, tab close, user action)
+chrome.debugger.onDetach.addListener((source) => {
+  if (source.tabId) markDetached(source.tabId)
+})
 setupGeminiOAuthListener()
 
 console.log('Bouno: Registered tools:', getRegisteredTools())
@@ -137,6 +143,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   cleanupGlowForTab(tabId)
   tabGroups.removeTab(tabId)
   clearTabData(tabId)
+  detachDebugger(tabId).catch(() => {})
 })
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -232,6 +239,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Re-broadcast to all extension pages (side panel will pick it up)
     chrome.runtime.sendMessage({ type: MessageTypes.STOP_AGENT }).catch(() => {})
     sendResponse({ success: true })
+    return true
+  }
+
+  if (type === MessageTypes.DETACH_DEBUGGERS) {
+    detachAllDebuggers()
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: (err as Error).message }))
     return true
   }
 

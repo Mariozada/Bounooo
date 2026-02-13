@@ -2,6 +2,7 @@ import { registerTool } from '../registry'
 import { MessageTypes } from '@shared/messages'
 import type { ConsoleMessage, NetworkRequest } from '@shared/types'
 import { MAX_CONSOLE_MESSAGES, MAX_NETWORK_REQUESTS } from '@shared/constants'
+import { ensureDebuggerAttached } from '@shared/debuggerSession'
 
 const consoleMessagesStore = new Map<number, ConsoleMessage[]>()
 const networkRequestsStore = new Map<number, NetworkRequest[]>()
@@ -244,7 +245,6 @@ async function javascriptTool(params: {
   }
 
   const target: chrome.debugger.Debuggee = { tabId }
-  const protocolVersion = '1.3'
 
   const sendDebuggerCommand = <T = unknown>(
     method: string,
@@ -259,26 +259,9 @@ async function javascriptTool(params: {
     })
   })
 
-  const attachDebugger = (): Promise<void> => new Promise((resolve, reject) => {
-    chrome.debugger.attach(target, protocolVersion, () => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message))
-      } else {
-        resolve()
-      }
-    })
-  })
-
-  const detachDebugger = (): Promise<void> => new Promise((resolve) => {
-    chrome.debugger.detach(target, () => resolve())
-  })
-
-  let attached = false
-
   try {
     await ensureDebuggerPermission()
-    await attachDebugger()
-    attached = true
+    await ensureDebuggerAttached(tabId)
 
     // Evaluate user code in the page JavaScript context, awaiting async results.
     const response = await sendDebuggerCommand<{
@@ -315,10 +298,6 @@ async function javascriptTool(params: {
     return { success: true, result: resultPayload.description ?? null }
   } catch (err) {
     throw new Error(`JavaScript execution failed: ${(err as Error).message}`)
-  } finally {
-    if (attached) {
-      await detachDebugger()
-    }
   }
 }
 

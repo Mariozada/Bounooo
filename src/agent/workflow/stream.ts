@@ -9,6 +9,14 @@ import {
   clearCapturedParams,
   formatCapturedParams,
 } from '../debugMiddleware'
+import { isLargeOutput, storeOutput, formatStoredPreview } from '@shared/outputStore'
+
+export interface WebsiteState {
+  tree: string
+  url: string
+  tabId: number
+  screenshot?: string
+}
 
 // Convert our Message format to Vercel AI SDK CoreMessage format
 function convertToSDKMessages(messages: Message[]): CoreMessage[] {
@@ -175,6 +183,78 @@ function getProviderOptions(provider?: string, reasoningEnabled?: boolean, model
   return undefined
 }
 
+/** Prepare a tree string with truncation if needed. */
+function prepareTree(tree: string, storeId: string): string {
+  const treeStr = typeof tree === 'string' ? tree : JSON.stringify(tree)
+  if (isLargeOutput(treeStr)) {
+    const id = storeOutput(storeId, treeStr)
+    return formatStoredPreview(id, storeId, treeStr)
+  }
+  return treeStr
+}
+
+/** Append text (+ optional image) to a user message, returning a new message. */
+function appendToUserMessage(msg: Message, text: string, screenshot?: string): Message {
+  if (typeof msg.content === 'string') {
+    if (screenshot) {
+      return {
+        ...msg,
+        content: [
+          { type: 'text', text: msg.content },
+          { type: 'text', text: '\n\n' + text },
+          { type: 'image', image: screenshot, mediaType: 'image/png' },
+        ],
+      }
+    }
+    return { ...msg, content: msg.content + '\n\n' + text }
+  }
+  const parts: ContentPart[] = [...msg.content]
+  parts.push({ type: 'text', text: '\n\n' + text })
+  if (screenshot) {
+    parts.push({ type: 'image', image: screenshot, mediaType: 'image/png' })
+  }
+  return { ...msg, content: parts }
+}
+
+/**
+ * Build a shallow copy of messages with website state injected.
+ * - <website_state> (current) is injected into the last user message.
+ * - <previous_website_state> (from prior step) is injected into the second-to-last user message.
+ */
+function buildMessagesWithState(messages: Message[], state: WebsiteState, previousState?: WebsiteState): Message[] {
+  const copy = [...messages]
+
+  const currentTree = prepareTree(state.tree, 'website_state')
+  const currentXml = `<website_state tabId="${state.tabId}" url="${state.url}">\n${currentTree}\n</website_state>`
+
+  // Find last two user messages
+  let lastUserIdx = -1
+  let secondLastUserIdx = -1
+  for (let i = copy.length - 1; i >= 0; i--) {
+    if (copy[i].role !== 'user') continue
+    if (lastUserIdx === -1) {
+      lastUserIdx = i
+    } else {
+      secondLastUserIdx = i
+      break
+    }
+  }
+
+  // Inject previous state into second-to-last user message (tree only, no screenshot)
+  if (previousState && secondLastUserIdx !== -1) {
+    const prevTree = prepareTree(previousState.tree, 'previous_website_state')
+    const prevXml = `<previous_website_state tabId="${previousState.tabId}" url="${previousState.url}">\n${prevTree}\n</previous_website_state>`
+    copy[secondLastUserIdx] = appendToUserMessage(copy[secondLastUserIdx], prevXml)
+  }
+
+  // Inject current state into last user message (tree + screenshot for vision)
+  if (lastUserIdx !== -1) {
+    copy[lastUserIdx] = appendToUserMessage(copy[lastUserIdx], currentXml, state.screenshot)
+  }
+
+  return copy
+}
+
 const MAX_RETRIES = 3
 const INITIAL_RETRY_DELAY_MS = 2000
 
@@ -193,7 +273,9 @@ function sleep(ms: number): Promise<void> {
 
 export async function streamLLMResponse(
   session: AgentSession,
-  callbacks?: StreamCallbacks
+  callbacks?: StreamCallbacks,
+  websiteState?: WebsiteState,
+  previousWebsiteState?: WebsiteState
 ): Promise<StepResult> {
   const parser = new XMLStreamParser()
   const toolCalls: ToolCallInfo[] = []
@@ -208,6 +290,11 @@ export async function streamLLMResponse(
   // Note: We'll update it with SDK params after streaming completes
   const tracer = getTracer(callbacks?.tracing?.config)
 
+  // Build effective messages with website state injected (non-mutating)
+  const effectiveMessages = websiteState
+    ? buildMessagesWithState(session.messages, websiteState, previousWebsiteState)
+    : session.messages
+
   // Build input messages for tracing - system prompt first, then conversation
   const tracedInputMessages: ChatMessage[] = []
   if (session.systemPrompt) {
@@ -216,7 +303,7 @@ export async function streamLLMResponse(
       content: session.systemPrompt,
     })
   }
-  tracedInputMessages.push(...session.messages.map(m => ({
+  tracedInputMessages.push(...effectiveMessages.map(m => ({
     role: m.role as ChatMessage['role'],
     content: getMessageText(m),
   })))
@@ -229,7 +316,7 @@ export async function streamLLMResponse(
   }) : null
 
   // Convert messages to SDK format (handles multimodal content)
-  const sdkMessages = convertToSDKMessages(session.messages)
+  const sdkMessages = convertToSDKMessages(effectiveMessages)
 
   parser.on(STREAM_EVENT_TYPES.TEXT_DELTA, (event) => {
     const delta = event.data as string

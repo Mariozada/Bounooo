@@ -100,6 +100,8 @@ export interface AgentConfig {
   vision?: boolean
   /** Returns the current list of tabs in the agent's group. Called before each LLM call to inject fresh tab context. */
   getTabContext?: () => Promise<TabInfo[]>
+  /** Returns a fresh page state (accessibility tree + optional screenshot) for the given tab. Called before each LLM call. */
+  getWebsiteState?: (tabId: number) => Promise<{ tree: string; url: string; screenshot?: string }>
 }
 
 export interface AgentSession {
@@ -110,6 +112,10 @@ export interface AgentSession {
   toolDefinitions: ToolDefinition[]
   config: AgentConfig
   abortSignal?: AbortSignal
+  /** Tab ID of the last tool that had a tabId param — used for website state injection */
+  lastTabId?: number
+  /** Previous step's website state — injected as <previous_website_state> for context */
+  previousWebsiteState?: { tree: string; url: string; tabId: number }
 }
 
 export interface StepResult {
@@ -166,6 +172,8 @@ export interface AgentOptions {
   toolExecutor?: ToolExecutor  // Direct executor for background runs
   /** Returns the current list of tabs in the agent's group */
   getTabContext?: () => Promise<TabInfo[]>
+  /** Returns a fresh page state (accessibility tree + optional screenshot) for the given tab */
+  getWebsiteState?: (tabId: number) => Promise<{ tree: string; url: string; screenshot?: string }>
   /** User-defined preference/instructions injected into system prompt */
   userPreference?: string
 

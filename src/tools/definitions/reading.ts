@@ -3,7 +3,7 @@ import type { ToolDefinition } from './types'
 export const readingTools: ToolDefinition[] = [
   {
     name: 'read_page',
-    description: 'Get the accessibility tree of the page. Returns element refs needed for interaction.',
+    description: 'Get the accessibility tree of the page. The current tab\'s tree is auto-provided in <website_state> each turn — only call this for a different tab, filter, depth, or subtree.',
     parameters: [
       {
         name: 'tabId',
